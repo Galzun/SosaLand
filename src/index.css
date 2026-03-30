@@ -1,0 +1,7 @@
+/* src/index.css */
+body {
+  background-color: #232222;  /* Тёмно-синий, как ночное небо */
+  margin: 0;                   /* Убираем отступы по умолчанию */
+  min-height: 100vh;           /* Растягиваем на всю высоту */
+  font-family: system-ui, -apple-system, sans-serif; /* Нормальный шрифт */
+}

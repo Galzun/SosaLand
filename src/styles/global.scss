@@ -1,0 +1,42 @@
+@use "./variables.scss" as*;
+@use 'sass:color';
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  // 👈 Заменяем darken() на scale()
+  background: linear-gradient(135deg, $color-bg-dark, color.scale($color-bg-dark, $lightness: -5%));
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: $color-text;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+html {
+  overflow-y: scroll; /* Скролл виден всегда, даже если не нужен */
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090919;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4aff9ea2;
+  
+  &:hover {
+    background: #3cff8a;
+  }
+}

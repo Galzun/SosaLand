@@ -1,0 +1,41 @@
+.auth-page {
+  min-height: calc(100vh - 80px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.auth-page__container {
+  max-width: 450px;
+  width: 100%;
+  background: linear-gradient(145deg, #1a1a1a, #222);
+  border-radius: 20px;
+  border: 1px solid #333;
+  overflow: hidden;
+}
+
+.auth-page__tabs {
+  display: flex;
+  border-bottom: 1px solid #333;
+}
+
+.auth-page__tab {
+  flex: 1;
+  padding: 16px;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    color: #fff;
+  }
+  
+  &.active {
+    color: #4aff9e;
+    border-bottom: 2px solid #4aff9e;
+  }
+}

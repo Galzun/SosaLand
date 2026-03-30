@@ -1,0 +1,155 @@
+.auth-form {
+  padding: 30px;
+  
+  h2 {
+    text-align: center;
+    margin-bottom: 24px;
+    color: #fff;
+  }
+  
+  &__field {
+    margin-bottom: 20px;
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #ccc;
+      font-size: 0.9rem;
+    }
+    
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 8px;
+      color: white;
+      font-size: 1rem;
+      
+      &:focus {
+        outline: none;
+        border-color: #4aff9e;
+      }
+    }
+  }
+  
+  &__players-list {
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin-bottom: 20px;
+  }
+  
+  &__player-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    margin-right: 6px;
+    background: #2a2a2a;  
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    
+    &:hover {
+      background: #3a3a3a;
+      transform: translateX(4px);
+    }
+  }
+  
+  &__player-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    object-fit: cover;
+  }
+  
+  &__player-name {
+    font-weight: 600;
+    color: white;
+  }
+  
+  &__player-status {
+    font-size: 0.75rem;
+    color: #888;
+    margin-top: 4px;
+  }
+  
+  &__selected-player {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: #2a2a2a;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #4aff9e;
+  }
+  
+  &__selected-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    object-fit: cover;
+  }
+  
+  &__selected-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+  }
+  
+  &__change {
+    background: none;
+    border: none;
+    color: #4aff9e;
+    cursor: pointer;
+    margin-top: 5px;
+    font-size: 0.85rem;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+  
+  &__not-found {
+    text-align: center;
+    padding: 20px;
+    color: #888;
+    font-size: 0.9rem;
+  }
+  
+  &__submit {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #4aff9e, #2ecc71);
+    border: none;
+    border-radius: 8px;
+    color: #1a1a1a;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 10px;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(74, 255, 158, 0.3);
+    }
+  }
+  
+  &__switch {
+    width: 100%;
+    background: none;
+    border: none;
+    color: #4aff9e;
+    cursor: pointer;
+    margin-top: 15px;
+    text-align: center;
+    font-size: 0.9rem;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}

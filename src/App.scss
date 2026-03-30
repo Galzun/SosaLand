@@ -1,0 +1,51 @@
+@import './styles/variables';
+
+.app {
+  &__main {
+    max-width: $container-max-width;
+    margin: 0 auto;
+    padding: $spacing-md;
+  }
+  
+  &__loading {
+    color: $color-primary;
+    text-align: center;
+    padding: $spacing-lg;
+    font-size: 1.2rem;
+    animation: pulse 1.5s infinite;
+  }
+  
+  &__error {
+    color: $color-error;
+    text-align: center;
+    padding: $spacing-lg;
+    font-size: 1.2rem;
+    background: rgba($color-error, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba($color-error, 0.3);
+  }
+  
+  &__empty {
+    color: $color-text-secondary;
+    text-align: center;
+    padding: $spacing-lg;
+    font-size: 1.2rem;
+    
+    &-hint {
+      margin-top: $spacing-sm;
+      color: $color-primary;
+      font-size: 1rem;
+    }
+  }
+  
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: $spacing-md;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
