@@ -1,0 +1,164 @@
+// Components/ConversationList/ConversationList.scss
+
+.conv-list {
+  width: 300px;
+  min-width: 300px;
+  border-right: 1px solid #2a2a2a;
+  overflow-y: auto;
+  background: #111;
+  display: flex;
+  flex-direction: column;
+
+  // Кастомный скроллбар
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 2px;
+  }
+
+  // Состояние загрузки
+  &--loading {
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #555;
+    font-size: 14px;
+    flex-direction: row;
+    padding: 20px;
+  }
+
+  // Пустое состояние
+  &--empty {
+    align-items: center;
+    justify-content: center;
+    color: #555;
+    font-size: 14px;
+    text-align: center;
+    line-height: 1.6;
+    padding: 20px;
+  }
+
+  &__spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #333;
+    border-top-color: #4aff9e;
+    border-radius: 50%;
+    animation: conv-spin 0.7s linear infinite;
+  }
+
+  @keyframes conv-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  // ── Элемент диалога ──
+  &__item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    border-bottom: 1px solid #1a1a1a;
+
+    &:hover {
+      background: #1a1a1a;
+    }
+
+    &--active {
+      background: #4aff9e12;
+      border-left: 3px solid #4aff9e;
+      padding-left: 13px; // компенсируем border-left
+    }
+  }
+
+  // Аватарка
+  &__avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    &-placeholder {
+      font-size: 20px;
+    }
+  }
+
+  // Информация: имя + последнее сообщение
+  &__info {
+    flex: 1;
+    min-width: 0; // позволяет text-overflow работать внутри flex
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    justify-content: center;
+  }
+
+  &__top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e8e8e8;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__time {
+    font-size: 11px;
+    color: #555;
+    flex-shrink: 0;
+  }
+
+  &__bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__preview {
+    font-size: 13px;
+    color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  // Счётчик непрочитанных
+  &__badge {
+    background: #ff4a4a;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    min-width: 20px;
+    text-align: center;
+  }
+}

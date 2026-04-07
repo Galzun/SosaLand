@@ -1,0 +1,339 @@
+// Components/PostForm/PostForm.scss
+
+.post-form {
+  display: flex;
+  gap: 12px;
+  background: var(--cards-bg-computed, #141420);
+  -webkit-backdrop-filter: var(--cards-blur, none);
+  backdrop-filter: var(--cards-blur, none);
+  border: var(--cards-border-width, 1px) solid var(--cards-border-color, #2a2a3a);
+  border-radius: var(--cards-border-radius, 12px);
+  padding: 16px;
+  margin-bottom: 20px;
+  color: var(--cards-text-color, inherit);
+}
+
+// Аватарка автора слева
+.post-form__avatar {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #2a2a3a;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.post-form__avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--cards-accent-color, #4aff9e);
+  background: #1a2a1a;
+}
+
+// Правая колонка с формой
+.post-form__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+// Обёртка textarea + нижней панели — единый визуальный блок с границей
+.post-form__textarea-wrap {
+  display: flex;
+  flex-direction: column;
+  background: #0a0a1a;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  transition: border-color 0.2s;
+
+  &:focus-within {
+    border-color: var(--cards-accent-25, rgba(74, 255, 158, 0.25));
+  }
+}
+
+.post-form__textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 8px 8px 0 0;
+  color: var(--cards-text-color, #fff);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  padding: 10px 12px 8px;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+  box-sizing: border-box;
+
+  &::placeholder { color: #555; }
+  &:focus { outline: none; }
+  &:disabled { opacity: 0.6; }
+}
+
+// ---------------------------------------------------------------------------
+// Очередь файлов (превью до загрузки) — внутри обёртки textarea
+// ---------------------------------------------------------------------------
+.post-form__pending-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 12px 8px;
+}
+
+// Один элемент очереди — превью + имя + кнопка удаления
+.post-form__pending-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 90px;
+  gap: 4px;
+}
+
+// Блок превью (квадрат) — без рамки
+.post-form__pending-thumb {
+  position: relative;
+  width: 90px;
+  height: 70px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1a1a2a;
+  transition: box-shadow 0.15s;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+
+  img, video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+// Иконка файла для аудио/документов
+.post-form__pending-icon {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// Иконка play поверх видео-превью
+.post-form__pending-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+// Метаданные файла под превью
+.post-form__pending-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.post-form__pending-name {
+  font-size: 0.72rem;
+  color: var(--cards-text-muted, #888);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 88px;
+}
+
+.post-form__pending-size {
+  font-size: 0.68rem;
+  color: var(--cards-text-dim, #555);
+}
+
+// Кнопка удаления файла из очереди
+.post-form__pending-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  z-index: 1;
+
+  &:hover { background: rgba(255, 107, 107, 0.85); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+// ---------------------------------------------------------------------------
+// Нижняя панель внутри textarea-wrap: иконки слева + счётчик/отправить справа
+// ---------------------------------------------------------------------------
+.post-form__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 5px 8px;
+}
+
+.post-form__actions-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+// Обёртка emoji-кнопки — задаёт position:relative для пикера
+.post-form__emoji-wrap {
+  position: relative;
+}
+
+.post-form__actions-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+// Кнопка прикрепления файлов — в нижней панели слева
+.post-form__attach-icon {
+  position: relative;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--cards-text-dim, #666);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 6px 4px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    color: var(--cards-accent-color, #4aff9e);
+    background: var(--cards-accent-08, rgba(74, 255, 158, 0.08));
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  // Когда есть файлы в очереди — акцентный цвет
+  &--has-files {
+    color: var(--cards-accent-color, #4aff9e);
+  }
+}
+
+// Бейдж с количеством файлов
+.post-form__attach-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  background: var(--cards-accent-color, #4aff9e);
+  color: #0a0a1a;
+  font-size: 0.6rem;
+  font-weight: 700;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+// Прогресс загрузки файлов
+.post-form__upload-prog {
+  font-size: 0.8rem;
+  color: var(--cards-accent-color, #4aff9e);
+}
+
+// Счётчик оставшихся символов
+.post-form__counter {
+  font-size: 0.8rem;
+  color: var(--cards-text-dim, #555);
+  min-width: 30px;
+  text-align: right;
+
+  &--warn { color: #ffa040; }
+
+  &--over {
+    color: #ff6b6b;
+    font-weight: 600;
+  }
+}
+
+// Кнопка отправки
+.post-form__submit {
+  background: var(--cards-accent-color, #4aff9e);
+  border: none;
+  border-radius: 20px;
+  color: #0a0a1a;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 7px 18px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+// Сообщение об ошибке (внутри textarea-wrap)
+.post-form__error {
+  font-size: 0.82rem;
+  color: #ff6b6b;
+  margin: 0;
+  padding: 0 12px 6px;
+}
+
+// ---------------------------------------------------------------------------
+// Адаптив
+// ---------------------------------------------------------------------------
+@media (max-width: 600px) {
+  .post-form {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .post-form__avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .post-form__pending-item { width: 76px; }
+  .post-form__pending-thumb { width: 76px; height: 60px; }
+}

@@ -1,0 +1,87 @@
+// NewsPage.scss — Страница списка новостей
+
+.news-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 20px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  &__title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+  }
+
+  &__create-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #4aff9e;
+    color: #0a0a1a;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 8px 16px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 0.85;
+    }
+  }
+
+  &__empty {
+    color: #666;
+    text-align: center;
+    padding: 48px 0;
+    font-size: 1rem;
+  }
+
+  &__loading {
+    color: #666;
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  &__load-more {
+    display: block;
+    margin: 12px auto;
+    background: none;
+    border: 1px solid #333;
+    color: #aaa;
+    font-size: 0.9rem;
+    padding: 10px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+
+    &:hover {
+      border-color: #4aff9e;
+      color: #4aff9e;
+    }
+  }
+}
+
+.news-group {
+  margin-bottom: 32px;
+
+  &__date {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #888;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #222;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+}

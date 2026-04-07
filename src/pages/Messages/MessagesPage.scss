@@ -1,0 +1,55 @@
+// pages/Messages/MessagesPage.scss
+
+.messages-page {
+  display: flex;
+  height: calc(100vh - var(--header-h) - 24px);
+  background: #111;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #1e1e1e;
+
+  // Правая часть: чат
+  &__chat {
+    flex: 1;
+    display: flex;
+    min-width: 0;
+  }
+
+  // Заглушка «выберите диалог»
+  &__no-chat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: #444;
+
+    h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #555;
+      margin: 0;
+    }
+
+    p {
+      font-size: 14px;
+      color: #444;
+      margin: 0;
+      text-align: center;
+    }
+  }
+
+  &__no-chat-icon {
+    font-size: 48px;
+    opacity: 0.3;
+  }
+}
+
+// Адаптив: на мобилке прячем список при открытом чате
+@media (max-width: 768px) {
+  .messages-page {
+    height: calc(100vh - var(--header-h));
+    border-radius: 0;
+  }
+}

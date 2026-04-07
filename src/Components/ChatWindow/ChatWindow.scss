@@ -1,0 +1,396 @@
+// Components/ChatWindow/ChatWindow.scss
+
+.chat-window {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; // важно для flex-дочернего элемента, чтобы не выходил за границы
+
+  // ── Шапка ──
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid #2a2a2a;
+    background: #111;
+    flex-shrink: 0;
+  }
+
+  &__header-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  &__header-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    text-decoration: none;
+    transition: color 0.2s;
+
+    &:hover {
+      color: #4aff9e;
+    }
+  }
+
+  // ── Область сообщений ──
+  &__messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: #0f0f0f;
+
+    // Кастомный скроллбар
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 3px;
+    }
+  }
+
+  // Индикатор загрузки сверху
+  &__loading-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    font-size: 13px;
+    color: #666;
+    padding: 8px;
+  }
+
+  // Центральный индикатор (первая загрузка)
+  &__loading-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: #555;
+    font-size: 14px;
+  }
+
+  &__spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #333;
+    border-top-color: #4aff9e;
+    border-radius: 50%;
+    animation: chat-spin 0.7s linear infinite;
+  }
+
+  @keyframes chat-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  &__empty {
+    text-align: center;
+    color: #555;
+    font-size: 14px;
+    margin: auto;
+    padding: 40px;
+  }
+
+  // Кнопка "Загрузить ещё старых"
+  &__load-more {
+    align-self: center;
+    background: none;
+    border: 1px solid #333;
+    border-radius: 20px;
+    color: #888;
+    font-size: 12px;
+    padding: 6px 16px;
+    cursor: pointer;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+
+    &:hover {
+      border-color: #4aff9e;
+      color: #4aff9e;
+    }
+  }
+
+  // ── Зона ввода ──
+  &__input-area {
+    flex-shrink: 0;
+  }
+
+  // ── Лайтбокс для просмотра изображений ──
+  &__lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+  }
+
+  &__lightbox-inner {
+    position: relative;
+    cursor: default;
+    max-width: 90vw;
+    max-height: 90vh;
+
+    img {
+      max-width: 100%;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+  }
+
+  &__lightbox-close {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #333;
+    border: 1px solid #555;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+
+    &:hover {
+      background: #ff4a4a;
+    }
+  }
+}
+
+// ── Обёртка сообщения (нужна для React key) ──
+// Является flex-элементом внутри .chat-window__messages (flex-column).
+// Своя ширина 100%, чтобы дочерний .chat__msg мог выравниваться через align-self.
+.chat__msg-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+
+  // Для своих сообщений — выравниваем дочерний пузырь вправо
+  &--own {
+    align-items: flex-end;
+  }
+}
+
+// ── Разделитель по дате ──
+.chat__date-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 8px;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #2a2a2a;
+  }
+
+  span {
+    font-size: 11px;
+    color: #555;
+    white-space: nowrap;
+  }
+}
+
+// ── Сообщение ──
+.chat__msg {
+  display: flex;
+  gap: 8px;
+  max-width: 70%;
+
+  // Чужое сообщение — слева
+  &--other {
+    .chat__msg-bubble {
+      background: #1e1e1e;
+      border-radius: 0 12px 12px 12px;
+    }
+  }
+
+  // Своё сообщение — справа (выравнивание делает .chat__msg-wrapper--own)
+  &--own {
+    flex-direction: row-reverse;
+
+    .chat__msg-bubble {
+      background: #1a2e1a;
+      border: 1px solid #4aff9e30;
+      border-radius: 12px 0 12px 12px;
+    }
+
+    .chat__msg-meta {
+      justify-content: flex-end;
+    }
+  }
+
+  // Ожидает подтверждения от сервера (оптимистичное обновление)
+  &--pending {
+    opacity: 0.7;
+  }
+}
+
+.chat__msg-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #2a2a2a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  align-self: flex-end;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &-placeholder {
+    font-size: 16px;
+  }
+}
+
+.chat__msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chat__msg-bubble {
+  padding: 8px 12px;
+  max-width: 100%;
+}
+
+.chat__msg-text {
+  color: #e8e8e8;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+// Изображение в сообщении
+.chat__msg-image {
+  max-width: 280px;
+  max-height: 200px;
+  border-radius: 8px;
+  cursor: zoom-in;
+  display: block;
+  object-fit: cover;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 0.9;
+  }
+}
+
+// Файл-вложение (не изображение)
+.chat__msg-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #ccc;
+  transition: border-color 0.2s, color 0.2s;
+  max-width: 280px;
+
+  &:hover {
+    border-color: #4aff9e;
+    color: #4aff9e;
+  }
+}
+
+.chat__msg-file-name {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.chat__msg-file-download {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+// Метаданные сообщения (время, прочтение, удаление)
+.chat__msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+}
+
+.chat__msg-time {
+  font-size: 10px;
+  color: #555;
+}
+
+.chat__msg-read {
+  font-size: 10px;
+  color: #555;
+
+  &--done {
+    color: #4aff9e;
+  }
+}
+
+.chat__msg-delete {
+  background: none;
+  border: none;
+  color: transparent;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0 2px;
+  border-radius: 3px;
+  transition: color 0.2s;
+  line-height: 1;
+
+  .chat__msg-meta:hover & {
+    color: #555;
+  }
+
+  &:hover {
+    color: #ff4a4a !important;
+  }
+}

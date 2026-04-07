@@ -1,51 +1,77 @@
-@import './styles/variables';
+@use './styles/variables' as *;
 
-.app {
-  &__main {
-    max-width: $container-max-width;
-    margin: 0 auto;
-    padding: $spacing-md;
-  }
-  
-  &__loading {
-    color: $color-primary;
-    text-align: center;
-    padding: $spacing-lg;
-    font-size: 1.2rem;
-    animation: pulse 1.5s infinite;
-  }
-  
-  &__error {
-    color: $color-error;
-    text-align: center;
-    padding: $spacing-lg;
-    font-size: 1.2rem;
-    background: rgba($color-error, 0.1);
-    border-radius: 8px;
-    border: 1px solid rgba($color-error, 0.3);
-  }
-  
-  &__empty {
-    color: $color-text-secondary;
-    text-align: center;
-    padding: $spacing-lg;
-    font-size: 1.2rem;
-    
-    &-hint {
-      margin-top: $spacing-sm;
-      color: $color-primary;
-      font-size: 1rem;
-    }
-  }
-  
-  &__grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: $spacing-md;
+// Высота шапки (padding: 12px*2 + badge ~38px + border 2px = 64px)
+:root {
+  --header-h: 64px;
+}
+
+// ---------------------------------------------------------------------------
+// Основной лэйаут: центрированный враппер — сайдбар слева, контент справа
+// ---------------------------------------------------------------------------
+.app-layout {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  align-items: flex-start;
+  min-height: calc(100vh - var(--header-h));
+}
+
+.app__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+// На планшете/мобилке — сайдбар скрыт, убираем горизонтальный padding
+@media (max-width: 1024px) {
+  .app-layout {
+    padding: 0;
   }
 }
 
-@keyframes pulse {
+// ---------------------------------------------------------------------------
+// Вспомогательные классы для состояний (используются в Home и других страницах)
+// ---------------------------------------------------------------------------
+.app__loading {
+  color: $color-primary;
+  text-align: center;
+  padding: $spacing-lg;
+  font-size: 1.2rem;
+  animation: app-pulse 1.5s infinite;
+}
+
+.app__error {
+  color: $color-error;
+  text-align: center;
+  padding: $spacing-lg;
+  font-size: 1.2rem;
+  background: rgba(255, 74, 74, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 74, 74, 0.3);
+}
+
+.app__empty {
+  color: $color-text-secondary;
+  text-align: center;
+  padding: $spacing-lg;
+  font-size: 1.2rem;
+
+  &-hint {
+    margin-top: $spacing-sm;
+    color: $color-primary;
+    font-size: 1rem;
+  }
+}
+
+.app__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: $spacing-md;
+}
+
+@keyframes app-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50%       { opacity: 0.5; }
 }

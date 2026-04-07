@@ -1,0 +1,271 @@
+// Components/ImageModal/ImageModal.scss
+
+.image-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 2000;
+  display: flex;
+  align-items: stretch;
+  animation: modal-bg-in 0.18s ease;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+@keyframes modal-bg-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+// ---------------------------------------------------------------------------
+// Кнопки управления — фиксированный блок в правом верхнем углу.
+// ---------------------------------------------------------------------------
+.image-modal__controls {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 2010;
+  display: flex;
+  gap: 6px;
+}
+
+.image-modal__close,
+.image-modal__toggle-sidebar {
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid var(--cards-border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 50%;
+  color: var(--cards-text-muted, #ccc);
+  width: 36px;
+  height: 36px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--cards-text-color, #fff);
+  }
+}
+
+.image-modal__toggle-sidebar {
+  font-size: 11px;
+}
+
+// ---------------------------------------------------------------------------
+// Стрелки навигации
+// ---------------------------------------------------------------------------
+.image-modal__arrow {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: 2005;
+  width: 60px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 2.4rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+
+  &--prev { left: 0; }
+  &--next { right: 380px; } // не перекрывает боковую панель
+
+  &--next-full { right: 0; } // sidebar скрыт
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--cards-accent-color, #4aff9e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Двухколоночный макет
+// ---------------------------------------------------------------------------
+.image-modal__layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  animation: modal-in 0.18s ease;
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+// ---------------------------------------------------------------------------
+// Левая колонка — изображение
+// ---------------------------------------------------------------------------
+.image-modal__image-side {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #050505;
+  overflow: hidden;
+  padding: 0 60px;
+}
+
+.image-modal__image,
+.image-modal__video {
+  max-width: 100%;
+  max-height: 100vh;
+  object-fit: contain;
+  display: block;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.image-modal__counter {
+  position: absolute;
+  bottom: 12px;
+  left: 72px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #aaa;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+// ---------------------------------------------------------------------------
+// Правая боковая панель
+// ---------------------------------------------------------------------------
+.image-modal__sidebar {
+  width: 380px;
+  flex-shrink: 0;
+  background: var(--cards-bg-computed, #111);
+  -webkit-backdrop-filter: var(--cards-blur, none);
+  backdrop-filter: var(--cards-blur, none);
+  border-left: 1px solid var(--cards-border-color, #1e1e1e);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; // scroll управляется внутри
+}
+
+// ---------------------------------------------------------------------------
+// Блок автора — фиксированная шапка sidebar
+// ---------------------------------------------------------------------------
+.image-modal__author-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--cards-border-color, #1e1e1e);
+  flex-shrink: 0;
+}
+
+.image-modal__author-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.image-modal__author-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.image-modal__author-name {
+  color: var(--cards-text-color, #fff);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s;
+
+  &:hover { color: var(--cards-accent-color, #4aff9e); }
+}
+
+.image-modal__date {
+  color: var(--cards-text-dim, #555);
+  font-size: 12px;
+}
+
+.image-modal__title {
+  font-size: 0.88rem;
+  color: var(--cards-text-muted, #aaa);
+  margin: 0;
+  line-height: 1.5;
+  padding: 10px 16px 0;
+  flex-shrink: 0;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+// ---------------------------------------------------------------------------
+// Scrollable область комментариев + sticky форма внутри.
+// Реализуется через flex + overflow-y на comments-scroll,
+// а CommentSection сам прижимает форму к низу.
+// ---------------------------------------------------------------------------
+.image-modal__comments-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px 0;
+
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+
+  &::-webkit-scrollbar       { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+}
+
+.image-modal__comments-heading {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--cards-text-dim, #666);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+// ---------------------------------------------------------------------------
+// Адаптивность
+// ---------------------------------------------------------------------------
+@media (max-width: 768px) {
+  .image-modal__layout {
+    flex-direction: column;
+  }
+
+  .image-modal__image-side {
+    flex: 0 0 55vh;
+    padding: 0 40px;
+  }
+
+  .image-modal__sidebar {
+    width: 100%;
+    flex: 1;
+    border-left: none;
+    border-top: 1px solid #1e1e1e;
+  }
+
+  .image-modal__arrow--next {
+    right: 0;
+  }
+
+  .image-modal__arrow {
+    width: 44px;
+    font-size: 1.8rem;
+    bottom: auto;
+    height: 55vh;
+  }
+
+  .image-modal__controls {
+    top: 8px;
+    right: 8px;
+  }
+}

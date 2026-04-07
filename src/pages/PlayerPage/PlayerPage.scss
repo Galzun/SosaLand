@@ -1,26 +1,60 @@
 // PlayerPage.scss
 .player-page {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
   padding: 0 20px;
+  // position:relative нужен чтобы z-index работал относительно bg-layer
+  position: relative;
+  z-index: 0;
+}
+
+// Фоновый слой на весь viewport.
+// position:fixed — не участвует в потоке, не создаёт скролл, покрывает весь экран
+// включая header. z-index:-1 — позади всего содержимого.
+.player-page__bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: #0a0a1a; // fallback / цвет заливки при scale < 100%
+  overflow: hidden;           // обрезает углы при повороте
+
+  // Тёмный оверлей — только когда есть фоновое изображение,
+  // иначе сплошной цвет пользователя отображается неправильно.
+  &--image::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: rgba(10, 10, 26, 0.55);
+    pointer-events: none;
+  }
 }
 
 .player-page__header {
   margin-top: 18px;
   position: relative;
   margin-bottom: 20px;
-  border-radius: 12px;
+  border-radius: var(--header-border-radius, 12px);
+  border: var(--header-border-width, 0px) solid var(--header-border-color, transparent);
   overflow: hidden;
-  background: #1a1a1a;
+  // Фон намеренно убран — задаётся на content-wrapper, иначе при overflow:hidden
+  // цвет «просачивается» по 1px через скруглённые углы сверху поверх обложки.
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  color: var(--header-text-color, inherit);
 }
 
 /* Обложка */
 .player-page__cover {
-  height: 300px; // Чуть ниже, чтобы аватарка выступала
+  // aspect-ratio вместо фиксированной высоты — тогда превью в EditProfile
+  // с тем же aspect-ratio показывает ровно ту же часть изображения.
+  // 4:1 ≈ 300px высоты при ширине 1160px (container max).
+  aspect-ratio: 4 / 1;
+  min-height: 120px; // не слишком мало на мобильных
   background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
   position: relative;
   overflow: hidden;
+  // Совпадает с border-radius родителя — убирает 1px просвет по углам
+  border-top-left-radius: var(--header-border-radius, 12px);
+  border-top-right-radius: var(--header-border-radius, 12px);
   
   // Паттерн для текстуры
   &::before {
@@ -39,7 +73,10 @@
 .player-page__content-wrapper {
   position: relative;
   padding: 0 20px 20px 20px;
-  background: #1a1a1a;
+  // Фон здесь — не на header, чтобы не было 1px просвета по углам поверх обложки.
+  background: var(--content-wrapper-bg-computed, var(--card-bg-computed, #1a1a1a));
+  -webkit-backdrop-filter: var(--content-wrapper-blur, var(--card-bg-blur, none));
+  backdrop-filter: var(--content-wrapper-blur, var(--card-bg-blur, none));
 }
 
 /* Ряд с аватаркой и информацией */
@@ -78,17 +115,19 @@
 .player-page__name-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
+  flex-wrap: wrap;
   margin-bottom: 8px;
-  
+
   h1 {
     font-size: 2rem;
     font-weight: 700;
-    color: white;
+    color: var(--header-text-color, white);
     margin: 0;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
   }
 }
+
 
 .player-page__status-badge {
   font-size: 1.3rem;
@@ -105,7 +144,7 @@
   border-radius: 30px;
   font-size: 0.9rem;
   font-weight: 600;
-  color: white;
+  color: var(--header-text-color, white);
 
   &--online {
   border: 1px solid #4aff9e;
@@ -145,16 +184,80 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #b0b0b0;
+  color: var(--header-text-muted, #b0b0b0);
   font-size: 0.9rem;
-  
+
   &-icon {
     font-size: 1rem;
   }
-  
+
   &-value {
-    color: white;
+    color: var(--header-text-color, white);
     font-weight: 500;
+  }
+}
+
+/* Описание игрока (bio) */
+.player-page__bio {
+  font-size: 0.95rem;
+  color: var(--header-text-muted, #ccc);
+  line-height: 1.6;
+  margin: 4px 0 10px;
+  max-width: 600px;
+  white-space: pre-wrap; // сохраняем переносы строк из textarea
+}
+
+/* Кнопка «Написать сообщение» — стиль идентичен edit-btn */
+.player-page__msg-btn {
+  position: absolute;
+  top: 14px;
+  right: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: var(--header-text-muted, #e0e0e0);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+  white-space: nowrap;
+  z-index: 3;
+
+  &:hover {
+    background: var(--header-accent-12, rgba(74, 255, 158, 0.12));
+    border-color: var(--header-accent-35, rgba(74, 255, 158, 0.35));
+    color: var(--header-accent-color, #4aff9e);
+  }
+}
+
+/* Кнопка редактирования профиля */
+.player-page__edit-btn {
+  position: absolute;
+  top: 14px;
+  right: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: var(--header-text-muted, #e0e0e0);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+  white-space: nowrap;
+  z-index: 3;
+
+  &:hover {
+    background: var(--header-accent-12, rgba(74, 255, 158, 0.12));
+    border-color: var(--header-accent-35, rgba(74, 255, 158, 0.35));
+    color: var(--header-accent-color, #4aff9e);
   }
 }
 
@@ -162,17 +265,17 @@
 .player-page__uuid {
   font-family: monospace;
   font-size: 0.8rem;
-  color: #7e7e7e;
+  color: var(--header-text-dim, #7e7e7e);
   cursor: pointer;
   transition: color 0.2s ease;
   display: inline-block;
   padding: 4px 8px;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 4px;
-  
+
   &:hover {
-    color: #4aff9e;
-    background: rgba(74, 255, 158, 0.1);
+    color: var(--header-accent-color, #4aff9e);
+    background: var(--header-accent-10, rgba(74, 255, 158, 0.1));
   }
 }
 
@@ -180,6 +283,349 @@
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.8; transform: scale(1.1); }
+}
+
+// -----------------------------------------------------------------------
+// Общий контейнер контента вкладки — полная ширина
+// -----------------------------------------------------------------------
+.player-page__content {
+  width: 100%;
+  border-radius: var(--content-border-radius, 10px);
+  border: var(--content-border-width, 0px) solid var(--content-border-color, transparent);
+  padding: 10px 0 20px 0;
+  background: var(--content-bg-computed, transparent);
+  -webkit-backdrop-filter: var(--content-blur, none);
+  backdrop-filter: var(--content-blur, none);
+  color: var(--content-text-color, inherit);
+}
+
+// Центрированный внутренний контейнер (680px) — для постов и комментариев
+.player-page__content-inner {
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 12px 0 0;
+}
+
+// -----------------------------------------------------------------------
+// Вкладки — внутри .player-page__content, центрированы
+// -----------------------------------------------------------------------
+.player-page__tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 auto;
+  max-width: 680px;
+  width: 100%;
+  background: var(--cards-bg-computed, rgba(26, 26, 26, 0.85));
+  -webkit-backdrop-filter: var(--cards-blur, none);
+  backdrop-filter: var(--cards-blur, none);
+  border-radius: var(--cards-border-radius, 12px);
+  padding: 8px 8px 6px;
+  border: var(--cards-border-width, 1px) solid var(--cards-border-color, #2a2a3a);
+}
+
+.player-page__tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--cards-text-color, #888);
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  margin-bottom: -1px;
+
+  &:hover {
+    color: var(--cards-text-color, #ccc);
+    opacity: 0.85;
+  }
+
+  &--active {
+    color: var(--cards-accent-color, #4aff9e);
+    border-bottom-color: var(--cards-accent-color, #4aff9e);
+    opacity: 1;
+  }
+}
+
+// -----------------------------------------------------------------------
+// Контент вкладки «Посты»
+// -----------------------------------------------------------------------
+.player-page__posts {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.player-page__posts-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #666;
+  font-size: 0.9rem;
+  padding: 16px 0;
+}
+
+.player-page__posts-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #333;
+  border-top-color: #4aff9e;
+  border-radius: 50%;
+  animation: pp-spin 0.8s linear infinite;
+}
+
+@keyframes pp-spin {
+  to { transform: rotate(360deg); }
+}
+
+.player-page__posts-more {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid #2a2a3a;
+  border-radius: 10px;
+  color: var(--cards-text-muted, #888);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+
+  &:hover {
+    border-color: var(--cards-accent-25, rgba(74, 255, 158, 0.25));
+    color: var(--cards-accent-color, #4aff9e);
+  }
+}
+
+.player-page__posts-empty {
+  color: #666;
+  font-size: 0.9rem;
+  padding: 40px 0;
+}
+
+// -----------------------------------------------------------------------
+// Вкладка «Комментарии» — карточка с cards-переменными
+// -----------------------------------------------------------------------
+.player-page__comments-card {
+  width: 100%;
+  background: var(--cards-bg-computed, #141420);
+  -webkit-backdrop-filter: var(--cards-blur, none);
+  backdrop-filter: var(--cards-blur, none);
+  border: var(--cards-border-width, 1px) solid var(--cards-border-color, #2a2a3a);
+  border-radius: var(--cards-border-radius, 12px);
+  padding: 16px 20px;
+  color: var(--cards-text-color, inherit);
+}
+
+// -----------------------------------------------------------------------
+// Контент вкладки «О себе»
+// -----------------------------------------------------------------------
+.player-page__about {
+  max-width: 600px;
+}
+
+.player-page__about-bio {
+  font-size: 0.95rem;
+  color: #ccc;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.player-page__about-loading,
+.player-page__about-empty {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+// -----------------------------------------------------------------------
+// Вкладка «Фото» — во всю ширину content, небольшие поля по краям
+// -----------------------------------------------------------------------
+.player-page__photos {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px 16px 0;
+}
+
+// Форма добавления фото/видео
+.player-page__photo-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--cards-bg-computed, #141420);
+  -webkit-backdrop-filter: var(--cards-blur, none);
+  backdrop-filter: var(--cards-blur, none);
+  border: var(--cards-border-width, 1px) solid var(--cards-border-color, #2a2a3a);
+  border-radius: var(--cards-border-radius, 12px);
+  max-width: 460px;
+}
+
+// Скрытый нативный input
+.player-page__photo-file-input {
+  display: none;
+}
+
+// Кнопка выбора файлов
+.player-page__photo-pick {
+  padding: 9px 16px;
+  background: var(--cards-accent-color, #4aff9e);
+  border: none;
+  border-radius: 8px;
+  color: #0a0a1a;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: opacity 0.18s;
+
+  &:hover:not(:disabled) { opacity: 0.85; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+// Превью выбранных файлов
+.player-page__photo-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.player-page__photo-preview-item {
+  position: relative;
+  width: 72px;
+
+  img,
+  .player-page__photo-preview-video,
+  .player-page__photo-preview-file {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 6px;
+    display: block;
+    background: #1a1a2a;
+  }
+}
+
+.player-page__photo-preview-video {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.player-page__photo-preview-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.player-page__photo-preview-file {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.player-page__photo-preview-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  font-size: 8px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.75);
+  border: none;
+  color: #ff6b6b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover { background: rgba(255, 107, 107, 0.25); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.player-page__photo-title {
+  padding: 8px 12px;
+  background: #0f0f1a;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+
+  &::placeholder { color: #555; }
+  &:focus {
+    outline: none;
+    border-color: var(--cards-accent-25, rgba(74, 255, 158, 0.25));
+  }
+}
+
+.player-page__photo-submit {
+  padding: 9px 18px;
+  background: var(--cards-accent-color, #4aff9e);
+  border: none;
+  border-radius: 8px;
+  color: #0a0a1a;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s, opacity 0.18s;
+  align-self: flex-start;
+
+  &:hover:not(:disabled) { opacity: 0.85; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.player-page__photo-error {
+  color: #ff6b6b;
+  font-size: 13px;
+  margin: 0;
+}
+
+// Сетка альбомов — 3 колонки (GalleryAlbum занимает каждую ячейку)
+.player-page__photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+// Счётчик фото на вкладке
+.player-page__tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 6px;
+  background: rgba(74, 255, 158, 0.15);
+  color: var(--cards-accent-color, #4aff9e);
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 9px;
+  line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .player-page__photo-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
 }
 
 /* Адаптивность */

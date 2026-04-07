@@ -1,0 +1,456 @@
+// EditProfile.scss
+.edit-profile {
+  width: 100%;
+  padding: 40px 20px 60px;
+
+  &__loading {
+    text-align: center;
+    color: #7e7e7e;
+    padding: 60px 0;
+    font-size: 1rem;
+  }
+
+  &__container {
+    background: #1a1a1a;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  &__title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: white;
+    margin: 0 0 28px 0;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #2a2a2a;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  // Одно поле формы (label + input/upload)
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #ccc;
+  }
+
+  &__label-hint {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: #7e7e7e;
+  }
+
+  // Текстовый input (для ручного ввода URL)
+  &__input {
+    width: 100%;
+    padding: 10px 14px;
+    background: #0f0f1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: white;
+    font-size: 0.9rem;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+
+    &::placeholder {
+      color: #555;
+    }
+
+    &:focus {
+      border-color: #4aff9e;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+
+  // Textarea для bio
+  &__textarea {
+    width: 100%;
+    padding: 12px 14px;
+    background: #0f0f1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: white;
+    font-size: 0.9rem;
+    outline: none;
+    box-sizing: border-box;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.5;
+    transition: border-color 0.2s;
+
+    &::placeholder {
+      color: #555;
+    }
+
+    &:focus {
+      border-color: #4aff9e;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+
+  // Счётчик символов для bio
+  &__char-count {
+    font-size: 0.8rem;
+    color: #555;
+    text-align: right;
+
+    &--limit {
+      color: #ff6b6b;
+    }
+  }
+
+  // Сообщения
+  &__error {
+    padding: 12px 16px;
+    background: rgba(255, 107, 107, 0.1);
+    border: 1px solid rgba(255, 107, 107, 0.3);
+    border-radius: 8px;
+    color: #ff6b6b;
+    font-size: 0.9rem;
+  }
+
+  &__success {
+    padding: 12px 16px;
+    background: rgba(74, 255, 158, 0.1);
+    border: 1px solid rgba(74, 255, 158, 0.3);
+    border-radius: 8px;
+    color: #4aff9e;
+    font-size: 0.9rem;
+  }
+
+  // Ряд: кнопка загрузки + кнопка удаления рядом
+  &__image-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  // Блок с превью + слайдерами позиции/масштаба
+  &__image-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    background: #0f0f1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+  }
+
+  // Превью обложки — ОБЯЗАТЕЛЬНО тот же aspect-ratio что у .player-page__cover (4:1).
+  // position:relative + overflow:hidden нужны для inner-div с transform:rotate().
+  &__preview-cover {
+    width: 100%;
+    aspect-ratio: 4 / 1;
+    border-radius: 8px;
+    background-color: #222;
+    border: 1px solid #333;
+    position: relative;
+    overflow: hidden;
+  }
+
+  // Превью фона — 16:9 как типичный монитор.
+  &__preview-bg {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    background-color: #222;
+    border: 1px solid #333;
+    position: relative;
+    overflow: hidden;
+  }
+
+  // Группа слайдеров
+  &__sliders {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  // Одна строка слайдера / цветового пикера
+  // Колонки: [метка] [контрол] [значение] [кнопка сброса]
+  &__slider-row {
+    display: grid;
+    grid-template-columns: 130px 1fr 48px 24px;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__slider-label {
+    font-size: 0.8rem;
+    color: #999;
+    white-space: nowrap;
+  }
+
+  &__slider-value {
+    font-size: 0.8rem;
+    color: #4aff9e;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  // Сам ползунок
+  &__slider {
+    width: 100%;
+    accent-color: #4aff9e;
+    cursor: pointer;
+  }
+
+  // Кнопка сброса параметра (↺)
+  &__reset-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #777;
+    font-size: 0.85rem;
+    cursor: pointer;
+    line-height: 1;
+    transition: border-color 0.2s, color 0.2s;
+
+    &:hover {
+      border-color: #4aff9e;
+      color: #4aff9e;
+    }
+  }
+
+  // Цветовой пикер — строка внутри grid-ячейки контрола
+  &__color-picker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__color-input {
+    width: 36px;
+    height: 28px;
+    padding: 2px;
+    background: #0f0f1a;
+    border: 1px solid #333;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  &__color-value {
+    font-size: 0.8rem;
+    color: #999;
+    font-family: monospace;
+  }
+
+  &__card-bg-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  &__color-pick {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__sublabel {
+    font-size: 12px;
+    color: #888;
+  }
+
+  &__slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+  }
+
+  &__range {
+    width: 100%;
+    accent-color: #4aff9e;
+    cursor: pointer;
+  }
+
+  &__card-bg-preview {
+    margin-top: 10px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #2a2a3a;
+    transition: background 0.2s;
+  }
+
+  // UI-группы (шапка, вкладки, посты...)
+  &__ui-group {
+    border: 1px solid #2a2a3a;
+    border-radius: 8px;
+    overflow: hidden;
+
+    & + & {
+      margin-top: 6px;
+    }
+  }
+
+  &__ui-group-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #111120;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.18s;
+
+    &:hover:not(:disabled) {
+      background: #1a1a2a;
+    }
+  }
+
+  &__ui-group-preview {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid #333;
+    flex-shrink: 0;
+  }
+
+  &__ui-group-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #ccc;
+  }
+
+  &__ui-group-hint {
+    font-size: 0.75rem;
+    color: #555;
+    flex: 1;
+  }
+
+  &__ui-group-arrow {
+    font-size: 0.7rem;
+    color: #555;
+    margin-left: auto;
+  }
+
+  &__ui-group-body {
+    padding: 14px;
+    background: #0d0d1a;
+    border-top: 1px solid #2a2a3a;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  // Подзаголовок секции внутри группы (Фон / Рамка / Текст и кнопки)
+  &__ui-section-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0;
+    padding-top: 4px;
+    border-top: 1px solid #1e1e2e;
+
+    &:first-child {
+      border-top: none;
+      padding-top: 0;
+    }
+  }
+
+  // Кнопки действий
+  &__actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding-top: 8px;
+  }
+
+  &__btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s, opacity 0.2s;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &--cancel {
+      background: #2a2a2a;
+      color: #aaa;
+
+      &:hover:not(:disabled) {
+        background: #333;
+        color: white;
+      }
+    }
+
+    &--save {
+      background: #4aff9e;
+      color: #0a0a1a;
+
+      &:hover:not(:disabled) {
+        background: #3de88d;
+      }
+    }
+
+    &--remove {
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      background: transparent;
+      border: 1px solid #ff6b6b;
+      color: #ff6b6b;
+
+      &:hover:not(:disabled) {
+        background: rgba(255, 107, 107, 0.15);
+      }
+    }
+  }
+}
+
+// Адаптивность
+@media (max-width: 600px) {
+  .edit-profile {
+    margin: 20px auto;
+
+    &__container {
+      padding: 20px;
+    }
+
+    &__actions {
+      flex-direction: column;
+    }
+
+    &__btn {
+      width: 100%;
+      text-align: center;
+    }
+  }
+}

@@ -1,0 +1,374 @@
+// Components/PostModal/PostModal.scss
+// Одна колонка, на всю высоту экрана, один скролл-контейнер.
+// Форма комментариев — position: sticky; bottom: 0.
+
+.post-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pm-bg-in 0.18s ease;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  // только горизонтальный отступ — высота не обрезается
+  padding: 0 0;
+}
+
+@keyframes pm-bg-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+// ---------------------------------------------------------------------------
+// Единый скролл-контейнер — на всю высоту экрана, ширина как у постов
+// ---------------------------------------------------------------------------
+.post-modal__box {
+  width: 100%;
+  max-width: 680px;   // переопределяется через inline style при resize
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--cards-bg-computed, #111);
+  animation: pm-in 0.18s ease;
+  box-shadow: 0 0 80px rgba(0, 0, 0, 0.8);
+
+  // Скроллбар
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+
+  &::-webkit-scrollbar       { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+}
+
+// ---------------------------------------------------------------------------
+// Ручка изменения ширины — снаружи .post-modal__box, дочерний элемент .post-modal.
+// left задаётся через inline style: calc(50% - modalWidth/2).
+// Не скроллируется вместе с контентом — всегда видна в viewport.
+// ---------------------------------------------------------------------------
+.post-modal__resize-handle {
+  position: absolute; // относительно .post-modal (position:fixed, покрывает весь экран)
+  top: 0;
+  bottom: 0;
+  // left — через inline style
+  width: 16px;
+  cursor: col-resize;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  -webkit-user-select: none;
+  user-select: none;
+
+  // Тонкая акцентная линия по левому краю
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--cards-accent-color, #4aff9e);
+    opacity: 0.18;
+    transition: opacity 0.18s, width 0.18s;
+    pointer-events: none;
+  }
+
+  &:hover::after,
+  &--active::after {
+    opacity: 0.55;
+    width: 3px;
+  }
+
+  // Точки-грипперы в центре ручки
+  span {
+    display: block;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--cards-accent-color, #4aff9e);
+    opacity: 0.2;
+    flex-shrink: 0;
+    transition: opacity 0.18s, transform 0.18s;
+    pointer-events: none;
+  }
+
+  &:hover span,
+  &--active span {
+    opacity: 0.85;
+    transform: scaleX(1.4);
+  }
+
+  // Средние точки крупнее — визуальный акцент на середине
+  span:nth-child(3),
+  span:nth-child(4) {
+    width: 4px;
+    height: 4px;
+  }
+}
+
+@keyframes pm-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+// ---------------------------------------------------------------------------
+// Автор
+// ---------------------------------------------------------------------------
+.post-modal__author-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--cards-bg-computed, #111);
+  border-bottom: 1px solid var(--cards-border-color, #1e1e1e);
+}
+
+.post-modal__author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  flex: 1;
+  min-width: 0;
+
+  &:hover .post-modal__author-name { color: var(--cards-accent-color, #4aff9e); }
+}
+
+.post-modal__avatar {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #2a2a3a;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.post-modal__avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: var(--cards-accent-color, #4aff9e);
+  background: #1a2a1a;
+}
+
+.post-modal__author-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--cards-text-color, #fff);
+  transition: color 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.post-modal__delete {
+  background: none;
+  border: none;
+  color: var(--cards-text-dim, #555);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: color 0.2s, background 0.2s;
+
+  &:hover {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Блок вложений (PostAttachments) — полный край, без двойных отрицательных отступов
+// ---------------------------------------------------------------------------
+.post-modal__attachments {
+  // Медиа-сетка: отменяем внутренние -16px отступы PostAttachments
+  // (они рассчитаны на PostCard с padding:16px — здесь не нужны)
+  .post-attachments__media-grid {
+    margin: 0;
+    width: 100%;
+    border-radius: 0;
+  }
+
+  // Аудио, документы, пагинация — отступ 20px от краёв как у текста поста
+  .post-attachments__audio-list,
+  .post-attachments__doc-list {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .post-attachments__pagination {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Картинка legacy — на всю ширину
+// ---------------------------------------------------------------------------
+.post-modal__image {
+  background: #0a0a0a;
+
+  img {
+    width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+    display: block;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Файловое вложение (не-картинка)
+// ---------------------------------------------------------------------------
+.post-modal__file-attachment {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border-top: 1px solid var(--cards-border-color, #1e1e1e);
+  border-bottom: 1px solid var(--cards-border-color, #1e1e1e);
+  text-decoration: none;
+  color: var(--cards-text-color, #ddd);
+  transition: background 0.18s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.07);
+  }
+}
+
+.post-modal__file-name {
+  flex: 1;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.post-modal__file-dl {
+  font-size: 0.82rem;
+  color: var(--cards-accent-color, #4aff9e);
+  flex-shrink: 0;
+}
+
+// ---------------------------------------------------------------------------
+// Полный текст
+// ---------------------------------------------------------------------------
+.post-modal__content {
+  font-size: 0.95rem;
+  color: var(--cards-text-color, #ddd);
+  line-height: 1.7;
+  margin: 0;
+  padding: 16px 20px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-bottom: 1px solid var(--cards-border-color, #1e1e1e);
+}
+
+// ---------------------------------------------------------------------------
+// Строка статистики
+// ---------------------------------------------------------------------------
+.post-modal__stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px 12px;
+  border-bottom: 1px solid var(--cards-border-color, #1e1e1e);
+}
+
+.post-modal__like {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: var(--cards-text-muted, #888);
+  font-size: 0.9rem;
+  transition: background 0.2s;
+
+  &:hover:not(&--disabled) { background: var(--cards-accent-08, rgba(74, 255, 158, 0.08)); }
+  &--active { color: #ff6b8a; .post-modal__like-count { color: #ff6b8a; } }
+  &--disabled { cursor: default; opacity: 0.6; }
+}
+
+.post-modal__like-count {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--cards-text-muted, #888);
+}
+
+.post-modal__stat-comments {
+  font-size: 0.9rem;
+  color: var(--cards-text-muted, #888);
+}
+
+.post-modal__stat-time {
+  font-size: 0.82rem;
+  color: var(--cards-text-dim, #666);
+  margin-left: auto;
+}
+
+// ---------------------------------------------------------------------------
+// Секция комментариев — течёт естественно после статистики
+// ---------------------------------------------------------------------------
+.post-modal__comments-section {
+  padding: 14px 20px 0;
+}
+
+.post-modal__comments-heading {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--cards-text-dim, #666);
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+// Форма внутри секции комментариев: sticky снизу.
+// Появляется только когда комментарии в поле зрения.
+.post-modal__box {
+  .comment-section {
+    margin-top: 0;
+  }
+
+  .comment-section__form {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: var(--cards-bg-computed, #111);
+    padding: 12px 0 20px;
+    margin-top: 8px;
+    border-top: 1px solid var(--cards-border-color, #222);
+    // Мягкое затухание контента позади формы
+    box-shadow: 0 -16px 20px var(--cards-bg-computed, #111);
+  }
+
+  .comment-section__login-hint {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: var(--cards-bg-computed, #111);
+    padding: 12px 0 20px;
+    margin: 8px 0 0;
+    border-top: 1px solid var(--cards-border-color, #222);
+  }
+}

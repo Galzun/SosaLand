@@ -1,0 +1,42 @@
+// Components/EmojiPicker/EmojiPicker.scss
+
+.emoji-picker {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 200;
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 12px;
+  padding: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  width: 242px;
+  gap: 2px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.65);
+  animation: ep-in 0.12s ease;
+}
+
+@keyframes ep-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.emoji-picker__btn {
+  background: none;
+  border: none;
+  border-radius: 6px;
+  width: 34px;
+  height: 34px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s;
+  line-height: 1;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}

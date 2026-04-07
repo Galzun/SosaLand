@@ -13,9 +13,11 @@ export function PlayerProvider({ children, allPlayers, onlinePlayers }) {
     const playersByName = new Map();
     
     // 👇 Функция для получения URL аватарки
+    // Если uuid отсутствует (нелицензионный игрок) — сразу возвращаем fallback,
+    // иначе crafatar вернёт дефолтный скин (200 OK) и onError никогда не сработает.
     const getAvatarUrl = (username, uuid, useFallback = false) => {
-      if (useFallback) {
-        return `https://api.dicebear.com/9.x/initials/svg?backgroundColor=transparent&seed=${username}`;
+      if (useFallback || !uuid) {
+        return `https://api.dicebear.com/9.x/initials/svg?scale=80&backgroundColor[]&fontWeight=600&seed=${username}`; //https://api.dicebear.com/9.x/initials/svg?backgroundColor=transparent&seed=${username}
       }
       return `https://crafatar.icehost.xyz/avatars/${uuid}?overlay`;
     };

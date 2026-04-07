@@ -36,10 +36,6 @@ function PlayerCard({ username, status }) {
         <div className={dividerClass} />
         
         <h3 className="player-card__name">{username}</h3>
-        
-        {status === 'banned' && (
-          <span className="player-card__badge">Забанен</span>
-        )}
       </div>
     </Link>
   );

@@ -1,0 +1,288 @@
+// Components/Sidebar/Sidebar.scss
+@use "../../styles/variables.scss" as *;
+
+$sidebar-width: 260px;
+
+// ---------------------------------------------------------------------------
+// Основной блок сайдбара
+// ---------------------------------------------------------------------------
+.sidebar {
+  width: $sidebar-width;
+  flex-shrink: 0;
+  background: rgba(22, 22, 34, 0.6);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-right: 1px solid #1e1e30;
+  // На десктопе — sticky: остаётся видимым под шапкой при скролле
+  position: sticky;
+  top: var(--header-h);
+  max-height: calc(100vh - var(--header-h));
+  // z-index нужен чтобы сайдбар не уходил под player-page (z-index: 0)
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: transform 0.25s ease;
+
+  // Тонкий скроллбар
+  &::-webkit-scrollbar { width: 3px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: #2a2a40; border-radius: 2px; }
+}
+
+// ---------------------------------------------------------------------------
+// Блок пользователя — в самом верху
+// ---------------------------------------------------------------------------
+.sidebar__profile {
+  padding: 16px 12px 12px;
+  border-bottom: 1px solid #1e1e30;
+}
+
+.sidebar__profile-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.18s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+.sidebar__profile-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #2a2a3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.sidebar__profile-avatar-placeholder {
+  font-size: 18px;
+  opacity: 0.4;
+}
+
+.sidebar__profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.sidebar__profile-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e8e8e8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar__profile-role {
+  font-size: 11px;
+  color: #555;
+}
+
+// Кнопка «Войти» (не авторизован)
+.sidebar__login {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #888;
+  font-size: 14px;
+  transition: background 0.18s, color 0.18s;
+
+  &:hover {
+    background: rgba(74, 255, 158, 0.07);
+    color: #4aff9e;
+  }
+}
+
+.sidebar__login-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #2a2a3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+// ---------------------------------------------------------------------------
+// Навигационные пункты
+// ---------------------------------------------------------------------------
+.sidebar__nav {
+  flex: 1;
+  padding: 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #999;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ddd;
+  }
+
+  &--active {
+    background: rgba(74, 255, 158, 0.1);
+    color: #4aff9e;
+
+    .sidebar__item-icon {
+      filter: drop-shadow(0 0 6px rgba(74, 255, 158, 0.5));
+    }
+  }
+}
+
+.sidebar__item-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.sidebar__item-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// ---------------------------------------------------------------------------
+// Кнопка закрытия (мобилка)
+// ---------------------------------------------------------------------------
+.sidebar__close {
+  display: none;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+
+  &:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.07);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Гамбургер (мобилка)
+// ---------------------------------------------------------------------------
+.sidebar__burger {
+  display: none;
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 1001;
+  background: rgba(22, 22, 34, 0.95);
+  border: 1px solid #2a2a40;
+  border-radius: 8px;
+  color: #ccc;
+  font-size: 18px;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: rgba(74, 255, 158, 0.08);
+    border-color: rgba(74, 255, 158, 0.25);
+    color: #4aff9e;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Оверлей
+// ---------------------------------------------------------------------------
+.sidebar__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 998;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+// ---------------------------------------------------------------------------
+// Адаптивность
+// ---------------------------------------------------------------------------
+@media (max-width: 1024px) {
+  // На мобилке — возвращаем fixed, скрываем за пределами экрана
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    height: auto;
+    z-index: 999;
+    transform: translateX(-$sidebar-width);
+    background: rgba(22, 22, 34, 0.95);
+
+    &--open {
+      transform: translateX(0);
+    }
+  }
+
+  .sidebar__close  { display: block; }
+  .sidebar__burger { display: flex; }
+}
+
+.sidebar__item--pending {
+  border: 1px solid rgba(255, 107, 107, 0.6);
+  color: #ff6b6b;
+}
+
+// Бейдж с числом непрочитанных сообщений
+.sidebar__item-badge {
+  margin-left: auto;
+  background: #ff4a4a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}

@@ -20,7 +20,7 @@
 }
 
 .header__container {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 20px;
   display: flex;
@@ -128,13 +128,32 @@
 }
 
 .header__user {
+  position: relative; // точка отсчёта для абсолютного дропдауна
+}
+
+// Кнопка-триггер (аватарка + имя + стрелка)
+.header__user-trigger {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 6px 12px;
   background: rgba(26, 26, 46, 0.8);
   border-radius: 30px;
   border: 1px solid #333;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+
+  &:hover {
+    border-color: #4aff9e55;
+    background: rgba(74, 255, 158, 0.05);
+  }
+}
+
+.header__user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
 }
 
 .header__user-name {
@@ -142,18 +161,71 @@
   font-size: 14px;
 }
 
-.header__logout {
+.header__user-arrow {
+  color: #888;
+  font-size: 12px;
+  transition: transform 0.2s;
+  line-height: 1;
+
+  &--open {
+    transform: rotate(180deg);
+  }
+}
+
+// Дропдаун-меню
+.header__dropdown {
+  position: absolute;
+  top: calc(100% + 8px); // отступ от кнопки
+  right: 0;
+  min-width: 160px;
+  background: #1a1a2e;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  // Анимация появления
+  animation: dropdown-in 0.12s ease;
+}
+
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.header__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
   background: none;
   border: none;
-  color: #ff6b6b;
+  color: #ccc;
+  font-size: 14px;
+  text-align: left;
   cursor: pointer;
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 20px;
-  
+  transition: background 0.15s, color 0.15s;
+  text-decoration: none;
+
   &:hover {
-    background: rgba(255, 107, 107, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
   }
+
+  &--danger {
+    color: #ff6b6b;
+
+    &:hover {
+      background: rgba(255, 107, 107, 0.1);
+      color: #ff6b6b;
+    }
+  }
+}
+
+.header__dropdown-icon {
+  font-size: 15px;
+  width: 18px;
+  text-align: center;
 }
 
 @keyframes pulse {
@@ -176,6 +248,44 @@
     background: rgba(74, 255, 158, 0.2);
     border-color: #4aff9e;
   }
+}
+
+// Бейдж для ссылки на тикеты администратора
+.header__badge--admin {
+  cursor: pointer;
+  position: relative;
+
+  &:hover {
+    background: rgba(74, 255, 158, 0.15);
+    border-color: #4aff9e;
+  }
+}
+
+// Ссылка на ленту постов
+.header__badge--feed {
+  cursor: pointer;
+  text-decoration: none;
+
+  &:hover {
+    background: rgba(74, 255, 158, 0.15);
+    border-color: #4aff9e40;
+  }
+}
+
+// Числовой бейдж с количеством ожидающих тикетов
+.header__badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #ff6b6b;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 9px;
+  line-height: 1;
 }
 
 /* Адаптивность для мобилок */

@@ -1,0 +1,403 @@
+// Components/CommentSection/CommentSection.scss
+
+.comment-section {
+  margin-top: 12px;
+
+  // Режим sticky-формы (внутри ImageModal / PostModal)
+  &--modal {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    margin-top: 0;
+  }
+}
+
+// Scrollable список комментариев (только в modal-режиме)
+.comment-section__list-wrap {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding-bottom: 8px;
+
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+
+  &::-webkit-scrollbar       { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+}
+
+// Обёртка формы (modal)
+.comment-section__form-wrap {
+  flex-shrink: 0;
+  border-top: 1px solid #222;
+  padding-top: 8px;
+  padding-bottom: 8px;
+
+  .comment-section__form {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .comment-section__login-hint {
+    margin: 8px 0 0;
+  }
+}
+
+// Кнопка «Показать комментарии»
+.comment-section__toggle {
+  background: none;
+  border: none;
+  color: var(--cards-text-muted, #888);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.2s;
+
+  &:hover { color: var(--cards-accent-color, #4aff9e); }
+}
+
+// Индикатор загрузки
+.comment-section__loading {
+  font-size: 0.82rem;
+  color: var(--cards-text-dim, #666);
+  padding: 8px 0;
+}
+
+// Пустое состояние
+.comment-section__empty {
+  font-size: 0.85rem;
+  color: var(--cards-text-dim, #555);
+  padding: 8px 0;
+  margin: 0;
+}
+
+// Кнопка «Загрузить ещё»
+.comment-section__more {
+  background: none;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: var(--cards-text-muted, #888);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 6px 14px;
+  margin-top: 8px;
+  transition: border-color 0.2s, color 0.2s;
+
+  &:hover {
+    border-color: var(--cards-accent-color, #4aff9e);
+    color: var(--cards-accent-color, #4aff9e);
+  }
+}
+
+// Один комментарий
+.comment-section__item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #222;
+
+  &:last-of-type { border-bottom: none; }
+}
+
+// Ссылка-обёртка вокруг аватарки
+.comment-section__avatar-link {
+  flex-shrink: 0;
+  display: block;
+}
+
+.comment-section__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+}
+
+.comment-section__avatar-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #1a2a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--cards-accent-color, #4aff9e);
+  flex-shrink: 0;
+}
+
+.comment-section__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-section__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.comment-section__author {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cards-accent-color, #4aff9e);
+  text-decoration: none;
+  transition: opacity 0.15s;
+
+  &:hover { opacity: 0.8; }
+}
+
+.comment-section__date {
+  font-size: 0.75rem;
+  color: var(--cards-text-dim, #555);
+}
+
+.comment-section__delete {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  margin-left: auto;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+
+  &:hover {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+  }
+}
+
+// Текст комментария
+.comment-section__text {
+  font-size: 0.88rem;
+  color: var(--cards-text-color, #ccc);
+  margin: 0 0 4px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+// Кнопка «Ещё» / «Свернуть» внутри текста
+.comment-section__expand {
+  background: none;
+  border: none;
+  color: var(--cards-accent-color, #4aff9e);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  transition: opacity 0.15s;
+
+  &:hover { opacity: 0.75; }
+}
+
+// Прикреплённое изображение к комментарию
+.comment-section__comment-img {
+  margin-top: 6px;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 240px;
+
+  img {
+    width: 100%;
+    height: auto;
+    display: block;
+    cursor: pointer;
+    transition: opacity 0.18s;
+    border-radius: 8px;
+
+    &:hover { opacity: 0.85; }
+  }
+}
+
+// Форма добавления комментария
+.comment-section__form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #222;
+}
+
+// Обёртка textarea + нижней панели — единый визуальный блок с границей
+.comment-section__input-box {
+  display: flex;
+  flex-direction: column;
+  background: #1e1e2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  transition: border-color 0.2s;
+
+  &:focus-within {
+    border-color: var(--cards-accent-color, #4aff9e);
+  }
+}
+
+// Предпросмотр прикреплённого фото (внутри input-box)
+.comment-section__img-preview {
+  position: relative;
+  display: inline-block;
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+  max-width: 160px;
+  margin: 8px 0 0 8px;
+
+  img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+}
+
+.comment-section__img-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  width: 20px;
+  height: 20px;
+  font-size: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover { background: rgba(255, 107, 107, 0.8); }
+}
+
+.comment-section__textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 8px 8px 0 0;
+  padding: 8px 12px 6px;
+  color: var(--cards-text-color, #fff);
+  font-size: 0.88rem;
+  resize: vertical;
+  min-height: 56px;
+  box-sizing: border-box;
+  font-family: inherit;
+
+  &::placeholder { color: #555; }
+  &:focus { outline: none; }
+}
+
+// Скрытый file input
+.comment-section__file-input {
+  display: none;
+}
+
+// Нижняя панель формы внутри input-box: иконки слева + счётчик/кнопка справа
+.comment-section__form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 4px 6px;
+}
+
+.comment-section__footer-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+// Обёртка emoji-кнопки
+.comment-section__emoji-wrap {
+  position: relative;
+}
+
+.comment-section__footer-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+// Иконка-кнопка (скрепка, смайлик)
+.comment-section__icon-btn {
+  background: none;
+  border: none;
+  color: var(--cards-text-dim, #666);
+  font-size: 1.1rem;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    color: var(--cards-accent-color, #4aff9e);
+    background: var(--cards-accent-08, rgba(74, 255, 158, 0.08));
+  }
+
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+// Счётчик оставшихся символов
+.comment-section__char-count {
+  font-size: 0.75rem;
+  color: var(--cards-text-dim, #555);
+  min-width: 28px;
+  text-align: right;
+
+  &--warn { color: #ffa040; }
+}
+
+.comment-section__submit {
+  background: var(--cards-accent-color, #4aff9e);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  color: #0a0a1a;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  &:not(:disabled):hover { opacity: 0.85; }
+}
+
+.comment-section__error {
+  width: 100%;
+  font-size: 0.82rem;
+  color: #ff6b6b;
+  margin: 0;
+}
+
+.comment-section__login-hint {
+  font-size: 0.82rem;
+  color: var(--cards-text-dim, #555);
+  margin: 12px 0 0;
+
+  a {
+    color: var(--cards-accent-color, #4aff9e);
+    text-decoration: none;
+
+    &:hover { text-decoration: underline; }
+  }
+}

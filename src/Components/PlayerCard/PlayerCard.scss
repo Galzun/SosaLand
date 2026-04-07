@@ -29,13 +29,6 @@
     border-color: $color-offline-light;
     box-shadow: 0 8px 20px rgba($color-offline, 0.3);
   }
-  
-  // Стили для бана
-  &--banned:hover {
-    transform: translateY(-4px);
-    border-color: $color-ban;
-    box-shadow: 0 8px 20px rgba($color-ban, 0.15);
-  }
 }
 
 .player-card__avatar {
@@ -64,12 +57,6 @@
   &--offline {
     background: $color-offline;
     box-shadow: 0 4px 15px rgba($color-offline, 0.5);
-  }
-  
-  // Красный (бан)
-  &--banned {
-    background: $color-ban;
-    box-shadow: 0 0 15px rgba($color-ban, 0.3);
   }
 }
 
