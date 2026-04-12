@@ -14,12 +14,13 @@ import { useAuth } from '../../context/AuthContext';
 import { timeAgo } from '../../utils/timeFormatter';
 import useComments from '../../hooks/useComments';
 import EmojiPicker from '../EmojiPicker/EmojiPicker';
+import { showConfirm } from '../Dialog/dialogManager';
 import './CommentSection.scss';
 
 const TRUNCATE_LIMIT = 250; // символов до кнопки «Ещё»
 
 // onCommentAdded — вызывается после успешной отправки (для обновления счётчика в родителе)
-function CommentSection({ type, id, autoLoad = false, stickyForm = false, onCommentAdded }) {
+function CommentSection({ type, id, autoLoad = false, stickyForm = false, stickyBottom = false, onCommentAdded }) {
   const { user, token } = useAuth();
   const {
     comments,
@@ -223,6 +224,18 @@ function CommentSection({ type, id, autoLoad = false, stickyForm = false, onComm
     </p>
   );
 
+  if (stickyBottom) {
+    // Режим страницы (document scroll): форма прилипает к низу viewport через position:sticky
+    return (
+      <div className="comment-section comment-section--sticky-bottom">
+        {listContent}
+        <div className="comment-section__form-sticky">
+          {formContent}
+        </div>
+      </div>
+    );
+  }
+
   if (stickyForm) {
     // Режим модального окна: список скроллится, форма прилипает снизу
     return (
@@ -258,8 +271,8 @@ function CommentItem({ comment, onDelete, currentUser }) {
   const isOwner = currentUser && currentUser.id === comment.author.id;
   const isAdmin = currentUser?.role === 'admin';
 
-  const handleDelete = () => {
-    if (!window.confirm('Удалить комментарий?')) return;
+  const handleDelete = async () => {
+    if (!(await showConfirm('Удалить комментарий?'))) return;
     onDelete(comment.id);
   };
 
@@ -297,7 +310,7 @@ function CommentItem({ comment, onDelete, currentUser }) {
           </span>
           {(isOwner || isAdmin) && (
             <button className="comment-section__delete" onClick={handleDelete} title="Удалить">
-              ✕
+              🗑
             </button>
           )}
         </div>

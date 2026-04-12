@@ -18,7 +18,7 @@
   flex-shrink: 0;
   width: 44px;
   height: 44px;
-  border-radius: 8px;
+  border-radius: 5px;
   overflow: hidden;
   background: #2a2a3a;
 
@@ -289,6 +289,42 @@
   }
 }
 
+// Кнопка «Отмена» (только в режиме редактирования)
+.post-form__cancel {
+  background: none;
+  border: 1px solid var(--cards-border-color, #2a2a3a);
+  border-radius: 20px;
+  color: var(--cards-text-muted, #888);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover:not(:disabled) {
+    color: var(--cards-text-color, #ddd);
+    border-color: var(--cards-text-muted, #888);
+  }
+
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+// Режим редактирования — без нижнего отступа и без фона (модалка его задаёт)
+.post-form--editing {
+  margin-bottom: 0;
+  border: none;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  padding: 0;
+}
+
+// Пометка «сохранено» у существующего вложения
+.post-form__pending-size--existing {
+  color: var(--cards-accent-color, #4aff9e);
+  font-style: italic;
+}
+
 // Кнопка отправки
 .post-form__submit {
   background: var(--cards-accent-color, #4aff9e);
@@ -318,6 +354,52 @@
   color: #ff6b6b;
   margin: 0;
   padding: 0 12px 6px;
+}
+
+// ---------------------------------------------------------------------------
+// Превью прикреплённого опроса
+// ---------------------------------------------------------------------------
+.post-form__pending-poll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(74, 255, 158, 0.06);
+  border: 1px solid rgba(74, 255, 158, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 8px 0 0;
+  font-size: 0.88rem;
+
+  &-icon { font-size: 1rem; flex-shrink: 0; }
+
+  &-question {
+    flex: 1;
+    color: var(--cards-text-color, #ddd);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &-count {
+    font-size: 0.78rem;
+    color: var(--cards-text-muted, #888);
+    flex-shrink: 0;
+  }
+
+  &-remove {
+    background: none;
+    border: none;
+    color: #555;
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    transition: color 0.15s;
+
+    &:hover:not(:disabled) { color: #ff6b6b; }
+    &:disabled { opacity: 0.4; }
+  }
 }
 
 // ---------------------------------------------------------------------------

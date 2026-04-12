@@ -177,7 +177,7 @@ function ChatWindow({
                   title="Удалить сообщение"
                   type="button"
                 >
-                  ✕
+                  🗑
                 </button>
               )}
             </div>

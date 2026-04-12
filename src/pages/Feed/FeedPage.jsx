@@ -16,12 +16,14 @@ function FeedPage() {
     hasMore,
     loadMore,
     createPost,
+    editPost,
     toggleLike,
     deletePost,
+    patchPost,
   } = usePosts();
 
   const handleSubmit = async (content, attachments) => {
-    await createPost(content, attachments);
+    return await createPost(content, attachments);
   };
 
   return (
@@ -29,7 +31,12 @@ function FeedPage() {
       <div className="feed-page__container">
         <h1 className="feed-page__title">Лента</h1>
 
-        {user && <PostForm onSubmit={handleSubmit} />}
+        {user && (
+          <PostForm
+            onSubmit={handleSubmit}
+            onPollLinked={(postId, pollId) => patchPost(postId, { pollId })}
+          />
+        )}
 
         <div className="feed-page__posts">
           {posts.length === 0 && !loading && (
@@ -46,6 +53,7 @@ function FeedPage() {
               post={post}
               onLike={toggleLike}
               onDelete={deletePost}
+              onEdit={editPost}
             />
           ))}
         </div>

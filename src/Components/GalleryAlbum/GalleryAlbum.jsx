@@ -76,7 +76,7 @@ function GalleryAlbum({ album, onClick, canDelete, onDelete }) {
           onClick={(e) => { e.stopPropagation(); onDelete?.(); }}
           title={n > 1 ? `Удалить альбом (${n} файлов)` : 'Удалить'}
         >
-          ✕
+          🗑
         </button>
       )}
     </div>

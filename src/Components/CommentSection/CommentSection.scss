@@ -29,6 +29,30 @@
   &::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
 }
 
+// Обёртка формы — sticky при page-scroll (режим stickyBottom)
+.comment-section__form-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background: rgba(10, 10, 26, 0.97);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 10px 0 6px;
+  margin-top: 8px;
+
+  .comment-section__form {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .comment-section__login-hint {
+    margin: 4px 0 0;
+    padding: 2px 0;
+  }
+}
+
 // Обёртка формы (modal)
 .comment-section__form-wrap {
   flex-shrink: 0;
@@ -112,7 +136,7 @@
 .comment-section__avatar {
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border-radius: 4px;
   object-fit: cover;
   display: block;
 }

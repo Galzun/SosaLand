@@ -56,7 +56,7 @@ $sidebar-width: 260px;
 .sidebar__profile-avatar {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: 5px;
   overflow: hidden;
   flex-shrink: 0;
   background: #2a2a3a;
@@ -119,7 +119,7 @@ $sidebar-width: 260px;
 .sidebar__login-icon {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: 5px;
   background: #2a2a3a;
   display: flex;
   align-items: center;
@@ -285,4 +285,50 @@ $sidebar-width: 260px;
   border-radius: 10px;
   min-width: 18px;
   text-align: center;
+}
+
+// ---------------------------------------------------------------------------
+// Цвета роли под именем пользователя
+// ---------------------------------------------------------------------------
+.sidebar__profile-role {
+  font-size: 11px;
+  color: #555;
+
+  &--creator { color: #ffd700; }
+  &--admin   { color: #4aff9e; }
+  &--editor  { color: #7eb8f7; }
+  &--user    { color: #555; }
+}
+
+// ---------------------------------------------------------------------------
+// Футер с авторами
+// ---------------------------------------------------------------------------
+.sidebar__footer {
+  padding: 12px 16px 14px;
+  border-top: 1px solid #1e1e30;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.sidebar__footer-by {
+  color: #444;
+}
+
+.sidebar__footer-sep {
+  color: #444;
+}
+
+.sidebar__footer-author {
+  text-decoration: none;
+  color: #555;
+  font-weight: 600;
+  transition: color 0.15s;
+  cursor: default;
+
+  &--galzun:hover  { color: #fff; }
+  &--deepseek:hover { color: #1e8cf7; }
+  &--claude:hover  { color: #e8793a; }
 }

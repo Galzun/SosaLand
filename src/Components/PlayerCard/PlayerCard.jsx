@@ -1,43 +1,216 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { usePlayerByName } from '../../context/PlayerContext'; // 👈 импортируем
+import axios from 'axios';
+import { usePlayerByName, usePlayer } from '../../context/PlayerContext';
+import { showPrompt } from '../Dialog/dialogManager';
 import './PlayerCard.scss';
 
-function PlayerCard({ username, status }) {
+const ROLE_LEVEL = { creator: 4, admin: 3, editor: 2, user: 1 };
+const roleLevel = (r) => ROLE_LEVEL[r] ?? 1;
+
+function PlayerCard({ username, status, currentUser, token }) {
   const [avatarError, setAvatarError] = useState(false);
-  
-  // 👇 Получаем данные игрока из контекста (включая avatarUrl)
+  const [menuOpen,    setMenuOpen]    = useState(false);
+  // undefined = ещё не загружено, null = нет аккаунта на сайте, object = профиль
+  const [profile,     setProfile]     = useState(undefined);
+  const [loading,     setLoading]     = useState(false);
+  const [errorMsg,    setErrorMsg]    = useState(null);
+  const wrapperRef = useRef(null);
+
   const player = usePlayerByName(username);
-  
-  // Если игрока нет в контексте (редкий случай), используем fallback
-  if (!player) {
-    return null;
-  }
-  
-  // Выбираем URL в зависимости от ошибки
-  const avatarUrl = avatarError ? player.avatarFallbackUrl : player.avatarUrl;
-  
-  // Класс для карточки в зависимости от статуса
-  const cardClass = `player-card player-card--${status}`;
-  
-  // Класс для разделителя
-  const dividerClass = `player-card__divider player-card__divider--${status}`;
-  
+  const { setBanOverride } = usePlayer();
+
+  // Закрыть меню по клику вне обёртки
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
+
+  // Открыть/закрыть меню и загрузить профиль сайта (только один раз)
+  const openMenu = useCallback(async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (menuOpen) { setMenuOpen(false); return; }
+    setMenuOpen(true);
+    if (profile !== undefined) return;
+    try {
+      const r = await axios.get(`/api/users/by-minecraft/${username}`);
+      setProfile(r.data);
+    } catch {
+      setProfile(null);
+    }
+  }, [menuOpen, profile, username]);
+
+  const changeRole = async (e, newRole) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!profile) return;
+    setLoading(true);
+    setMenuOpen(false);
+    try {
+      await axios.put(`/api/users/${profile.id}/role`, { role: newRole }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setProfile(prev => ({ ...prev, role: newRole }));
+    } catch (err) {
+      setErrorMsg(err.response?.data?.error || 'Ошибка');
+      setTimeout(() => setErrorMsg(null), 2500);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleBan = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const isBanned = player?.isBanned ?? false;
+
+    let banReason = null;
+    if (!isBanned) {
+      const input = await showPrompt('Причина бана (необязательно):', { placeholder: 'Необязательно...' });
+      if (input === null) return; // пользователь отменил
+      banReason = input.trim() || null;
+    }
+
+    setMenuOpen(false);
+    setLoading(true);
+
+    try {
+      const action = isBanned ? 'unban' : 'ban';
+      await axios.post(
+        `/api/players/${action}-by-name/${encodeURIComponent(username)}`,
+        banReason ? { reason: banReason } : {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setBanOverride(player?.rawUuid, username, !isBanned, isBanned ? null : banReason);
+    } catch (err) {
+      setErrorMsg(err.response?.data?.error || 'Ошибка');
+      setTimeout(() => setErrorMsg(null), 2500);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!player) return null;
+
+  const avatarUrl       = avatarError ? player.avatarFallbackUrl : player.avatarUrl;
+  const isBannedCurrent = player.isBanned ?? false;
+  const banReason       = player.banReason || null;
+
+  const canManage    = currentUser && roleLevel(currentUser.role) >= roleLevel('admin');
+  const callerLevel  = currentUser ? roleLevel(currentUser.role) : 0;
+  const targetLevel  = profile ? roleLevel(profile.role) : 0;
+  const canActOnRole = profile && targetLevel < callerLevel && profile.id !== currentUser?.id;
+  const banDisabled  = loading || (profile !== null && profile !== undefined && targetLevel >= callerLevel);
+
   return (
-    <Link to={`/player/${username}`} className="player-card-link">
-      <div className={cardClass}>
-        <img 
-          src={avatarUrl}
-          alt={username}
-          className="player-card__avatar"
-          onError={() => setAvatarError(true)}
-        />
-        
-        <div className={dividerClass} />
-        
-        <h3 className="player-card__name">{username}</h3>
-      </div>
-    </Link>
+    <div className="player-card-wrapper" ref={wrapperRef}>
+      <Link to={`/player/${username}`} className="player-card-link">
+        <div className={`player-card player-card--${isBannedCurrent ? 'banned' : status}`}>
+
+          {/* Кнопка ⋮ / ✕ — внутри карточки, двигается вместе с hover-трансформом */}
+          {canManage && (
+            <button
+              className={`player-card__menu-btn${menuOpen ? ' player-card__menu-btn--open' : ''}`}
+              onClick={openMenu}
+              aria-label={menuOpen ? 'Закрыть' : 'Действия'}
+            >
+              {menuOpen ? '✕' : '⋮'}
+            </button>
+          )}
+
+          {menuOpen ? (
+            /* Меню заменяет содержимое карточки */
+            <div
+              className="player-card__menu-content"
+              onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+            >
+              {profile === undefined ? (
+                <div className="player-card__menu-loading">Загрузка...</div>
+              ) : (
+                <>
+                  {canActOnRole && (
+                    <>
+                      {callerLevel > roleLevel('admin') && profile.role !== 'admin' && (
+                        <button
+                          className="player-card__menu-item"
+                          onClick={(e) => changeRole(e, 'admin')}
+                          disabled={loading}
+                        >
+                          👑 Сделать администратором
+                        </button>
+                      )}
+                      {profile.role !== 'editor' && (
+                        <button
+                          className="player-card__menu-item"
+                          onClick={(e) => changeRole(e, 'editor')}
+                          disabled={loading}
+                        >
+                          ✏️ Сделать редактором
+                        </button>
+                      )}
+                      {profile.role !== 'user' && (
+                        <button
+                          className="player-card__menu-item"
+                          onClick={(e) => changeRole(e, 'user')}
+                          disabled={loading}
+                        >
+                          👤 Сделать игроком
+                        </button>
+                      )}
+                      <div className="player-card__menu-divider" />
+                    </>
+                  )}
+
+                  <button
+                    className={`player-card__menu-item player-card__menu-item--${isBannedCurrent ? 'unban' : 'ban'}`}
+                    onClick={handleToggleBan}
+                    disabled={banDisabled}
+                  >
+                    {isBannedCurrent ? '✅ Разбанить' : '🚫 Забанить'}
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            /* Обычное содержимое карточки */
+            <>
+              <img
+                src={avatarUrl}
+                alt={username}
+                className="player-card__avatar"
+                onError={() => setAvatarError(true)}
+              />
+              <div
+                className={`player-card__divider player-card__divider--${isBannedCurrent ? 'banned' : status}`}
+              />
+              <h3 className="player-card__name">{username}</h3>
+
+              {/* Tooltip причины бана — появляется при наведении на карточку */}
+              {isBannedCurrent && banReason && (
+                <div className="player-card__ban-tooltip">
+                  🚫 {banReason}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Ошибка — показывается поверх карточки по центру */}
+          {errorMsg && (
+            <div className="player-card__error-overlay">
+              {errorMsg}
+            </div>
+          )}
+        </div>
+      </Link>
+    </div>
   );
 }
 

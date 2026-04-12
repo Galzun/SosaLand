@@ -1,182 +1,412 @@
 // Components/ImageModal/ImageModal.scss
+// "Кинотеатр" — медиа занимает весь экран, контролы поверх с автоскрытием.
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Корневой оверлей
+// ─────────────────────────────────────────────────────────────────────────────
 .image-modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.95);
   z-index: 2000;
+  background: #000;
   display: flex;
-  align-items: stretch;
-  animation: modal-bg-in 0.18s ease;
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
+  animation: im-in 0.2s ease;
+
+  // Курсор скрыт в режиме просмотра
+  &:not(&--controls) .image-modal__stage {
+    cursor: none;
+  }
 }
 
-@keyframes modal-bg-in {
+@keyframes im-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 
-// ---------------------------------------------------------------------------
-// Кнопки управления — фиксированный блок в правом верхнем углу.
-// ---------------------------------------------------------------------------
-.image-modal__controls {
-  position: fixed;
-  top: 12px;
-  right: 12px;
-  z-index: 2010;
-  display: flex;
-  gap: 6px;
+// ─────────────────────────────────────────────────────────────────────────────
+// Сцена — занимает весь экран (или всё кроме sidebar)
+// ─────────────────────────────────────────────────────────────────────────────
+.image-modal__stage {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+  cursor: default;
 }
 
-.image-modal__close,
-.image-modal__toggle-sidebar {
-  background: rgba(0, 0, 0, 0.65);
-  border: 1px solid var(--cards-border-color, rgba(255, 255, 255, 0.12));
-  border-radius: 50%;
-  color: var(--cards-text-muted, #ccc);
+// ─────────────────────────────────────────────────────────────────────────────
+// Медиа — абсолютно позиционировано, занимает всю сцену
+// ─────────────────────────────────────────────────────────────────────────────
+.image-modal__media-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.image-modal__image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+
+  &--loaded { opacity: 1; }
+}
+
+.image-modal__video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  padding: 0 72px;
+  animation: im-fade 0.2s ease;
+}
+
+// У видео: ограничиваем ширину стрипа — чтобы не перекрывать кнопки play/volume/fullscreen по бокам.
+// bottom нижней панели управляется динамически через JS (ResizeObserver на video + stage).
+.image-modal--video .image-modal__strip {
+  max-width: min(720px, calc(100% - 340px));
+}
+
+@keyframes im-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Оверлей контролов — поверх медиа, фейдится с контролами
+// ─────────────────────────────────────────────────────────────────────────────
+.image-modal__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+
+  .image-modal--controls & {
+    opacity: 1;
+  }
+}
+
+// Все интерактивные дети оверлея получают pointer-events обратно
+.image-modal__top-bar,
+.image-modal__arrow,
+.image-modal__bottom {
+  pointer-events: auto;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Верхняя полоса: автор + кнопки
+// ─────────────────────────────────────────────────────────────────────────────
+.image-modal__top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: transparent;
+}
+
+.image-modal__author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.image-modal__author-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.image-modal__author-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.image-modal__author-name {
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s;
+
+  &:hover { color: var(--cards-accent-color, #4aff9e); }
+}
+
+.image-modal__author-date {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+}
+
+.image-modal__title {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  padding-left: 8px;
+}
+
+.image-modal__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.image-modal__btn {
   width: 36px;
   height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(15, 15, 25, 0.75);
+  color: rgba(255, 255, 255, 0.8);
   font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.14);
-    color: var(--cards-text-color, #fff);
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+  }
+
+  &--active {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: var(--cards-accent-color, #4aff9e);
+    color: var(--cards-accent-color, #4aff9e);
+  }
+
+  &--close {
+    font-size: 13px;
+  }
+
+  &--delete {
+    font-size: 15px;
+    &:hover {
+      background: rgba(255, 74, 74, 0.2);
+      border-color: #ff4a4a;
+      color: #ff4a4a;
+    }
   }
 }
 
-.image-modal__toggle-sidebar {
-  font-size: 11px;
-}
-
-// ---------------------------------------------------------------------------
-// Стрелки навигации
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// Стрелки навигации — по краям сцены, НЕ перекрывают топ-бар и низ
+// ─────────────────────────────────────────────────────────────────────────────
 .image-modal__arrow {
-  position: fixed;
+  position: absolute;
   top: 0;
   bottom: 0;
-  z-index: 2005;
-  width: 60px;
+  z-index: 2;   // ниже топ-бара и нижней полосы
+  width: 72px;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 2.4rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 2.8rem;
   line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.15s, color 0.15s;
+  padding: 0;
 
   &--prev { left: 0; }
-  &--next { right: 380px; } // не перекрывает боковую панель
-
-  &--next-full { right: 0; } // sidebar скрыт
+  &--next { right: 0; }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.07);
     color: var(--cards-accent-color, #4aff9e);
   }
 }
 
-// ---------------------------------------------------------------------------
-// Двухколоночный макет
-// ---------------------------------------------------------------------------
-.image-modal__layout {
+// ─────────────────────────────────────────────────────────────────────────────
+// Нижняя полоса: счётчик + стрип миниатюр
+// ─────────────────────────────────────────────────────────────────────────────
+.image-modal__bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  margin: 0 auto;
+  max-width: 60%;
   display: flex;
-  width: 100%;
-  height: 100%;
-  animation: modal-in 0.18s ease;
-}
-
-@keyframes modal-in {
-  from { opacity: 0; transform: scale(0.98); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
-// ---------------------------------------------------------------------------
-// Левая колонка — изображение
-// ---------------------------------------------------------------------------
-.image-modal__image-side {
-  flex: 1;
-  position: relative;
-  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: #050505;
-  overflow: hidden;
-  padding: 0 60px;
-}
-
-.image-modal__image,
-.image-modal__video {
-  max-width: 100%;
-  max-height: 100vh;
-  object-fit: contain;
-  display: block;
-  -webkit-user-select: none;
-  user-select: none;
+  gap: 4px;
+  padding: 24px 0 6px;
+  background: transparent;
 }
 
 .image-modal__counter {
-  position: absolute;
-  bottom: 12px;
-  left: 72px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #aaa;
+  color: rgba(255, 255, 255, 0.65);
   font-size: 12px;
-  padding: 3px 8px;
-  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+
+  span { opacity: 0.45; margin: 0 3px; }
 }
 
-// ---------------------------------------------------------------------------
-// Правая боковая панель
-// ---------------------------------------------------------------------------
-.image-modal__sidebar {
-  width: 380px;
+// ─────────────────────────────────────────────────────────────────────────────
+// Стрип миниатюр
+// ─────────────────────────────────────────────────────────────────────────────
+.image-modal__strip {
+  display: flex;
+  gap: 4px;
+  padding: 4px 16px 2px;
+  overflow-x: auto;
   flex-shrink: 0;
-  background: var(--cards-bg-computed, #111);
-  -webkit-backdrop-filter: var(--cards-blur, none);
-  backdrop-filter: var(--cards-blur, none);
-  border-left: 1px solid var(--cards-border-color, #1e1e1e);
+  max-width: 100%;
+  min-height: 72px; // резервирует место всегда
+  align-items: center;
+  // justify-content: flex-start + margin: auto на крайних элементах:
+  // когда элементы помещаются — они центрируются;
+  // когда переполняют — автоотступы схлопываются и скролл работает нормально
+  justify-content: flex-start;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+
+  &::-webkit-scrollbar       { height: 3px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 2px; }
+
+  &--empty { pointer-events: none; }
+}
+
+.image-modal__strip-item {
+  position: relative;
+  flex-shrink: 0;
+
+  &:first-child { margin-left: auto; }
+  &:last-child  { margin-right: auto; }
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  background: #111;
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.15s, opacity 0.15s, transform 0.15s;
+  opacity: 0.55;
+
+  &:hover {
+    opacity: 0.9;
+    transform: scale(1.08);
+  }
+
+  &--active {
+    border-color: var(--cards-accent-color, #4aff9e);
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.image-modal__strip-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Боковая панель — плавно выезжает справа
+// ─────────────────────────────────────────────────────────────────────────────
+.image-modal__sidebar {
+  width: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: width 0.25s ease;
+  background: var(--cards-bg-computed, #0f0f1a);
+  border-left: none;
+
+  .image-modal--sidebar-open & {
+    width: 380px;
+    border-left: 1px solid var(--cards-border-color, #1e1e2a);
+  }
+}
+
+.image-modal__sidebar-inner {
+  width: 380px;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden; // scroll управляется внутри
+  overflow: hidden;
 }
 
-// ---------------------------------------------------------------------------
-// Блок автора — фиксированная шапка sidebar
-// ---------------------------------------------------------------------------
-.image-modal__author-block {
+.image-modal__sidebar-author {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--cards-border-color, #1e1e1e);
+  border-bottom: 1px solid var(--cards-border-color, #1e1e2a);
   flex-shrink: 0;
 }
 
-.image-modal__author-avatar {
+.image-modal__delete-item-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid #3a3a5a;
+  border-radius: 6px;
+  color: #888;
+  font-size: 13px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+
+  &:hover {
+    color: #ff4a4a;
+    border-color: #ff4a4a;
+    background: rgba(255, 74, 74, 0.08);
+  }
+}
+
+.image-modal__sidebar-avatar {
   width: 40px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: 4px;
   object-fit: cover;
   flex-shrink: 0;
 }
 
-.image-modal__author-info {
+.image-modal__sidebar-author-text {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.image-modal__author-name {
+.image-modal__sidebar-name {
   color: var(--cards-text-color, #fff);
   font-size: 0.9rem;
   font-weight: 600;
@@ -186,35 +416,46 @@
   &:hover { color: var(--cards-accent-color, #4aff9e); }
 }
 
-.image-modal__date {
+.image-modal__sidebar-date {
   color: var(--cards-text-dim, #555);
   font-size: 12px;
 }
 
-.image-modal__title {
+.image-modal__album-tag {
+  font-size: 11px;
+  color: var(--cards-accent-color, #4aff9e);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+  padding: 3px 8px;
+  border: 1px solid rgba(74, 255, 158, 0.25);
+  border-radius: 20px;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:hover {
+    border-color: var(--cards-accent-color, #4aff9e);
+    background: rgba(74, 255, 158, 0.08);
+  }
+}
+
+.image-modal__sidebar-title {
   font-size: 0.88rem;
   color: var(--cards-text-muted, #aaa);
   margin: 0;
-  line-height: 1.5;
   padding: 10px 16px 0;
   flex-shrink: 0;
-  white-space: normal;
   word-break: break-word;
-  overflow-wrap: break-word;
 }
 
-// ---------------------------------------------------------------------------
-// Scrollable область комментариев + sticky форма внутри.
-// Реализуется через flex + overflow-y на comments-scroll,
-// а CommentSection сам прижимает форму к низу.
-// ---------------------------------------------------------------------------
 .image-modal__comments-scroll {
   flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 12px 16px 0;
-
   scrollbar-width: thin;
   scrollbar-color: #333 transparent;
 
@@ -233,39 +474,99 @@
   flex-shrink: 0;
 }
 
-// ---------------------------------------------------------------------------
-// Адаптивность
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// Адаптив
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Планшет ландшафт / небольшой десктоп ─────────────────────────────────────
+@media (max-width: 1024px) {
+  .image-modal__sidebar {
+    .image-modal--sidebar-open & {
+      width: 300px;
+    }
+  }
+
+  // На мобилке/планшете снимаем ограничение ширины нижней панели
+  .image-modal__bottom {
+    max-width: 100%;
+  }
+
+  .image-modal__sidebar-inner {
+    width: 300px;
+  }
+
+  // Боковой отступ стрипа чуть меньше — кнопки видео занимают меньше места
+  .image-modal--video .image-modal__strip {
+    max-width: min(720px, calc(100% - 240px));
+  }
+}
+
+// ── Планшет портрет ──────────────────────────────────────────────────────────
 @media (max-width: 768px) {
-  .image-modal__layout {
+  .image-modal {
     flex-direction: column;
   }
 
-  .image-modal__image-side {
-    flex: 0 0 55vh;
-    padding: 0 40px;
+  // Стрип видео — убираем боковой отступ (нативные кнопки видео
+  // занимают нижнюю полосу, а не бока стрипа)
+  .image-modal--video .image-modal__strip {
+    max-width: 100%;
   }
 
+  // Сайдбар переезжает вниз и раскрывается снизу вверх
   .image-modal__sidebar {
-    width: 100%;
-    flex: 1;
-    border-left: none;
-    border-top: 1px solid #1e1e1e;
+    width: 100% !important;
+    height: 0;
+    border-left: none !important;
+    border-top: 1px solid transparent;
+    transition: height 0.25s ease;
+
+    .image-modal--sidebar-open & {
+      height: 45vh;
+      border-top-color: var(--cards-border-color, #1e1e2a);
+    }
   }
 
-  .image-modal__arrow--next {
-    right: 0;
+  .image-modal__sidebar-inner {
+    width: 100%;
   }
 
   .image-modal__arrow {
-    width: 44px;
-    font-size: 1.8rem;
-    bottom: auto;
-    height: 55vh;
+    font-size: 2rem;
   }
 
-  .image-modal__controls {
-    top: 8px;
-    right: 8px;
+  // Топ-бар: имя + дата — немного меньше
+  .image-modal__author-name { font-size: 0.82rem; }
+  .image-modal__author-date { font-size: 10px; }
+  .image-modal__album-tag   { font-size: 10px; max-width: 130px; }
+}
+
+// ── Телефон ───────────────────────────────────────────────────────────────────
+@media (max-width: 480px) {
+  .image-modal__video {
+    padding: 0 42px;
   }
+
+  // Стрелки уже, чтобы не съедали медиа
+  .image-modal__arrow {
+    width: 42px;
+    font-size: 1.6rem;
+  }
+
+  // Миниатюры в стрипе чуть меньше
+  .image-modal__strip-item {
+    width: 46px;
+    height: 46px;
+  }
+
+  // Сайдбар занимает больше высоты на маленьком экране
+  .image-modal__sidebar {
+    .image-modal--sidebar-open & {
+      height: 55vh;
+    }
+  }
+
+  // Топ-бар: скрываем дату и тайтл чтобы не толкать кнопки
+  .image-modal__author-date { display: none; }
+  .image-modal__title       { display: none; }
 }

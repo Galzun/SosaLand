@@ -147,6 +147,32 @@ function usePosts({ userId = null, disabled = false } = {}) {
     offsetRef.current = Math.max(0, offsetRef.current - 1);
   }, [token]);
 
+  // editPost — редактирует пост: обновляет текст и вложения через PUT /api/posts/:id.
+  //
+  // postId      — ID поста
+  // content     — новый текст поста
+  // attachments — итоговый список вложений [{ fileUrl, fileType, fileName }]
+  //               (уже загруженных + сохранённых из старых)
+  //
+  // Возвращает обновлённый объект поста.
+  const editPost = useCallback(async (postId, content, attachments = []) => {
+    if (!token) throw new Error('Требуется авторизация');
+
+    const response = await axios.put(
+      `/api/posts/${postId}`,
+      { content, attachments },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, ...response.data } : p));
+    return response.data;
+  }, [token]);
+
+  // patchPost — обновляет поля поста в локальном состоянии (без запроса к API)
+  const patchPost = useCallback((postId, patch) => {
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, ...patch } : p));
+  }, []);
+
   return {
     posts,
     loading,
@@ -154,8 +180,10 @@ function usePosts({ userId = null, disabled = false } = {}) {
     loadPosts,
     loadMore,
     createPost,
+    editPost,
     toggleLike,
     deletePost,
+    patchPost,
   };
 }
 

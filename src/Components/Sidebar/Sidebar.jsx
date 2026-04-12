@@ -12,6 +12,21 @@ import './Sidebar.scss';
 
 const UNREAD_POLL_INTERVAL = 15_000; // проверяем непрочитанные каждые 15 секунд
 
+// Метка роли для отображения в сайдбаре
+function roleLabel(role) {
+  switch (role) {
+    case 'creator': return 'Создатель';
+    case 'admin':   return 'Администратор';
+    case 'editor':  return 'Редактор';
+    default:        return 'Игрок';
+  }
+}
+
+// Уровень роли (чем выше — тем больше прав)
+function roleLevel(role) {
+  return { creator: 4, admin: 3, editor: 2, user: 1 }[role] ?? 1;
+}
+
 function Sidebar() {
   const [isOpen,       setIsOpen]       = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -30,9 +45,9 @@ function Sidebar() {
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  // Загружаем количество pending-тикетов для бейджа (только для админов).
+  // Загружаем количество pending-тикетов для бейджа (только для админов и выше).
   useEffect(() => {
-    if (!user || user.role !== 'admin' || !token) { setPendingCount(0); return; }
+    if (!user || roleLevel(user.role) < roleLevel('admin') || !token) { setPendingCount(0); return; }
     const fetch = async () => {
       try {
         const r = await axios.get('/api/tickets/admin', { headers: { Authorization: `Bearer ${token}` } });
@@ -81,6 +96,8 @@ function Sidebar() {
     { to: '/messages', icon: '💬', label: 'Сообщения', requireAuth: true },
   ];
 
+  const isAdmin = user && roleLevel(user.role) >= roleLevel('admin');
+
   return (
     <>
       {/* Кнопка-гамбургер: только на мобилке/планшете */}
@@ -123,8 +140,8 @@ function Sidebar() {
               </div>
               <div className="sidebar__profile-info">
                 <span className="sidebar__profile-name">{user.username}</span>
-                <span className="sidebar__profile-role">
-                  {user.role === 'admin' ? 'Администратор' : 'Игрок'}
+                <span className={`sidebar__profile-role sidebar__profile-role--${user.role}`}>
+                  {roleLabel(user.role)}
                 </span>
               </div>
             </Link>
@@ -161,8 +178,8 @@ function Sidebar() {
             })
           }
 
-          {/* Заявки — только администраторам */}
-          {user?.role === 'admin' && (
+          {/* Заявки — только администраторам и выше */}
+          {isAdmin && (
             <NavLink
               to="/dashboard/tickets"
               className={({ isActive }) =>
@@ -173,6 +190,41 @@ function Sidebar() {
               <span className="sidebar__item-label">Заявки</span>
             </NavLink>
           )}
+
+          {/* Логи — только администраторам и выше */}
+          {isAdmin && (
+            <NavLink
+              to="/dashboard/logs"
+              className={({ isActive }) =>
+                `sidebar__item${isActive ? ' sidebar__item--active' : ''}`
+              }
+            >
+              <span className="sidebar__item-icon">📋</span>
+              <span className="sidebar__item-label">Логи</span>
+            </NavLink>
+          )}
+        </div>
+
+        {/* ── Футер с авторами ── */}
+        <div className="sidebar__footer">
+          <span className="sidebar__footer-by">by</span>
+          <a
+            href="#"
+            className="sidebar__footer-author sidebar__footer-author--galzun"
+            onClick={(e) => e.preventDefault()}
+          >Galzun</a>
+          <span className="sidebar__footer-sep">,</span>
+          <a
+            href="#"
+            className="sidebar__footer-author sidebar__footer-author--deepseek"
+            onClick={(e) => e.preventDefault()}
+          >DeepSeek</a>
+          <span className="sidebar__footer-sep">,</span>
+          <a
+            href="#"
+            className="sidebar__footer-author sidebar__footer-author--claude"
+            onClick={(e) => e.preventDefault()}
+          >ClaudeCode</a>
         </div>
 
       </nav>

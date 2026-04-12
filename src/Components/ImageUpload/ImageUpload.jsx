@@ -15,7 +15,7 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import './ImageUpload.scss';
 
-function ImageUpload({ onUpload, label = 'Выбрать изображение', currentUrl = null, disabled = false }) {
+function ImageUpload({ onUpload, label = 'Выбрать изображение', currentUrl = null, disabled = false, showPreview = true }) {
   // preview — URL для предпросмотра. Обновляется после выбора файла.
   const [preview, setPreview]   = useState(currentUrl);
   // uploading — идёт ли загрузка на сервер прямо сейчас.
@@ -100,7 +100,7 @@ function ImageUpload({ onUpload, label = 'Выбрать изображение'
   return (
     <div className="image-upload">
       {/* Предпросмотр изображения */}
-      {preview && (
+      {showPreview && preview && (
         <div className="image-upload__preview">
           <img src={preview} alt="Предпросмотр" />
         </div>

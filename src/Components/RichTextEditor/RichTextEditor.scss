@@ -3,8 +3,17 @@
 .rte {
   border: 1px solid #2a2a3a;
   border-radius: 10px;
-  overflow: hidden;
+  // overflow: clip обрезает контент по border-radius, но не создаёт scroll-container
+  // (в отличие от overflow: hidden), поэтому position: sticky в тулбаре работает корректно
+  overflow: clip;
   background: #0f0f1e;
+
+  &__sticky-header {
+    position: sticky;
+    top: var(--header-h, 64px);
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  }
 
   &__toolbar {
     display: flex;
@@ -41,6 +50,21 @@
       background: rgba(74, 255, 158, 0.2);
     }
 
+    // Активное состояние (текущий формат)
+    &--active {
+      background: rgba(74, 255, 158, 0.15);
+      color: #4aff9e;
+      border-color: rgba(74, 255, 158, 0.35);
+    }
+
+    &--danger {
+      &:hover {
+        background: rgba(255, 74, 74, 0.15);
+        color: #ff6b6b;
+        border-color: rgba(255, 74, 74, 0.3);
+      }
+    }
+
     &:disabled {
       opacity: 0.4;
       cursor: default;
@@ -55,10 +79,48 @@
     margin: 0 4px;
   }
 
+  // Панель управления выбранным медиа
+  &__media-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: #0d0d20;
+    border-bottom: 1px solid #2a2a3a;
+  }
+
+  &__media-bar-label {
+    font-size: 0.78rem;
+    color: #666;
+    margin-right: 4px;
+  }
+
+  &__media-width-input {
+    background: #1a1a2e;
+    border: 1px solid #2a2a3a;
+    border-radius: 6px;
+    color: #ddd;
+    font-size: 0.82rem;
+    width: 58px;
+    height: 30px;
+    padding: 0 8px;
+    text-align: center;
+    outline: none;
+
+    &:focus {
+      border-color: rgba(74, 255, 158, 0.4);
+    }
+
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+    }
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
   &__editor {
-    min-height: 480px;
-    max-height: 80vh;
-    overflow-y: auto;
+    min-height: 320px;
     padding: 16px 20px;
     color: #ddd;
     font-size: 1rem;
@@ -73,7 +135,7 @@
       pointer-events: none;
     }
 
-    // Стили внутри редактора (копируем из .news-content)
+    // Стили внутри редактора
     h2 { font-size: 1.5rem; font-weight: 700; color: #fff; margin: 24px 0 8px; }
     h3 { font-size: 1.25rem; font-weight: 600; color: #f0f0f0; margin: 20px 0 8px; }
     h4 { font-size: 1.05rem; font-weight: 600; color: #e0e0e0; margin: 16px 0 6px; }
@@ -83,7 +145,12 @@
     strong { color: #fff; }
     em     { color: #ccc; }
 
-    a { color: #4aff9e; }
+    a {
+      color: #4aff9e;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: text;
+    }
 
     blockquote {
       border-left: 3px solid #4aff9e;
@@ -98,21 +165,404 @@
     ul { list-style: disc;    padding-left: 24px; margin: 8px 0 12px; }
     ol { list-style: decimal; padding-left: 24px; margin: 8px 0 12px; }
 
+    hr {
+      border: none;
+      border-top: 1px solid #2a2a3a;
+      margin: 20px 0;
+    }
+
+    // Маркеры слайдера и списка игроков внутри редактора
+    .rte-slider,
+    .rte-player-list,
+    .rte-poll-marker {
+      // Стили задаются инлайн при вставке,
+      // здесь добавляем только интерактивность
+      -webkit-user-select: none;
+      user-select: none;
+      cursor: default;
+
+      &:hover {
+        outline: 1px solid rgba(74, 255, 158, 0.4);
+        outline-offset: 2px;
+      }
+    }
+
+    // Выравнивание медиа-элементов (через margin, НЕ float — float тянет
+    // следующий элемент в тот же ряд, что создаёт непредсказуемое поведение)
+    .rte-media-align-left {
+      display: block;
+      float: none;
+      margin: 12px auto 12px 0;
+    }
+
+    .rte-media-align-right {
+      display: block;
+      float: none;
+      margin: 12px 0 12px auto;
+    }
+
+    .rte-media-align-center {
+      display: block;
+      float: none;
+      margin: 12px auto;
+    }
+
+    // Ряд изображений — маркер в редакторе
+    .rte-image-row {
+      cursor: pointer !important;
+      -webkit-user-select: none;
+      user-select: none;
+
+      &:hover {
+        background: rgba(74, 255, 158, 0.12) !important;
+        border-color: rgba(74, 255, 158, 0.5) !important;
+      }
+    }
+
+    // Пустые параграфы-разделители вокруг медиа: подсвечиваем при наведении
+    // чтобы пользователь понимал, куда нажать для ввода текста
+    p:has(> br:only-child) {
+      position: relative;
+      min-height: 1.75em; // гарантируем кликабельную высоту
+
+      &:hover::after {
+        content: '← нажмите для ввода текста';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        color: rgba(74, 255, 158, 0.3);
+        font-size: 0.72rem;
+        pointer-events: none;
+        white-space: nowrap;
+      }
+    }
+
     img {
       max-width: 100%;
       border-radius: 10px;
       margin: 12px 0;
       display: block;
-      cursor: default;
+      cursor: pointer;
+      transition: outline 0.1s;
+
+      &.rte-selected {
+        outline: 2px solid #4aff9e;
+        outline-offset: 2px;
+      }
     }
 
-    video, iframe {
-      width: 100%;
+    video {
+      max-width: 100%;
       border-radius: 10px;
       margin: 12px 0;
       display: block;
       border: none;
-      aspect-ratio: 16/9;
+      cursor: pointer;
+      // Видео в редакторе без нативных контролов: используем нашу панель для resize/align
+      // controls можно смотреть только через нажатие пробела (HTML5 keyboard nav)
+      &.rte-selected {
+        outline: 2px solid #4aff9e;
+        outline-offset: 2px;
+      }
     }
+
+    iframe {
+      max-width: 100%;
+      border-radius: 10px;
+      margin: 12px 0;
+      display: block;
+      border: none;
+      aspect-ratio: 16 / 9;
+      // pointer-events: none — клики проходят сквозь iframe к editor div,
+      // выбор iframe обрабатывается через bounding box в handleEditorMouseDown
+      pointer-events: none;
+      cursor: default;
+
+      &.rte-selected {
+        outline: 2px solid #4aff9e;
+        outline-offset: 2px;
+      }
+    }
+
+    // Маркеры слайдера и списка игроков — кликабельны для редактирования
+    .rte-slider,
+    .rte-player-list {
+      cursor: pointer !important;
+      -webkit-user-select: none;
+      user-select: none;
+
+      &:hover {
+        background: rgba(74, 255, 158, 0.12) !important;
+        border-color: rgba(74, 255, 158, 0.5) !important;
+      }
+    }
+  }
+
+  // ── Кнопки тулбара: визуальные модификаторы ──────────────
+  &__btn--bold   { font-weight: 700; }
+  &__btn--italic { font-style: italic; }
+
+  // ── Модальные окна (слайдер / ряд изображений / список игроков / опрос) ──
+
+  &__modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  &__modal-poll-inner {
+    width: 100%;
+    max-width: 540px;
+  }
+
+  &__modal-box {
+    background: #13132a;
+    border-radius: 12px;
+    border: 1px solid #2a2a3a;
+    width: 100%;
+    max-width: 620px;
+    padding: 24px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    &--narrow { max-width: 480px; }
+  }
+
+  &__modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  &__modal-title {
+    margin: 0;
+    color: #fff;
+    font-size: 1.05rem;
+  }
+
+  &__modal-close {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 1.1rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.15s;
+
+    &:hover { color: #aaa; }
+  }
+
+  &__modal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+    overflow-y: auto;
+    max-height: 280px;
+  }
+
+  &__modal-thumb {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #0a0a1a;
+  }
+
+  &__modal-thumb-preview {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    display: block;
+  }
+
+  &__modal-thumb-placeholder {
+    width: 100%;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+
+  &__modal-thumb-name {
+    display: block;
+    padding: 4px 6px;
+    font-size: 0.7rem;
+    color: #888;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__modal-thumb-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0, 0, 0, 0.7);
+    border: none;
+    color: #fff;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.65rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: background 0.12s;
+
+    &:hover { background: rgba(0, 0, 0, 0.9); }
+  }
+
+  &__modal-add-btn {
+    background: transparent;
+    border: 1px dashed rgba(74, 255, 158, 0.35);
+    color: #4aff9e;
+    border-radius: 8px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.15s;
+
+    &:hover:not(:disabled) { background: rgba(74, 255, 158, 0.08); }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+  }
+
+  &__modal-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__modal-actions-right {
+    display: flex;
+    gap: 10px;
+  }
+
+  &__modal-cancel {
+    background: none;
+    border: 1px solid #2a2a3a;
+    color: #888;
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: border-color 0.15s, color 0.15s;
+
+    &:hover { border-color: #555; color: #aaa; }
+  }
+
+  &__modal-confirm {
+    background: #4aff9e;
+    color: #0a0a1a;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: opacity 0.15s;
+
+    &:disabled { opacity: 0.45; cursor: default; }
+  }
+
+  &__modal-delete {
+    background: none;
+    border: 1px solid rgba(255, 74, 74, 0.4);
+    color: #ff4a4a;
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.15s;
+
+    &:hover { background: rgba(255, 74, 74, 0.1); }
+  }
+
+  // PlayerModal
+  &__modal-search {
+    background: #0f0f1e;
+    border: 1px solid #2a2a3a;
+    border-radius: 8px;
+    color: #ddd;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+
+    &:focus { border-color: rgba(74, 255, 158, 0.4); }
+  }
+
+  &__modal-list {
+    overflow-y: auto;
+    flex: 1;
+    max-height: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__modal-empty {
+    color: #555;
+    text-align: center;
+    padding: 20px 0;
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  &__modal-player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    background: transparent;
+    transition: background 0.12s;
+
+    &:hover { background: rgba(255, 255, 255, 0.04); }
+    &--selected { background: rgba(74, 255, 158, 0.08); }
+  }
+
+  &__modal-player-checkbox {
+    accent-color: #4aff9e;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  &__modal-player-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    flex-shrink: 0;
+  }
+
+  &__modal-player-name {
+    color: #ddd;
+    font-size: 0.9rem;
+  }
+
+  &__modal-selected-count {
+    font-size: 0.8rem;
+    color: #4aff9e;
+    margin: 0;
   }
 }

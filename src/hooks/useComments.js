@@ -2,7 +2,7 @@
 // Хук для работы с комментариями: загрузка, добавление, удаление.
 //
 // Параметры:
-//   type — тип объекта: 'post' | 'image' | 'profile' | 'news'
+//   type — тип объекта: 'post' | 'image' | 'profile' | 'news' | 'event'
 //   id   — ID объекта (поста, фото, пользователя или новости)
 //
 // Возвращает:
@@ -39,6 +39,7 @@ function useComments({ type, id }) {
     if (type === 'image')   return `/api/images/${id}/comments`;
     if (type === 'profile') return `/api/users/${id}/profile-comments`;
     if (type === 'news')    return `/api/news/${id}/comments`;
+    if (type === 'event')   return `/api/events/${id}/comments`;
     return null;
   }, [type, id]);
 

@@ -32,7 +32,7 @@
   flex-shrink: 0;
   width: 40px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: 5px;
   overflow: hidden;
   background: #2a2a3a;
 
@@ -69,6 +69,30 @@
   color: var(--cards-text-dim, #666);
 }
 
+.post-card__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.post-card__edit {
+  background: none;
+  border: none;
+  color: var(--cards-text-dim, #555);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
+  line-height: 1;
+
+  &:hover {
+    color: var(--cards-accent-color, #4aff9e);
+    background: rgba(74, 255, 158, 0.08);
+  }
+}
+
 .post-card__delete {
   background: none;
   border: none;
@@ -84,6 +108,55 @@
     color: #ff6b6b;
     background: rgba(255, 107, 107, 0.1);
   }
+}
+
+// Метка «Изменено» под постом
+.post-card__edited {
+  font-size: 0.75rem;
+  color: var(--cards-text-dim, #555);
+  padding: 4px 0 0;
+  font-style: italic;
+}
+
+// Модалка редактирования поста
+.post-card__edit-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 2500;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.post-card__edit-modal {
+  width: 100%;
+  max-width: 640px;
+  margin: auto 0; // вертикальное центрирование если контент не заполняет оверлей
+  background: var(--cards-bg-computed, #1a1a1a);
+  border: var(--cards-border-width, 1px) solid var(--cards-border-color, #2a2a3a);
+  border-radius: var(--cards-border-radius, 14px);
+  padding: 20px;
+  animation: edit-modal-in 0.15s ease;
+
+  &__title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--cards-text-color, #fff);
+    margin: 0 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+@keyframes edit-modal-in {
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 // Блок вложений поста (PostAttachments) — растягивается на всю ширину карточки
@@ -283,7 +356,7 @@
 .post-card__last-comment-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: 4px;
   object-fit: cover;
   display: block;
 }

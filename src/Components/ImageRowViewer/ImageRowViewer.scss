@@ -1,0 +1,37 @@
+// ImageRowViewer.scss
+
+.image-row-viewer {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin: 12px 0;
+
+  &__item {
+    flex: 1;
+    min-width: 150px;
+    max-width: calc(50% - 4px);
+    height: auto;
+    border-radius: 10px;
+    display: block;
+    object-fit: cover;
+
+    &--clickable {
+      cursor: pointer;
+      transition: opacity 0.15s;
+      &:hover { opacity: 0.88; }
+    }
+
+    // Для рядов из 3+ изображений — меньший max-width
+    &:nth-child(n+3) {
+      max-width: calc(33.33% - 6px);
+    }
+  }
+
+  // Одно изображение — на всю ширину
+  &:has(.image-row-viewer__item:only-child) .image-row-viewer__item {
+    max-width: 100%;
+    flex: none;
+    width: 100%;
+  }
+}

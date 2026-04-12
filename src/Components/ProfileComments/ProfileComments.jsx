@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 import { timeAgo } from '../../utils/timeFormatter';
 import ProfileCommentsModal from './ProfileCommentsModal';
 import axios from 'axios';
+import { showConfirm, showAlert } from '../Dialog/dialogManager';
 import './ProfileComments.scss';
 
 const PREVIEW_LIMIT = 3;
@@ -77,14 +78,14 @@ function ProfileComments({ userId, username }) {
   };
 
   const handleDelete = async (commentId) => {
-    if (!window.confirm('Удалить комментарий?')) return;
+    if (!(await showConfirm('Удалить комментарий?'))) return;
     try {
       await axios.delete(`/api/comments/${commentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setComments(prev => prev.filter(c => c.id !== commentId));
     } catch (err) {
-      alert(err.response?.data?.error || 'Ошибка при удалении');
+      await showAlert(err.response?.data?.error || 'Ошибка при удалении');
     }
   };
 

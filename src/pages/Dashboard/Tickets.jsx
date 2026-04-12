@@ -29,7 +29,8 @@ function Tickets() {
       navigate('/auth');
       return;
     }
-    if (user.role !== 'admin') {
+    const level = { creator: 4, admin: 3, editor: 2, user: 1 };
+    if ((level[user.role] ?? 1) < 3) {
       navigate('/');
     }
   }, [user, navigate]);
@@ -111,7 +112,8 @@ function Tickets() {
   };
 
   // Не рендерим страницу пока не убедились в правах (избегаем мигания контента).
-  if (!user || user.role !== 'admin') return null;
+  const level = { creator: 4, admin: 3, editor: 2, user: 1 };
+  if (!user || (level[user.role] ?? 1) < 3) return null;
 
   return (
     <div className="tickets">

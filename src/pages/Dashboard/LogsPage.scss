@@ -1,0 +1,500 @@
+// LogsPage.scss
+// Стили страницы логов активности
+
+.logs-page {
+  --accent: #4aff9e;
+  --bg-card: #1a1a1a;
+  --bg-deep: #111118;
+  --border: rgba(255, 255, 255, 0.08);
+  --text-muted: rgba(255, 255, 255, 0.5);
+  --text-dim: rgba(255, 255, 255, 0.35);
+
+  padding: 32px 20px 60px;
+  color: #eee;
+
+  &__title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 24px;
+  }
+
+  // ── Статистика ──────────────────────────────────
+  &__stats {
+    margin-bottom: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  &__stats-global {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  &__stat-card {
+    flex: 1 1 140px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  &__stat-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  // Топ загрузчиков
+  &__top-uploaders {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+
+  &__top-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__top-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__top-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+  }
+
+  &__top-rank {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    min-width: 28px;
+    font-weight: 600;
+  }
+
+  &__top-name {
+    flex: 1;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #ddd;
+  }
+
+  &__top-files {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    min-width: 70px;
+    text-align: right;
+  }
+
+  &__top-size {
+    font-size: 0.88rem;
+    font-weight: 700;
+    min-width: 80px;
+    text-align: right;
+  }
+
+  // Кнопки раскрытия топа
+  &__top-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  &__top-btn {
+    padding: 5px 14px;
+    background: rgba(74, 255, 158, 0.08);
+    border: 1px solid rgba(74, 255, 158, 0.35);
+    border-radius: 6px;
+    color: var(--accent);
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover { background: rgba(74, 255, 158, 0.18); }
+
+    &--collapse {
+      background: rgba(255, 74, 74, 0.07);
+      border-color: rgba(255, 74, 74, 0.35);
+      color: #ff6b6b;
+
+      &:hover { background: rgba(255, 74, 74, 0.15); }
+    }
+  }
+
+  // ── Фильтры ─────────────────────────────────────
+  &__filters {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  &__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__tab {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.15s;
+
+    &:hover {
+      border-color: var(--accent);
+      color: #ccc;
+    }
+
+    &--active {
+      background: rgba(74, 255, 158, 0.12);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+  }
+
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__search-input {
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    color: #eee;
+    font-size: 0.9rem;
+    min-width: 200px;
+    outline: none;
+    transition: border-color 0.15s;
+
+    &::placeholder { color: var(--text-dim); }
+
+    &:focus { border-color: var(--accent); }
+  }
+
+  &__search-btn {
+    padding: 7px 16px;
+    background: rgba(74, 255, 158, 0.15);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    color: var(--accent);
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover { background: rgba(74, 255, 158, 0.25); }
+  }
+
+  &__search-clear {
+    padding: 7px 12px;
+    background: rgba(255, 74, 74, 0.1);
+    border: 1px solid rgba(255, 74, 74, 0.4);
+    border-radius: 8px;
+    color: #ff6b6b;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover { background: rgba(255, 74, 74, 0.2); }
+  }
+
+  // Обёртка для инпута + дропдаун
+  &__search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  &__search-spin {
+    position: absolute;
+    right: 10px;
+    font-size: 0.85rem;
+    pointer-events: none;
+    animation: logs-spin 1s linear infinite;
+  }
+
+  @keyframes logs-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  // Дропдаун с подсказками
+  &__suggestions {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 100%;
+    background: #1e1e2e;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    z-index: 100;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  &__suggestion {
+    display: block;
+    width: 100%;
+    padding: 8px 14px;
+    background: none;
+    border: none;
+    text-align: left;
+    color: #ddd;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: background 0.12s;
+
+    &:hover { background: rgba(255, 255, 255, 0.06); }
+
+    &--active {
+      color: var(--accent);
+      background: rgba(74, 255, 158, 0.08);
+    }
+  }
+
+  // ── Счётчик / ошибки ────────────────────────────
+  &__count {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  &__error {
+    color: #ff6b6b;
+    margin-bottom: 12px;
+  }
+
+  &__loading,
+  &__empty {
+    text-align: center;
+    padding: 60px 0;
+    color: var(--text-muted);
+    font-size: 1rem;
+  }
+
+  // ── Таблица ──────────────────────────────────────
+  &__table-wrap {
+    overflow-x: auto;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.87rem;
+
+    th {
+      background: var(--bg-deep);
+      padding: 10px 14px;
+      text-align: left;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      vertical-align: middle;
+    }
+  }
+
+  &__row {
+    transition: background 0.12s;
+
+    &:hover { background: rgba(255, 255, 255, 0.03); }
+    &:last-child td { border-bottom: none; }
+  }
+
+  // Ячейка — игрок
+  &__cell-user {
+    white-space: nowrap;
+  }
+
+  &__user {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  &__avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  &__username {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #ddd;
+    font-size: 0.87rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: color 0.12s;
+
+    &:hover { color: var(--accent); }
+  }
+
+  &__profile-link {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    text-decoration: none;
+    transition: color 0.12s;
+
+    &:hover { color: var(--accent); }
+  }
+
+  // Ячейка — действие
+  &__cell-action {
+    white-space: nowrap;
+  }
+
+  &__badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  &__target-type {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  // Ячейка — файл
+  &__cell-file {
+    max-width: 260px;
+  }
+
+  &__filename {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 240px;
+    color: #ccc;
+    font-family: 'Consolas', monospace;
+    font-size: 0.83rem;
+  }
+
+  &__preview {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.83rem;
+  }
+
+  // Ячейка — размер
+  &__cell-size {
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  &__size-warn {
+    margin-left: 4px;
+    font-size: 0.85rem;
+  }
+
+  // Ячейка — тип
+  &__cell-type {
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-family: 'Consolas', monospace;
+  }
+
+  // Ячейка — дата
+  &__cell-date {
+    white-space: nowrap;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  // ── Пагинация ────────────────────────────────────
+  &__pagination {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+
+  &__page-btn {
+    padding: 7px 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 0.88rem;
+    transition: all 0.15s;
+
+    &:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    &:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+  }
+
+  &__page-info {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+  }
+}

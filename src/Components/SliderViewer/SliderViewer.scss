@@ -1,0 +1,140 @@
+// SliderViewer.scss
+// Карусель изображений/видео внутри новостей.
+// Стрелки и стрип полностью повторяют стиль ImageModal.
+
+.slider-viewer {
+  margin: 20px 0;
+  position: relative;
+
+  // ── Основной медиа-блок ──────────────────────────────────────────────────
+  // aspect-ratio фиксирует высоту контейнера — при смене картинка↔видео
+  // высота не меняется и страница не прыгает.
+  &__main {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+  }
+
+  // Картинка и видео растягиваются на весь контейнер через height:100%.
+  // margin/height !important перебивают .news-content img { margin:16px 0; height:auto }.
+  &__img {
+    display: block !important;
+    width: 100%;
+    height: 100% !important;
+    object-fit: contain;
+    margin: 0 !important;
+    cursor: pointer;
+  }
+
+  &__video {
+    display: block !important;
+    width: 100%;
+    height: 100% !important;
+    object-fit: contain;
+    margin: 0 !important;
+  }
+
+  // ── Стрелки (идентичны image-modal__arrow) ─────────────────────────────
+  &__arrow {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 2;
+    width: 72px;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 2.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    transition: background 0.15s, color 0.15s;
+
+    &--prev { left: 0; }
+    &--next { right: 0; }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--cards-accent-color, #4aff9e);
+    }
+  }
+
+  // При видео — освобождаем низ для нативных кнопок управления
+  &--video &__arrow {
+    bottom: 120px;
+  }
+
+  // ── Счётчик ──────────────────────────────────────────────────────────────
+  &__counter {
+    position: absolute;
+    bottom: 10px;
+    right: 12px;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.75);
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  // ── Стрип миниатюр ───────────────────────────────────────────────────────
+  &__strip {
+    display: flex;
+    gap: 8px;
+    padding: 12px 0;
+    justify-content: center;
+    min-height: 72px;
+    align-items: center;
+    background: transparent;
+    overflow-x: auto;
+    flex-wrap: wrap;
+  }
+
+  // Миниатюра
+  &__thumb {
+    position: relative;   // для position:absolute у strip-thumb
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    background: #111;
+    opacity: 0.6;
+    transition: all 0.2s;
+    padding: 0;
+    display: block;  // убирает inline-отступ кнопки
+
+    &--active {
+      border: 2px solid var(--cards-accent-color, #4aff9e);
+      opacity: 1;
+      transform: scale(1.08);
+    }
+
+    &:not(&--active):hover {
+      opacity: 0.85;
+    }
+  }
+
+  // Изображение/видео внутри миниатюры.
+  // position:absolute + inset:0 вместо height:100%, т.к. .news-content img { height: auto }
+  // (0,1,1) перебивает height:100% (0,1,0). Абсолютное позиционирование этого не касается.
+  &__strip-thumb {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100% !important;
+    object-fit: cover;
+    display: block !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    pointer-events: none;
+  }
+}

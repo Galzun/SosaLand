@@ -13,6 +13,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import useMessages from '../../hooks/useMessages';
+import { showConfirm, showAlert } from '../../Components/Dialog/dialogManager';
 import ConversationList from '../../Components/ConversationList/ConversationList';
 import ChatWindow from '../../Components/ChatWindow/ChatWindow';
 import './MessagesPage.scss';
@@ -151,11 +152,12 @@ function MessagesPage() {
 
   // Удаление сообщения
   const handleDelete = useCallback(async (messageId) => {
-    if (!activePartner || !window.confirm('Удалить сообщение?')) return;
+    if (!activePartner) return;
+    if (!(await showConfirm('Удалить сообщение?'))) return;
     try {
       await deleteMessage(messageId, activePartner.id);
     } catch {
-      alert('Не удалось удалить сообщение');
+      await showAlert('Не удалось удалить сообщение');
     }
   }, [activePartner, deleteMessage]);
 

@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import GalleryAlbum from '../../Components/GalleryAlbum/GalleryAlbum';
 import ImageModal from '../../Components/ImageModal/ImageModal';
 import { timeAgo } from '../../utils/timeFormatter';
+import { showConfirm, showAlert } from '../../Components/Dialog/dialogManager';
 import './Gallery.scss';
 
 const LIMIT          = 30;
@@ -62,6 +63,16 @@ function Gallery() {
       idx += album.items.length;
     }
     return map;
+  }, [albums]);
+
+  // Диапазоны альбомов для динамического определения текущего альбома в ImageModal
+  const albumRanges = useMemo(() => {
+    let idx = 0;
+    return albums.map(album => {
+      const range = { startIndex: idx, items: album.items };
+      idx += album.items.length;
+      return range;
+    });
   }, [albums]);
 
   const openModal = (album, itemIdx) => {
@@ -196,7 +207,7 @@ function Gallery() {
     const msg = album.count > 1
       ? `Удалить альбом (${album.count} файлов)?`
       : 'Удалить фото?';
-    if (!window.confirm(msg)) return;
+    if (!(await showConfirm(msg))) return;
 
     try {
       await axios.delete(`/api/images/album/${album.albumId}`, {
@@ -205,7 +216,7 @@ function Gallery() {
       setAlbums(prev => prev.filter(a => a.albumId !== album.albumId));
       setModalIndex(null);
     } catch (err) {
-      alert(err.response?.data?.error || 'Ошибка при удалении');
+      await showAlert(err.response?.data?.error || 'Ошибка при удалении');
     }
   };
 
@@ -379,7 +390,17 @@ function Gallery() {
         <ImageModal
           images={allItems}
           initialIndex={modalIndex}
+          albumRanges={albumRanges}
           onClose={() => setModalIndex(null)}
+          onDeleteItem={user ? async (imageId) => {
+            try {
+              await axios.delete(`/api/images/${imageId}`, { headers: { Authorization: `Bearer ${token}` } });
+              setAlbums(prev => prev
+                .map(a => ({ ...a, items: a.items.filter(i => i.id !== imageId) }))
+                .filter(a => a.items.length > 0)
+              );
+            } catch (err) { alert(err.response?.data?.error || 'Ошибка при удалении'); }
+          } : undefined}
         />
       )}
     </main>

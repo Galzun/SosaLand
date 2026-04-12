@@ -1,5 +1,15 @@
 @use "../../styles/variables.scss" as*;
 
+.player-card-wrapper {
+  position: relative;
+
+  .player-card-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+}
+
 .player-card {
   display: flex;
   flex-direction: column;
@@ -13,21 +23,31 @@
   transition: transform 0.2s ease, border-color 0.2s ease;
   text-align: center;
   min-width: 180px;
+  // Фиксированная минимальная высота — меню не сжимает карточку
+  min-height: 310px;
   position: relative;
-  overflow: hidden;
-  
-  // Стили для онлайн
+
   &--online:hover {
     transform: translateY(-4px);
     border-color: $color-primary;
     box-shadow: 0 8px 20px rgba($color-primary, 0.15);
   }
-  
-  // Стили для офлайн
+
   &--offline:hover {
     transform: translateY(-4px);
     border-color: $color-offline-light;
     box-shadow: 0 8px 20px rgba($color-offline, 0.3);
+  }
+
+  &--banned {
+    border-color: rgba(255, 74, 74, 0.5);
+    opacity: 0.75;
+
+    &:hover {
+      transform: translateY(-4px);
+      border-color: #ff4a4a;
+      box-shadow: 0 8px 20px rgba(255, 74, 74, 0.2);
+    }
   }
 }
 
@@ -46,17 +66,20 @@
   margin: 8px 0 15px 0;
   border: none;
   transition: background 0.3s ease, box-shadow 0.3s ease;
-  
-  // Зелёный (онлайн)
+
   &--online {
     background: $color-primary;
     box-shadow: 0 0 15px rgba($color-primary, 0.5);
   }
-  
-  // Серый (офлайн) — нормальный, не красный!
+
   &--offline {
     background: $color-offline;
     box-shadow: 0 4px 15px rgba($color-offline, 0.5);
+  }
+
+  &--banned {
+    background: #ff4a4a;
+    box-shadow: 0 0 15px rgba(255, 74, 74, 0.5);
   }
 }
 
@@ -68,7 +91,159 @@
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-// Убираем старый статус
 .player-card__status {
   display: none;
+}
+
+// ---------------------------------------------------------------------------
+// Tooltip причины бана — появляется при наведении на карточку
+// ---------------------------------------------------------------------------
+.player-card__ban-tooltip {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(18, 10, 10, 0.92);
+  color: #ff8080;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 0 0 11px 11px;
+  border-top: 1px solid rgba(255, 74, 74, 0.25);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+  white-space: normal;
+  word-break: break-word;
+
+  .player-card:hover & {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Кнопка ⋮ / ✕ — внутри карточки, двигается вместе с hover-трансформом
+// ---------------------------------------------------------------------------
+.player-card__menu-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 22px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+  z-index: 10;
+  padding: 0;
+
+  &:hover {
+    color: #fff;
+  }
+
+  &--open {
+    color: rgba(255, 255, 255, 0.6);
+
+    &:hover {
+      color: #fff;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Меню внутри карточки (заменяет содержимое) — контент прижат к верху
+// ---------------------------------------------------------------------------
+.player-card__menu-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 2px;
+  padding-top: 30px; // отступ под кнопку ✕
+}
+
+.player-card__menu-loading {
+  font-size: 12px;
+  color: #666;
+  padding: 12px 10px;
+  text-align: center;
+}
+
+.player-card__menu-divider {
+  height: 1px;
+  background: #2a2a40;
+  margin: 6px 0;
+}
+
+.player-card__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: #ccc;
+  font-size: 13px;
+  padding: 10px 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+  width: 100%;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &--ban {
+    color: #ff6b6b;
+    &:hover:not(:disabled) {
+      background: rgba(255, 74, 74, 0.1);
+      color: #ff4a4a;
+    }
+  }
+
+  &--unban {
+    color: #4aff9e;
+    &:hover:not(:disabled) {
+      background: rgba(74, 255, 158, 0.08);
+      color: #4aff9e;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Оверлей ошибки — по центру карточки поверх содержимого
+// ---------------------------------------------------------------------------
+.player-card__error-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(18, 10, 10, 0.85);
+  color: #ff6b6b;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+  z-index: 30;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }

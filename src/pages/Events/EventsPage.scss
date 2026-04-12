@@ -1,44 +1,88 @@
-// pages/Events/EventsPage.scss
+// EventsPage.scss — Страница списка событий, галерейная сетка
 
 .events-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px 20px 48px;
+  padding: 24px 20px 60px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  &__title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+  }
+
+  &__create-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--cards-accent-color, #4aff9e);
+    color: #0a0a1a;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1;
+    padding: 9px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: opacity 0.2s;
+
+    &:hover { opacity: 0.88; }
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  &__empty {
+    color: #666;
+    text-align: center;
+    padding: 48px 0;
+    font-size: 1rem;
+  }
+
+  &__loading {
+    color: #666;
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  &__load-more {
+    display: block;
+    margin: 24px auto 0;
+    background: none;
+    border: 1px solid #333;
+    color: #aaa;
+    font-size: 0.9rem;
+    padding: 10px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+
+    &:hover {
+      border-color: #4aff9e;
+      color: #4aff9e;
+    }
+  }
 }
 
-.events-page__title {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #fff;
-  margin: 0 0 32px;
+@media (max-width: 900px) {
+  .events-page__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-.events-page__placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 80px 20px;
-  background: #141420;
-  border: 1px solid #2a2a3a;
-  border-radius: 16px;
-  text-align: center;
-}
-
-.events-page__icon {
-  font-size: 48px;
-  line-height: 1;
-  opacity: 0.5;
-}
-
-.events-page__text {
-  color: #aaa;
-  font-size: 1rem;
-  margin: 0;
-}
-
-.events-page__hint {
-  color: #555;
-  font-size: 0.875rem;
-  margin: 0;
+@media (max-width: 540px) {
+  .events-page__grid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -42,11 +42,13 @@ function useServerStatus(serverIp) {
         // Преобразуем формат БД → формат, который ожидает PlayerContext.
         // isOnline = false для всех: актуальный статус придёт при первом поллинге.
         const dbPlayers = response.data.map(p => ({
-          id:       p.uuid,
-          uuid:     p.uuid,
-          name:     p.name,
-          lastSeen: p.lastSeen * 1000, // секунды → миллисекунды для Date()
-          isOnline: false,
+          id:        p.uuid,
+          uuid:      p.uuid,
+          name:      p.name,
+          lastSeen:  p.lastSeen * 1000, // секунды → миллисекунды для Date()
+          isOnline:  false,
+          isBanned:  p.isBanned  ?? false,
+          banReason: p.banReason || null,
         }));
 
         setAllPlayers(dbPlayers);
@@ -148,22 +150,45 @@ function useServerStatus(serverIp) {
             allPlayersRef.current.map(p => [p.id || p.uuid, p])
           );
 
+          // Обратный lookup: имя_нижний_регистр → ключ карты
+          // для offline-записей (синтетический UUID `offline:<name>`).
+          // Нужен чтобы пиратские игроки онлайн объединялись с их офлайн-баном.
+          const offlineNameToKey = new Map();
+          allPlayersRef.current.forEach(p => {
+            if (typeof p.uuid === 'string' && p.uuid.startsWith('offline:')) {
+              offlineNameToKey.set(p.name.toLowerCase(), p.id || p.uuid);
+            }
+          });
+
           // Обновляем или добавляем онлайн-игроков.
           onlinePlayers.forEach(current => {
-            const key = current.id || current.uuid || current.name;
+            let key = current.id || current.uuid;
+
+            // Пиратский игрок (нет UUID): ищем офлайн-бан запись по имени.
+            if (!key) {
+              key = offlineNameToKey.get(current.name.toLowerCase()) || current.name;
+            }
+
+            const existing = allMap.get(key);
             allMap.set(key, {
-              ...(allMap.get(key) || {}),
+              ...(existing || {}),
               ...current,
+              uuid:     existing?.uuid || current.uuid,   // сохраняем синтетический UUID
+              id:       existing?.id   || current.id,
               lastSeen: Date.now(),
               isOnline: true,
+              isBanned: existing?.isBanned ?? current.isBanned ?? false,
             });
           });
 
           // Помечаем всех остальных как офлайн.
-          const onlineIds = new Set(onlinePlayers.map(p => p.id || p.uuid || p.name));
+          // Проверяем и по UUID, и по имени (для пиратских игроков).
+          const onlineUUIDs  = new Set(onlinePlayers.map(p => p.uuid).filter(Boolean));
+          const onlineNames  = new Set(onlinePlayers.map(p => p.name.toLowerCase()));
           const updatedAll = Array.from(allMap.values()).map(player => ({
             ...player,
-            isOnline: onlineIds.has(player.id || player.uuid || player.name),
+            isOnline: onlineUUIDs.has(player.uuid) ||
+                      onlineNames.has(player.name?.toLowerCase()),
           }));
 
           // Сортируем: сначала онлайн, затем по last_seen (свежие первыми).

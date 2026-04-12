@@ -13,6 +13,9 @@ import { useAuth } from '../../context/AuthContext';
 import { timeAgo } from '../../utils/timeFormatter';
 import CommentSection from '../CommentSection/CommentSection';
 import PostAttachments from '../PostAttachments/PostAttachments';
+import PostForm from '../PostForm/PostForm';
+import PollViewer from '../PollViewer/PollViewer';
+import { showConfirm } from '../Dialog/dialogManager';
 import './PostModal.scss';
 
 const PM_MIN_WIDTH    = 400;
@@ -20,8 +23,9 @@ const PM_MAX_WIDTH    = 1280;
 const PM_DEFAULT_WIDTH = 680;
 const PM_LS_KEY       = 'sosaland:postModalWidth';
 
-function PostModal({ post, onClose, onLike, onDelete, onCommentAdded, cssVars }) {
+function PostModal({ post, onClose, onLike, onDelete, onEdit, onCommentAdded, cssVars }) {
   const { user } = useAuth();
+  const [editMode, setEditMode] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Resize — левый край модала можно тянуть для изменения ширины
@@ -92,6 +96,7 @@ function PostModal({ post, onClose, onLike, onDelete, onCommentAdded, cssVars })
   }, []);
 
   const isOwner = user && post.author && user.id === post.author.id;
+  const isAdmin = user?.role === 'admin';
   const timeText = timeAgo(post.createdAt * 1000);
   const avatarUrl = post.author?.avatarUrl;
 
@@ -100,8 +105,8 @@ function PostModal({ post, onClose, onLike, onDelete, onCommentAdded, cssVars })
     onLike(post.id);
   };
 
-  const handleDelete = () => {
-    if (!window.confirm('Удалить пост?')) return;
+  const handleDelete = async () => {
+    if (!(await showConfirm('Удалить пост?'))) return;
     onDelete(post.id);
     onClose();
   };
@@ -142,15 +147,41 @@ function PostModal({ post, onClose, onLike, onDelete, onCommentAdded, cssVars })
             <span className="post-modal__author-name">{post.author?.username}</span>
           </Link>
 
-          {isOwner && (
-            <button className="post-modal__delete" onClick={handleDelete} title="Удалить пост">
-              ✕
-            </button>
+          {(isOwner || isAdmin) && (
+            <div className="post-modal__header-actions">
+              {isOwner && onEdit && (
+                <button
+                  className="post-modal__edit"
+                  onClick={() => setEditMode(v => !v)}
+                  title={editMode ? 'Отменить редактирование' : 'Редактировать пост'}
+                >
+                  ✏️
+                </button>
+              )}
+              <button className="post-modal__delete" onClick={handleDelete} title="Удалить пост">
+                🗑
+              </button>
+            </div>
           )}
         </div>
 
+        {/* Режим редактирования */}
+        {editMode && onEdit && (
+          <div className="post-modal__edit-form">
+            <PostForm
+              initialPost={post}
+              onSubmit={async (content, attachments) => {
+                const updated = await onEdit(content, attachments);
+                setEditMode(false);
+                return updated;
+              }}
+              onCancel={() => setEditMode(false)}
+            />
+          </div>
+        )}
+
         {/* Новые вложения — изображения, видео, аудио, документы */}
-        {hasNewAttachments && (
+        {!editMode && hasNewAttachments && (
           <div className="post-modal__attachments">
             <PostAttachments
               attachments={post.attachments}
@@ -162,12 +193,19 @@ function PostModal({ post, onClose, onLike, onDelete, onCommentAdded, cssVars })
         )}
 
         {/* Legacy: одиночный imageUrl */}
-        {!hasNewAttachments && post.imageUrl && (
+        {!editMode && !hasNewAttachments && post.imageUrl && (
           <LegacyAttachment imageUrl={post.imageUrl} />
         )}
 
+        {/* Опрос */}
+        {!editMode && post.pollId && (
+          <div className="post-modal__poll">
+            <PollViewer pollId={post.pollId} cssVars={cssVars} />
+          </div>
+        )}
+
         {/* Полный текст */}
-        {post.content && (
+        {!editMode && post.content && (
           <p className="post-modal__content">{post.content}</p>
         )}
 
@@ -192,6 +230,12 @@ function PostModal({ post, onClose, onLike, onDelete, onCommentAdded, cssVars })
           >
             {timeText}
           </span>
+
+          {post.editCount > 0 && (
+            <span className="post-modal__stat-edited">
+              Изменено {post.editCount} {pluralRaz(post.editCount)} · {timeAgo(post.updatedAt * 1000)}
+            </span>
+          )}
         </div>
 
         {/* Комментарии */}
@@ -223,6 +267,18 @@ function PostModal({ post, onClose, onLike, onDelete, onCommentAdded, cssVars })
     document.body
   );
 }
+
+// ---------------------------------------------------------------------------
+// pluralRaz — склонение слова «раз» по числу
+// ---------------------------------------------------------------------------
+function pluralRaz(n) {
+  const mod10  = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'раз';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'раза';
+  return 'раз';
+}
+
 
 // ---------------------------------------------------------------------------
 // LegacyAttachment — отображение старого формата (posts.image_url)

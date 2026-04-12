@@ -9,23 +9,28 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { timeAgo } from '../../utils/timeFormatter';
 import PostModal from '../PostModal/PostModal';
+import PostForm from '../PostForm/PostForm';
 import PostAttachments from '../PostAttachments/PostAttachments';
+import PollViewer from '../PollViewer/PollViewer';
+import { showConfirm } from '../Dialog/dialogManager';
 import './PostCard.scss';
 
 const CONTENT_TRUNCATE = 300;
 
-function PostCard({ post, onLike, onDelete, cssVars }) {
+function PostCard({ post, onLike, onDelete, onEdit, cssVars }) {
   const articleRef = useRef(null);
 
   const [imgError,         setImgError]         = useState(false);
   const [postModalOpen,    setPostModalOpen]    = useState(false);
+  const [editModalOpen,    setEditModalOpen]    = useState(false);
   const [contentExpanded,  setContentExpanded]  = useState(false);
   // Локальный счётчик комментариев — обновляется при inline-отправке
   const [localCount,       setLocalCount]       = useState(post.commentsCount ?? 0);
 
   const { user, token } = useAuth();
 
-  const isOwner = user && post.author && user.id === post.author.id;
+  const isOwner   = user && post.author && user.id === post.author.id;
+  const isAdmin   = user && ['admin', 'creator'].includes(user.role);
   const timeText = timeAgo(post.createdAt * 1000);
 
   const content    = post.content || '';
@@ -39,8 +44,8 @@ function PostCard({ post, onLike, onDelete, cssVars }) {
     onLike(post.id);
   };
 
-  const handleDelete = () => {
-    if (!window.confirm('Удалить пост?')) return;
+  const handleDelete = async () => {
+    if (!(await showConfirm('Удалить пост?'))) return;
     onDelete(post.id);
   };
 
@@ -93,10 +98,17 @@ function PostCard({ post, onLike, onDelete, cssVars }) {
           </div>
         </Link>
 
-        {isOwner && (
-          <button className="post-card__delete" onClick={handleDelete} title="Удалить пост">
-            ✕
-          </button>
+        {(isOwner || isAdmin) && (
+          <div className="post-card__header-actions">
+            {isOwner && onEdit && (
+              <button className="post-card__edit" onClick={() => setEditModalOpen(true)} title="Редактировать пост">
+                ✏️
+              </button>
+            )}
+            <button className="post-card__delete" onClick={handleDelete} title="Удалить пост">
+              🗑
+            </button>
+          </div>
         )}
       </div>
 
@@ -116,6 +128,13 @@ function PostCard({ post, onLike, onDelete, cssVars }) {
         <LegacyImageAttachment imageUrl={post.imageUrl} />
       )}
 
+      {/* Опрос прикреплённый к посту */}
+      {post.pollId && (
+        <div className="post-card__poll">
+          <PollViewer pollId={post.pollId} cssVars={cssVars} />
+        </div>
+      )}
+
       {/* Текст поста — клик раскрывает / открывает PostModal */}
       {content && (
         <div className="post-card__content-wrap">
@@ -131,6 +150,13 @@ function PostCard({ post, onLike, onDelete, cssVars }) {
               Свернуть ↑
             </button>
           )}
+        </div>
+      )}
+
+      {/* Метка «Изменено» — если пост редактировался */}
+      {post.editCount > 0 && (
+        <div className="post-card__edited">
+          Изменено {post.editCount} {pluralRaz(post.editCount)} · {timeAgo(post.updatedAt * 1000)}
         </div>
       )}
 
@@ -188,11 +214,97 @@ function PostCard({ post, onLike, onDelete, cssVars }) {
           onClose={() => setPostModalOpen(false)}
           onLike={onLike}
           onDelete={onDelete}
+          onEdit={isOwner && onEdit ? (updatedPost) => {
+            onEdit(post.id, updatedPost.content, updatedPost.attachments);
+          } : undefined}
           onCommentAdded={handleCommentAdded}
           cssVars={cssVars}
         />
       )}
+
+      {/* Модальное окно редактирования поста */}
+      {editModalOpen && createPortal(
+        <EditPostModal
+          post={post}
+          onEdit={onEdit}
+          onClose={() => setEditModalOpen(false)}
+          cssVars={cssVars}
+        />,
+        document.body
+      )}
     </article>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// pluralRaz — склонение слова «раз» по числу
+// ---------------------------------------------------------------------------
+function pluralRaz(n) {
+  const mod10  = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'раз';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'раза';
+  return 'раз';
+}
+
+
+// ---------------------------------------------------------------------------
+// EditPostModal — модальное окно редактирования поста
+// ---------------------------------------------------------------------------
+function EditPostModal({ post, onEdit, onClose, cssVars }) {
+  const [saving, setSaving] = useState(false);
+
+  // Блокируем скролл страницы
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.overflow = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
+  // Закрытие по Escape
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const handleSave = async (content, attachments) => {
+    setSaving(true);
+    try {
+      const updated = await onEdit(post.id, content, attachments);
+      onClose();
+      return updated;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="post-card__edit-modal-overlay"
+      style={cssVars}
+    >
+      <div className="post-card__edit-modal">
+        <p className="post-card__edit-modal__title">✏️ Редактировать пост</p>
+        <PostForm
+          initialPost={post}
+          onSubmit={handleSave}
+          onCancel={onClose}
+        />
+      </div>
+    </div>
   );
 }
 

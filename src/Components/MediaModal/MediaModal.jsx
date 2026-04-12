@@ -80,14 +80,16 @@ function MediaModal({ items, initialIndex = 0, onClose, cssVars, disableScrollLo
   return createPortal(
     <div className="media-modal" style={cssVars} onClick={onClose}>
 
-      {/* Кнопка закрытия */}
-      <button
-        className="media-modal__close"
-        onClick={onClose}
-        aria-label="Закрыть"
-      >
-        ✕
-      </button>
+      {/* Верхняя полоса с крестиком */}
+      <div className="media-modal__top-bar" onClick={(e) => e.stopPropagation()}>
+        <button
+          className="media-modal__close"
+          onClick={onClose}
+          aria-label="Закрыть"
+        >
+          ✕
+        </button>
+      </div>
 
       {/* Кнопки навигации — иконки по краям, всегда видны */}
       {items.length > 1 && hasPrev && (
@@ -137,17 +139,12 @@ function MediaModal({ items, initialIndex = 0, onClose, cssVars, disableScrollLo
         )}
       </div>
 
-      {/* Счётчик и имя файла */}
-      {items.length > 0 && (
+      {/* Счётчик */}
+      {items.length > 1 && (
         <div className="media-modal__footer" onClick={(e) => e.stopPropagation()}>
-          {displayName(current) && (
-            <span className="media-modal__filename">{displayName(current)}</span>
-          )}
-          {items.length > 1 && (
-            <span className="media-modal__counter">
-              {currentIndex + 1} / {items.length}
-            </span>
-          )}
+          <span className="media-modal__counter">
+            {currentIndex + 1} / {items.length}
+          </span>
         </div>
       )}
 

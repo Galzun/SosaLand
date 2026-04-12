@@ -1,77 +1,87 @@
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useMemo, useState, useCallback } from 'react';
 
-// Создаём контекст
 const PlayerContext = createContext();
 
-// Провайдер, который будет давать данные всем дочерним компонентам
 export function PlayerProvider({ children, allPlayers, onlinePlayers }) {
-  
-  // useMemo запоминает вычисления, чтобы не делать их при каждом рендере
+  // banOverrides — словарь { [uuid | 'name:username'] → { isBanned, banReason } }
+  // Живёт в контексте (не в компоненте), поэтому сохраняется при навигации.
+  const [banOverrides, setBanOverridesState] = useState({});
+
+  // setBanOverride(uuid, name, isBanned, banReason?)
+  const setBanOverride = useCallback((uuid, name, isBanned, banReason = null) => {
+    setBanOverridesState(prev => {
+      const next = { ...prev };
+      const val = { isBanned, banReason };
+      if (uuid) next[uuid]                              = val;
+      if (name) next[`name:${name.toLowerCase()}`]      = val;
+      return next;
+    });
+  }, []);
+
   const value = useMemo(() => {
-    
-    // Создаём Map для быстрого поиска игрока по имени
     const playersByName = new Map();
-    
-    // 👇 Функция для получения URL аватарки
-    // Если uuid отсутствует (нелицензионный игрок) — сразу возвращаем fallback,
-    // иначе crafatar вернёт дефолтный скин (200 OK) и onError никогда не сработает.
+
     const getAvatarUrl = (username, uuid, useFallback = false) => {
-      if (useFallback || !uuid) {
-        return `https://api.dicebear.com/9.x/initials/svg?scale=80&backgroundColor[]&fontWeight=600&seed=${username}`; //https://api.dicebear.com/9.x/initials/svg?backgroundColor=transparent&seed=${username}
+      if (useFallback || !uuid || uuid.startsWith('offline:')) {
+        return `https://api.dicebear.com/9.x/initials/svg?scale=80&backgroundColor[]&fontWeight=600&seed=${username}`;
       }
       return `https://crafatar.icehost.xyz/avatars/${uuid}?overlay`;
     };
-    
+
     allPlayers.forEach(player => {
-      // 👇 Добавляем URL аватарки прямо в объект игрока
+      // Проверяем override (немедленная реакция на бан/разбан без ожидания рефреша)
+      const overrideUUID = player.uuid ? banOverrides[player.uuid] : undefined;
+      const overrideName = banOverrides[`name:${player.name?.toLowerCase()}`];
+      const override = overrideUUID ?? overrideName;
+
+      const isBanned  = override !== undefined ? override.isBanned  : (player.isBanned  ?? false);
+      const banReason = override !== undefined ? override.banReason  : (player.banReason || null);
+
+      // Для пиратских (offline:) записей UUID не показываем в аватарке
+      const displayUuid = player.uuid?.startsWith('offline:') ? null : player.uuid;
+
       const enhancedPlayer = {
         ...player,
-        avatarUrl: getAvatarUrl(player.name, player.uuid),
-        avatarFallbackUrl: getAvatarUrl(player.name, player.uuid, true),
-        profileUrl: `/player/${player.name}`,
+        uuid:              displayUuid,       // null для offline-записей
+        rawUuid:           player.uuid,       // полный UUID включая 'offline:...' — для ban endpoint
+        avatarUrl:         getAvatarUrl(player.name, displayUuid),
+        avatarFallbackUrl: getAvatarUrl(player.name, displayUuid, true),
+        profileUrl:        `/player/${player.name}`,
         lastSeenFormatted: new Date(player.lastSeen).toLocaleString(),
-        statusText: player.isOnline ? '🟢 В игре' : '⚫ Был(а) недавно'
+        statusText:        player.isOnline ? '🟢 В игре' : '⚫ Был(а) недавно',
+        isBanned,
+        banReason,
       };
-      
+
       playersByName.set(player.name, enhancedPlayer);
     });
-    
-    // Создаём Map для быстрого поиска по UUID
+
     const playersByUUID = new Map();
     allPlayers.forEach(player => {
-      if (player.uuid) {
-        // Используем тот же обогащённый объект
-        const enhancedPlayer = playersByName.get(player.name);
-        playersByUUID.set(player.uuid, enhancedPlayer);
+      if (player.uuid && !player.uuid.startsWith('offline:')) {
+        const enhanced = playersByName.get(player.name);
+        if (enhanced) playersByUUID.set(player.uuid, enhanced);
       }
     });
-    
-    // Функция для получения игрока по имени (уже с avatarUrl)
+
     const getPlayerByName = (name) => playersByName.get(name);
-    
-    // Функция для получения игрока по UUID (уже с avatarUrl)
     const getPlayerByUUID = (uuid) => playersByUUID.get(uuid);
-    
-    // Функция для проверки, онлайн ли игрок
-    const isPlayerOnline = (name) => {
-      return onlinePlayers.some(p => p.name === name);
-    };
-    
-    // Возвращаем всё, что может понадобиться
+    const isPlayerOnline  = (name) => onlinePlayers.some(p => p.name === name);
+
     return {
-      allPlayers: Array.from(playersByName.values()), // все игроки
-      onlinePlayers,        // только онлайн
-      playersByName,        // Map для быстрого доступа
-      playersByUUID,        // Map для быстрого доступа
+      allPlayers:     Array.from(playersByName.values()),
+      onlinePlayers,
+      playersByName,
+      playersByUUID,
       getPlayerByName,
       getPlayerByUUID,
       isPlayerOnline,
-      getAvatarUrl,         // 👇 функция на всякий случай
-      totalPlayers: allPlayers.length,
-      onlineCount: onlinePlayers.length
+      getAvatarUrl,
+      totalPlayers:   allPlayers.length,
+      onlineCount:    onlinePlayers.length,
+      setBanOverride,
     };
-    
-  }, [allPlayers, onlinePlayers]); // Пересчитываем только когда меняются списки
+  }, [allPlayers, onlinePlayers, banOverrides, setBanOverride]);
 
   return (
     <PlayerContext.Provider value={value}>
@@ -80,12 +90,9 @@ export function PlayerProvider({ children, allPlayers, onlinePlayers }) {
   );
 }
 
-// ... остальные хуки без изменений
 export function usePlayer() {
   const context = useContext(PlayerContext);
-  if (!context) {
-    throw new Error('usePlayer must be used within a PlayerProvider');
-  }
+  if (!context) throw new Error('usePlayer must be used within a PlayerProvider');
   return context;
 }
 

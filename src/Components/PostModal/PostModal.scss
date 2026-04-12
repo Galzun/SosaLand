@@ -148,7 +148,7 @@
   flex-shrink: 0;
   width: 44px;
   height: 44px;
-  border-radius: 10px;
+  border-radius: 5px;
   overflow: hidden;
   background: #2a2a3a;
 
@@ -177,6 +177,30 @@
   text-overflow: ellipsis;
 }
 
+.post-modal__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.post-modal__edit {
+  background: none;
+  border: none;
+  color: var(--cards-text-dim, #555);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: color 0.2s, background 0.2s;
+
+  &:hover {
+    color: var(--cards-accent-color, #4aff9e);
+    background: rgba(74, 255, 158, 0.08);
+  }
+}
+
 .post-modal__delete {
   background: none;
   border: none;
@@ -192,6 +216,13 @@
     color: #ff6b6b;
     background: rgba(255, 107, 107, 0.1);
   }
+}
+
+// Форма редактирования внутри модального окна
+.post-modal__edit-form {
+  padding: 12px 20px 0;
+  border-bottom: 1px solid var(--cards-border-color, #2a2a3a);
+  margin-bottom: 8px;
 }
 
 // ---------------------------------------------------------------------------
@@ -268,6 +299,17 @@
 }
 
 // ---------------------------------------------------------------------------
+// Опрос
+// ---------------------------------------------------------------------------
+.post-modal__poll {
+  padding: 0 20px;
+
+  .poll-viewer {
+    margin: 12px 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Полный текст
 // ---------------------------------------------------------------------------
 .post-modal__content {
@@ -325,6 +367,12 @@
   font-size: 0.82rem;
   color: var(--cards-text-dim, #666);
   margin-left: auto;
+}
+
+.post-modal__stat-edited {
+  font-size: 0.75rem;
+  color: var(--cards-text-dim, #555);
+  font-style: italic;
 }
 
 // ---------------------------------------------------------------------------

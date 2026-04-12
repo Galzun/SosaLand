@@ -61,12 +61,26 @@
 }
 
 // ---------------------------------------------------------------------------
+// Невидимая верхняя полоса — кликабельная зона выше стрелок навигации
+// ---------------------------------------------------------------------------
+.media-modal__top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 12px;
+  background: transparent;
+}
+
+// ---------------------------------------------------------------------------
 // Кнопка закрытия
 // ---------------------------------------------------------------------------
 .media-modal__close {
-  position: fixed;
-  top: 12px;
-  right: 12px;
   background: rgba(20, 20, 30, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 50%;
@@ -78,7 +92,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
   transition: background 0.15s, color 0.15s;
 
   &:hover {
