@@ -196,42 +196,32 @@ router.post('/admin/:id/approve', requireAuth, isAdmin, async (req, res) => {
     // Выполняем две операции как транзакцию:
     //   1. Создаём пользователя в таблице users
     //   2. Обновляем статус тикета
-    // serialize() гарантирует последовательное выполнение запросов.
-    await new Promise((resolve, reject) => {
-      db.serialize(() => {
-        db.run('BEGIN TRANSACTION');
-
-        db.run(
-          `INSERT INTO users (id, username, password_hash, minecraft_uuid, role)
-           VALUES (?, ?, ?, ?, 'user')`,
-          [userId, ticket.username, ticket.password_hash, ticket.minecraft_uuid],
-          (err) => { if (err) { db.run('ROLLBACK'); return reject(err); } }
-        );
-
-        db.run(
-          `UPDATE tickets
-           SET status = 'approved', approved_by = ?, approved_at = ?
-           WHERE id = ?`,
-          [req.user.id, now, id],
-          (err) => {
-            if (err) { db.run('ROLLBACK'); return reject(err); }
-            db.run('COMMIT', (commitErr) => {
-              if (commitErr) reject(commitErr);
-              else resolve();
-            });
-          }
-        );
-      });
+    await db.transaction(async (client) => {
+      await db.clientQuery(
+        client,
+        `INSERT INTO users (id, username, password_hash, minecraft_uuid, role)
+         VALUES (?, ?, ?, ?, 'user')`,
+        [userId, ticket.username, ticket.password_hash, ticket.minecraft_uuid]
+      );
+      await db.clientQuery(
+        client,
+        `UPDATE tickets SET status = 'approved', approved_by = ?, approved_at = ? WHERE id = ?`,
+        [req.user.id, now, id]
+      );
     });
 
     res.json({ success: true });
 
   } catch (err) {
     // Дублирующий username или minecraft_uuid — обрабатываем отдельно.
-    if (err.message && err.message.includes('UNIQUE constraint failed')) {
+    if (err.message && (
+      err.message.includes('UNIQUE constraint failed') ||
+      err.message.includes('unique constraint') ||
+      err.message.includes('duplicate key')
+    )) {
       return res.status(409).json({ error: 'Пользователь с таким логином или UUID уже существует' });
     }
-    console.error('Ошибка при одобрении тикета:', err.message);
+    console.error('Ошибка при одобрении тикета:', err);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });

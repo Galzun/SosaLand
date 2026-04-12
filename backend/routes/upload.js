@@ -6,7 +6,7 @@
 // Поддерживаемые поля формы:
 //   "image"   — одно изображение (jpg, png, gif, webp): галерея, обложка профиля
 //   "file"    — один любой файл: вложение в сообщениях
-//   "files[]" — несколько любых файлов: вложения в постах (до 10 штук)
+//   "files[]" — несколько любых файлов: вложения в постах и галерее
 //
 // Файлы сохраняются в backend/uploads/, доступны по /uploads/<имя>
 // Максимальный размер: 50 МБ на файл
@@ -16,6 +16,7 @@ const multer  = require('multer');
 const path    = require('path');
 const fs      = require('fs');
 const { requireAuth } = require('../middleware/auth');
+const { logActivity } = require('../utils/logActivity');
 
 const router = express.Router();
 
@@ -29,8 +30,8 @@ function decodeFileName(name) {
 }
 
 const UPLOADS_DIR   = path.join(__dirname, '../uploads');
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 МБ
-const MAX_FILES     = 10;               // максимум файлов за один запрос
+const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1 ГБ на файл
+const MAX_FILES     = 200;              // максимум файлов за один запрос
 
 // Создаём папку uploads, если её нет
 if (!fs.existsSync(UPLOADS_DIR)) {
@@ -98,7 +99,7 @@ router.post('/', requireAuth, (req, res) => {
     // Ошибки multer
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ error: 'Файл слишком большой. Максимум 50 МБ' });
+        return res.status(400).json({ error: 'Файл слишком большой. Максимум 1 ГБ' });
       }
       if (err.code === 'LIMIT_FILE_COUNT') {
         return res.status(400).json({ error: `Можно загрузить не более ${MAX_FILES} файлов за раз` });
@@ -119,6 +120,23 @@ router.post('/', requireAuth, (req, res) => {
         fileName: decodeFileName(file.originalname),
         size:     file.size,
       }));
+
+      // Логируем каждый файл отдельно для детального трекинга
+      const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+      for (const file of multiFiles) {
+        logActivity({
+          userId:     req.user.id,
+          username:   req.user.username,
+          action:     'file_upload',
+          targetType: req.body?.context || 'post',
+          fileName:   decodeFileName(file.originalname),
+          fileType:   file.mimetype,
+          fileSize:   file.size,
+          fileCount:  1,
+          ip:         clientIp,
+        });
+      }
+
       return res.json({ files: result });
     }
 
@@ -133,6 +151,21 @@ router.post('/', requireAuth, (req, res) => {
     const fileUrl  = `/uploads/${single.filename}`;
     const fileType = single.mimetype;
     const fileName = decodeFileName(single.originalname);
+
+    // Определяем контекст: image-поле → обложка/галерея, file-поле → сообщение
+    const singleContext = req.files?.image ? 'cover' : 'message';
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+    logActivity({
+      userId:     req.user.id,
+      username:   req.user.username,
+      action:     'file_upload',
+      targetType: req.body?.context || singleContext,
+      fileName,
+      fileType,
+      fileSize:   single.size,
+      fileCount:  1,
+      ip:         clientIp,
+    });
 
     res.json({
       url:      fileUrl, // обратная совместимость (ImageUpload, EditProfile используют data.url)

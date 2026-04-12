@@ -51,6 +51,23 @@ const { conversationsRouter, messagesDeleteRouter } = require('./routes/messages
 // Маршруты: GET/POST /api/news, GET/PUT/DELETE /api/news/:slug
 const { router: newsRouter } = require('./routes/news');
 
+// Роутер опросов.
+// Маршруты: POST /api/polls, GET/PUT/DELETE /api/polls/:id, POST /api/polls/:id/vote, ...
+const { router: pollsRouter } = require('./routes/polls');
+
+// Роутер именных альбомов.
+// Маршруты: GET /api/albums, POST /api/albums, PUT/DELETE /api/albums/:id,
+//           GET/POST /api/albums/:id/images, DELETE /api/albums/:id/images/:imageId
+const { router: albumsRouter } = require('./routes/albums');
+
+// Роутер событий.
+// Маршруты: GET/POST /api/events, GET/PUT/DELETE /api/events/:slug, /upload-image, /comments
+const { router: eventsRouter } = require('./routes/events');
+
+// Роутер логов активности (только admin+).
+// Маршруты: GET /api/logs, GET /api/logs/stats
+const { router: logsRouter } = require('./routes/logs');
+
 // Проверяем, что JWT_SECRET задан в .env.
 // Без него сервер не сможет подписывать и проверять токены — лучше упасть сразу.
 if (!process.env.JWT_SECRET) {
@@ -65,7 +82,9 @@ const PORT = process.env.PORT || 3001;
 // Middleware — функции, которые обрабатывают запрос перед тем, как он дойдёт до эндпоинта.
 
 // express.json() автоматически парсит тело запроса из JSON в JavaScript-объект (req.body).
-app.use(express.json());
+// Лимит 100mb для JSON-тела (загрузка файлов идёт через multer, а не JSON).
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // cors() разрешает запросы с других доменов (например, с localhost:5173 — фронтенд на Vite).
 // Без этого браузер заблокирует запросы с фронтенда к бэкенду.
@@ -127,6 +146,33 @@ app.use('/api/messages',      messagesDeleteRouter);
 // Новости: GET/POST /api/news, GET/PUT/DELETE/comments /api/news/:slug
 app.use('/api/news', newsRouter);
 
+// Опросы: POST/GET/PUT/DELETE /api/polls/:id, vote, voters, options
+app.use('/api/polls', pollsRouter);
+
+// Именные альбомы: GET/POST /api/albums, PUT/DELETE /api/albums/:id, ...
+app.use('/api/albums', albumsRouter);
+
+// События: GET/POST /api/events, GET/PUT/DELETE/comments /api/events/:slug
+app.use('/api/events', eventsRouter);
+
+// Логи активности: GET /api/logs, GET /api/logs/stats (только admin+)
+app.use('/api/logs', logsRouter);
+
+
+// --- Раздача собранного фронтенда (продакшн) ---
+// В продакшне React-приложение собрано в ../dist/.
+// Express раздаёт его как статику, а все незнакомые маршруты отдают index.html
+// (React Router сам разберётся, какую страницу показать).
+// В разработке папка dist может не существовать — это нормально,
+// запросы к API всё равно обрабатываются выше.
+const distPath = path.join(__dirname, '../dist');
+const fs = require('fs');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 // --- Запуск сервера ---
 app.listen(PORT, () => {

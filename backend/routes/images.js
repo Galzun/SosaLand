@@ -16,6 +16,7 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { imageCommentsRouter } = require('./comments');
+const { logActivity } = require('../utils/logActivity');
 
 const router = express.Router();
 
@@ -62,9 +63,9 @@ function dbGet(sql, params) {
 function formatAlbum(stub, items) {
   return {
     albumId:       stub.album_id,
-    count:         stub.item_count,
-    createdAt:     stub.created_at,
-    commentsCount: stub.comments_count || 0,
+    count:         Number(stub.item_count)    || 0,
+    createdAt:     Number(stub.created_at),
+    commentsCount: Number(stub.comments_count) || 0,
     author: {
       id:            stub.author_id,
       username:      stub.author_username,
@@ -74,14 +75,16 @@ function formatAlbum(stub, items) {
         : null,
     },
     items: items.map(row => ({
-      id:        row.id,
-      imageUrl:  row.image_url,
-      fileUrl:   row.image_url,
-      fileType:  row.file_type || (row.is_video ? 'video/mp4' : 'image/jpeg'),
-      fileSize:  row.file_size  || null,
-      isVideo:   !!row.is_video,
-      title:     row.title     || null,
-      createdAt: row.created_at,
+      id:                  row.id,
+      imageUrl:            row.image_url,
+      fileUrl:             row.image_url,
+      fileType:            row.file_type || (row.is_video ? 'video/mp4' : 'image/jpeg'),
+      fileSize:            row.file_size  || null,
+      isVideo:             !!row.is_video,
+      title:               row.title     || null,
+      createdAt:           row.created_at,
+      albumName:           row.named_album_name  || null,
+      albumOwnerUsername:  row.named_album_owner  || null,
     })),
   };
 }
@@ -96,19 +99,16 @@ async function getAlbums(whereClause, whereParams, limit, offset) {
     SELECT
       COALESCE(i.group_id, i.id)  AS album_id,
       MIN(i.created_at)           AS created_at,
-      COUNT(*)                    AS item_count,
-      (
-        SELECT COUNT(*) FROM comments c
-        JOIN images img2 ON c.image_id = img2.id
-        WHERE COALESCE(img2.group_id, img2.id) = COALESCE(i.group_id, i.id)
-      ) AS comments_count,
+      COUNT(DISTINCT i.id)        AS item_count,
+      COUNT(DISTINCT c.id)        AS comments_count,
       u.id             AS author_id,
       u.username       AS author_username,
       u.minecraft_uuid AS author_minecraft_uuid
     FROM images i
     JOIN users u ON u.id = i.user_id
+    LEFT JOIN comments c ON c.image_id = i.id
     ${whereClause}
-    GROUP BY COALESCE(i.group_id, i.id)
+    GROUP BY COALESCE(i.group_id, i.id), u.id, u.username, u.minecraft_uuid
     ORDER BY MIN(i.created_at) DESC
     LIMIT ? OFFSET ?
   `, [...whereParams, limit, offset]);
@@ -122,10 +122,12 @@ async function getAlbums(whereClause, whereParams, limit, offset) {
   const rows = await dbAll(`
     SELECT
       COALESCE(i.group_id, i.id) AS album_id,
-      i.id, i.image_url, i.file_type, i.file_size, i.is_video, i.title, i.created_at
+      i.id, i.image_url, i.file_type, i.file_size, i.is_video, i.title, i.created_at,
+      (SELECT a.name FROM album_images ai JOIN albums a ON a.id = ai.album_id WHERE ai.image_id = i.id LIMIT 1) AS named_album_name,
+      (SELECT u.username FROM album_images ai JOIN albums a ON a.id = ai.album_id JOIN users u ON u.id = a.user_id WHERE ai.image_id = i.id LIMIT 1) AS named_album_owner
     FROM images i
     WHERE COALESCE(i.group_id, i.id) IN (${placeholders})
-    ORDER BY i.rowid ASC
+    ORDER BY i.created_at ASC, i.id ASC
   `, albumIds);
 
   // Группируем файлы по album_id
@@ -147,7 +149,7 @@ router.get('/', async (req, res) => {
   const offset = Math.max(parseInt(req.query.offset) || 0,  0);
 
   try {
-    const albums = await getAlbums('', [], limit, offset);
+    const albums = await getAlbums('WHERE i.is_gallery = 1', [], limit, offset);
     res.json(albums);
   } catch (err) {
     console.error('Ошибка получения галереи:', err.message);
@@ -173,12 +175,13 @@ router.post('/', requireAuth, async (req, res) => {
 
   // ---------- Формат 2: массив файлов (пакетный) ----------
   if (Array.isArray(req.body.files)) {
-    const { files, title } = req.body;
+    const { files, title, isGallery, showInProfile } = req.body;
+    const galleryFlag = isGallery !== false ? 1 : 0;
+    const profileFlag = showInProfile !== false ? 1 : 0;
 
     if (files.length === 0) return res.status(400).json({ error: 'Массив files пустой' });
-    if (files.length > 10)  return res.status(400).json({ error: 'Максимум 10 файлов за раз' });
 
-    const cleanTitle = title ? String(title).trim().slice(0, 200) : null;
+    const batchTitle = title ? String(title).trim().slice(0, 200) : null;
     const groupId    = files.length > 1 ? uuidv4() : null; // group_id только для батча
     const createdIds = [];
 
@@ -186,17 +189,19 @@ router.post('/', requireAuth, async (req, res) => {
       for (const f of files) {
         if (!f.fileUrl || typeof f.fileUrl !== 'string') continue;
 
-        const id       = uuidv4();
-        const fileUrl  = f.fileUrl.trim();
-        const fileType = f.fileType || 'application/octet-stream';
-        const fileSize = f.size     || null;
-        const isVideo  = fileType.startsWith('video/') ? 1 : 0;
+        const id         = uuidv4();
+        const fileUrl    = f.fileUrl.trim();
+        const fileType   = f.fileType || 'application/octet-stream';
+        const fileSize   = f.size     || null;
+        const isVideo    = fileType.startsWith('video/') ? 1 : 0;
+        // Пользовательская подпись имеет приоритет; если не задана — сохраняем оригинальное имя файла
+        const cleanTitle = batchTitle || (f.fileName ? String(f.fileName).trim().slice(0, 200) : null);
 
         await dbRun(
           `INSERT INTO images
-             (id, user_id, image_url, file_type, file_size, is_video, group_id, title, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [id, userId, fileUrl, fileType, fileSize, isVideo, groupId, cleanTitle, now]
+             (id, user_id, image_url, file_type, file_size, is_video, group_id, title, is_gallery, show_in_profile, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [id, userId, fileUrl, fileType, fileSize, isVideo, groupId, cleanTitle, galleryFlag, profileFlag, now]
         );
         createdIds.push(id);
       }
@@ -213,6 +218,25 @@ router.post('/', requireAuth, async (req, res) => {
       );
 
       res.status(201).json(albums[0] || { albumId: albumKey, items: [], count: 0 });
+
+      // Логируем загрузку в галерею (по одной записи на файл)
+      const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+      const userRow  = await dbGet(`SELECT username FROM users WHERE id = ?`, [userId]).catch(() => null);
+      const uname    = userRow?.username || userId;
+      for (const f of files) {
+        if (!f.fileUrl) continue;
+        logActivity({
+          userId:     userId,
+          username:   uname,
+          action:     'image_add',
+          targetType: galleryFlag ? 'gallery' : 'profile',
+          fileName:   f.fileName || null,
+          fileType:   f.fileType || null,
+          fileSize:   f.size     || null,
+          fileCount:  1,
+          ip:         clientIp,
+        });
+      }
     } catch (err) {
       console.error('Ошибка пакетного добавления:', err.message);
       res.status(500).json({ error: 'Ошибка при добавлении медиа' });
@@ -221,7 +245,8 @@ router.post('/', requireAuth, async (req, res) => {
   }
 
   // ---------- Формат 1: один imageUrl (совместимость) ----------
-  const { imageUrl, title } = req.body;
+  const { imageUrl, title, isGallery: isGallery1 } = req.body;
+  const galleryFlag1 = isGallery1 !== false ? 1 : 0;
 
   if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim().length === 0) {
     return res.status(400).json({ error: 'Поле imageUrl обязательно' });
@@ -233,9 +258,9 @@ router.post('/', requireAuth, async (req, res) => {
 
   try {
     await dbRun(
-      `INSERT INTO images (id, user_id, image_url, title, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [id, userId, cleanUrl, cleanTitle, now]
+      `INSERT INTO images (id, user_id, image_url, title, is_gallery, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, userId, cleanUrl, cleanTitle, galleryFlag1, now]
     );
 
     const albums = await getAlbums(`WHERE i.id = ?`, [id], 1, 0);
@@ -248,9 +273,8 @@ router.post('/', requireAuth, async (req, res) => {
 
 
 // ---------------------------------------------------------------------------
-// DELETE /api/images/album/:groupId — удалить весь альбом.
-// groupId может быть реальным group_id (многофайловый батч)
-// или image.id (одиночный файл без group_id).
+// DELETE /api/images/album/:groupId — скрыть пак из глобальной галереи (is_gallery=0).
+// Физически не удаляет: медиа остаётся в профиле и альбомах.
 // ---------------------------------------------------------------------------
 router.delete('/album/:groupId', requireAuth, async (req, res) => {
   const { groupId } = req.params;
@@ -258,39 +282,32 @@ router.delete('/album/:groupId', requireAuth, async (req, res) => {
   const userRole    = req.user.role;
 
   try {
-    // Находим все файлы альбома
     const images = await dbAll(
-      `SELECT id, user_id, image_url
-       FROM images
-       WHERE COALESCE(group_id, id) = ?`,
+      `SELECT id, user_id FROM images WHERE COALESCE(group_id, id) = ?`,
       [groupId]
     );
 
     if (images.length === 0) return res.status(404).json({ error: 'Альбом не найден' });
 
-    // Проверяем права (достаточно проверить первый файл — они все одного владельца)
     if (images[0].user_id !== userId && userRole !== 'admin') {
       return res.status(403).json({ error: 'Нет прав для удаления' });
     }
 
     const ids          = images.map(img => img.id);
     const placeholders = ids.map(() => '?').join(', ');
+    await dbRun(`UPDATE images SET is_gallery = 0 WHERE id IN (${placeholders})`, ids);
 
-    await dbRun(`DELETE FROM images WHERE id IN (${placeholders})`, ids);
-
-    // Удаляем файлы с диска
-    images.forEach(img => deleteFileFromDisk(img.image_url));
-
-    res.json({ success: true, deleted: ids.length });
+    res.json({ success: true, hidden: ids.length });
   } catch (err) {
-    console.error('Ошибка удаления альбома:', err.message);
-    res.status(500).json({ error: 'Ошибка при удалении альбома' });
+    console.error('Ошибка скрытия из галереи:', err.message);
+    res.status(500).json({ error: 'Ошибка при удалении' });
   }
 });
 
 
 // ---------------------------------------------------------------------------
-// DELETE /api/images/:id — удалить один файл из базы и с диска.
+// DELETE /api/images/:id — скрыть медиа со страницы «Фото» (show_in_profile=0).
+// Физически не удаляет: медиа остаётся в альбомах и галерее.
 // ---------------------------------------------------------------------------
 router.delete('/:id', requireAuth, async (req, res) => {
   const { id }   = req.params;
@@ -299,7 +316,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
   try {
     const image = await dbGet(
-      `SELECT id, user_id, image_url FROM images WHERE id = ?`, [id]
+      `SELECT id, user_id FROM images WHERE id = ?`, [id]
     );
 
     if (!image) return res.status(404).json({ error: 'Медиа не найдено' });
@@ -308,8 +325,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Нет прав для удаления' });
     }
 
-    await dbRun(`DELETE FROM images WHERE id = ?`, [id]);
-    deleteFileFromDisk(image.image_url);
+    await dbRun(`UPDATE images SET show_in_profile = 0 WHERE id = ?`, [id]);
 
     res.json({ success: true, id });
   } catch (err) {

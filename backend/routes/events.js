@@ -1,15 +1,15 @@
-// routes/news.js
-// Эндпоинты для новостей сервера.
+// routes/events.js
+// Эндпоинты для событий сервера.
 //
-// Маршруты (монтируются под /api/news):
-//   GET    /                      — список новостей (пагинация)
-//   GET    /:slug                 — одна новость по slug
-//   POST   /                      — создать новость (только admin)
-//   PUT    /:slug                 — обновить новость (только admin)
-//   DELETE /:slug                 — удалить новость (только admin)
+// Маршруты (монтируются под /api/events):
+//   GET    /                      — список событий (сортировка по start_time DESC)
+//   GET    /:slug                 — одно событие по slug
+//   POST   /                      — создать событие (только admin)
+//   PUT    /:slug                 — обновить событие (только admin)
+//   DELETE /:slug                 — удалить событие (только admin)
 //   POST   /upload-image          — загрузить изображение для редактора (только admin)
-//   GET    /:newsId/comments      — комментарии к новости
-//   POST   /:newsId/comments      — добавить комментарий к новости
+//   GET    /:eventId/comments     — комментарии к событию
+//   POST   /:eventId/comments     — добавить комментарий к событию
 
 const express = require('express');
 const multer  = require('multer');
@@ -18,46 +18,15 @@ const fs      = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const db      = require('../db');
 const { requireAuth, isAdmin, isEditor } = require('../middleware/auth');
-const { newsCommentsRouter } = require('./comments');
+const { eventCommentsRouter } = require('./comments');
 
 const router = express.Router();
 
 // ---------------------------------------------------------------------------
-// Хелперы для работы с опросами
-// ---------------------------------------------------------------------------
-
-// Извлекает все poll ID из HTML-контента новости.
-// Обрабатывает оба формата: [POLL:uuid] и div.rte-poll-marker[data-poll-id]
-function extractPollIds(content) {
-  const ids = new Set();
-  const textRe = /\[POLL:([0-9a-f-]{36})\]/gi;
-  const divRe  = /data-poll-id="([0-9a-f-]{36})"/gi;
-  let m;
-  while ((m = textRe.exec(content)) !== null) ids.add(m[1]);
-  while ((m = divRe.exec(content))  !== null) ids.add(m[1]);
-  return ids;
-}
-
-// Удаляет опросы этой новости, которые больше не упоминаются в контенте.
-async function deleteOrphanedPolls(newsId, newContent) {
-  const existingPolls = await db.all(`SELECT id FROM polls WHERE news_id = ?`, [newsId]);
-  if (!existingPolls.length) return;
-
-  const keptIds = extractPollIds(newContent);
-
-  for (const poll of existingPolls) {
-    if (!keptIds.has(poll.id)) {
-      await db.run(`DELETE FROM polls WHERE id = ?`, [poll.id]);
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
 // In-memory просмотры: один пользователь — один просмотр в 24 часа (по IP)
 // ---------------------------------------------------------------------------
-const viewedIPs = new Map(); // ключ: `${newsId}:${ip}`, значение: timestamp
+const viewedIPs = new Map();
 
-// Чистим устаревшие записи раз в час
 setInterval(() => {
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
   for (const [key, ts] of viewedIPs.entries()) {
@@ -83,16 +52,15 @@ function slugify(text) {
     .join('')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .substring(0, 100) || 'news';
+    .substring(0, 100) || 'event';
 }
 
-// Гарантирует уникальность slug: если занят — добавляет суффикс -2, -3, ...
 async function uniqueSlug(base, excludeId = null) {
   let candidate = base;
   let i = 2;
   while (true) {
     const row = await db.get(
-      `SELECT id FROM news WHERE slug = ?${excludeId ? ' AND id != ?' : ''}`,
+      `SELECT id FROM events WHERE slug = ?${excludeId ? ' AND id != ?' : ''}`,
       excludeId ? [candidate, excludeId] : [candidate],
     );
     if (!row) return candidate;
@@ -128,14 +96,17 @@ const uploadMiddleware = multer({
 }).single('image');
 
 // ---------------------------------------------------------------------------
-// formatNews — строка БД → camelCase-объект
+// formatEvent — строка БД → camelCase-объект
 // ---------------------------------------------------------------------------
-function formatNews(row, full = false) {
+function formatEvent(row, full = false) {
   const obj = {
-    id:              row.id,
-    title:           row.title,
-    slug:            row.slug,
-    previewImageUrl: row.preview_image_url || null,
+    id:                       row.id,
+    title:                    row.title,
+    slug:                     row.slug,
+    previewImageUrl:          row.preview_image_url || null,
+    previewImageResultsUrl:   row.preview_image_results_url || null,
+    startTime:                Number(row.start_time),
+    endTime:                  row.end_time ? Number(row.end_time) : null,
     isPublished:     Number(row.is_published) === 1,
     publishedAt:     row.published_at ? Number(row.published_at) : null,
     updatedAt:       row.updated_at   ? Number(row.updated_at)   : null,
@@ -145,7 +116,8 @@ function formatNews(row, full = false) {
     commentsCount:   Number(row.comments_count) || 0,
   };
   if (full) {
-    obj.content = row.content || '';
+    obj.contentMain    = row.content_main || '';
+    obj.contentResults = row.content_results || null;
     obj.author = {
       id:            row.author_id,
       username:      row.author_username,
@@ -159,7 +131,7 @@ function formatNews(row, full = false) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/news — список опубликованных новостей (пагинация)
+// GET /api/events — список опубликованных событий (сортировка по start_time DESC)
 // ---------------------------------------------------------------------------
 router.get('/', async (req, res) => {
   const limit  = Math.min(parseInt(req.query.limit)  || 20, 50);
@@ -168,25 +140,26 @@ router.get('/', async (req, res) => {
   try {
     const rows = await db.all(
       `SELECT
-         n.id, n.title, n.slug, n.preview_image_url, n.is_published,
-         n.published_at, n.updated_at, n.edited_count, n.views, n.created_at,
-         (SELECT COUNT(*) FROM comments c WHERE c.news_id = n.id) AS comments_count
-       FROM news n
-       WHERE n.is_published = 1
-       ORDER BY n.published_at DESC
+         e.id, e.title, e.slug, e.preview_image_url, e.preview_image_results_url, e.is_published,
+         e.start_time, e.end_time, e.published_at, e.updated_at,
+         e.edited_count, e.views, e.created_at,
+         (SELECT COUNT(*) FROM comments c WHERE c.event_id = e.id) AS comments_count
+       FROM events e
+       WHERE e.is_published = 1
+       ORDER BY e.start_time DESC
        LIMIT ? OFFSET ?`,
       [limit, offset],
     );
 
-    res.json(rows.map(r => formatNews(r, false)));
+    res.json(rows.map(r => formatEvent(r, false)));
   } catch (err) {
-    console.error('Ошибка получения новостей:', err);
-    res.status(500).json({ error: 'Ошибка при получении новостей' });
+    console.error('Ошибка получения событий:', err);
+    res.status(500).json({ error: 'Ошибка при получении событий' });
   }
 });
 
 // ---------------------------------------------------------------------------
-// GET /api/news/:slug — одна новость (полный контент)
+// GET /api/events/:slug — одно событие (полный контент)
 // ---------------------------------------------------------------------------
 router.get('/:slug', async (req, res) => {
   const { slug } = req.params;
@@ -194,19 +167,20 @@ router.get('/:slug', async (req, res) => {
   try {
     const row = await db.get(
       `SELECT
-         n.id, n.title, n.slug, n.preview_image_url, n.is_published,
-         n.published_at, n.updated_at, n.edited_count, n.views, n.created_at,
-         n.content,
+         e.id, e.title, e.slug, e.preview_image_url, e.preview_image_results_url, e.is_published,
+         e.start_time, e.end_time, e.published_at, e.updated_at,
+         e.edited_count, e.views, e.created_at,
+         e.content_main, e.content_results,
          u.id AS author_id, u.username AS author_username,
          u.minecraft_uuid AS author_minecraft_uuid,
-         (SELECT COUNT(*) FROM comments c WHERE c.news_id = n.id) AS comments_count
-       FROM news n
-       JOIN users u ON u.id = n.author_id
-       WHERE n.slug = ? AND n.is_published = 1`,
+         (SELECT COUNT(*) FROM comments c WHERE c.event_id = e.id) AS comments_count
+       FROM events e
+       JOIN users u ON u.id = e.author_id
+       WHERE e.slug = ? AND e.is_published = 1`,
       [slug],
     );
 
-    if (!row) return res.status(404).json({ error: 'Новость не найдена' });
+    if (!row) return res.status(404).json({ error: 'Событие не найдено' });
 
     // Инкрементируем просмотры — не чаще раза в 24 часа с одного IP
     const ip      = req.ip || req.socket?.remoteAddress || 'unknown';
@@ -214,27 +188,30 @@ router.get('/:slug', async (req, res) => {
     const lastTs  = viewedIPs.get(viewKey);
     if (!lastTs || Date.now() - lastTs > 24 * 60 * 60 * 1000) {
       viewedIPs.set(viewKey, Date.now());
-      db.run(`UPDATE news SET views = views + 1 WHERE id = ?`, [row.id]);
+      db.run(`UPDATE events SET views = views + 1 WHERE id = ?`, [row.id]);
     }
 
-    res.json(formatNews(row, true));
+    res.json(formatEvent(row, true));
   } catch (err) {
-    console.error('Ошибка получения новости:', err);
-    res.status(500).json({ error: 'Ошибка при получении новости' });
+    console.error('Ошибка получения события:', err);
+    res.status(500).json({ error: 'Ошибка при получении события' });
   }
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/news — создать новость (editor и выше)
+// POST /api/events — создать событие (editor и выше)
 // ---------------------------------------------------------------------------
 router.post('/', requireAuth, isEditor, async (req, res) => {
-  const { title, preview_image_url, content } = req.body;
+  const { title, preview_image_url, preview_image_results_url, content_main, content_results, start_time, end_time } = req.body;
 
   if (!title || typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'Заголовок обязателен' });
   }
   if (title.trim().length > 200) {
     return res.status(400).json({ error: 'Заголовок не может превышать 200 символов' });
+  }
+  if (!start_time || typeof start_time !== 'number') {
+    return res.status(400).json({ error: 'Дата начала обязательна' });
   }
 
   try {
@@ -244,39 +221,42 @@ router.post('/', requireAuth, isEditor, async (req, res) => {
     const now  = Math.floor(Date.now() / 1000);
 
     await db.run(
-      `INSERT INTO news (id, author_id, title, slug, preview_image_url, content,
-                         is_published, published_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-      [id, req.user.id, title.trim(), slug, preview_image_url || null,
-       content || '', now, now],
+      `INSERT INTO events (id, author_id, title, slug, preview_image_url, preview_image_results_url,
+                           content_main, content_results,
+                           start_time, end_time, is_published, published_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      [id, req.user.id, title.trim(), slug, preview_image_url || null, preview_image_results_url || null,
+       content_main || '', content_results || null,
+       start_time, end_time || null, now, now],
     );
 
     const row = await db.get(
       `SELECT
-         n.id, n.title, n.slug, n.preview_image_url, n.is_published,
-         n.published_at, n.updated_at, n.edited_count, n.views, n.created_at,
-         n.content,
+         e.id, e.title, e.slug, e.preview_image_url, e.preview_image_results_url, e.is_published,
+         e.start_time, e.end_time, e.published_at, e.updated_at,
+         e.edited_count, e.views, e.created_at,
+         e.content_main, e.content_results,
          u.id AS author_id, u.username AS author_username,
          u.minecraft_uuid AS author_minecraft_uuid,
          0 AS comments_count
-       FROM news n JOIN users u ON u.id = n.author_id
-       WHERE n.id = ?`,
+       FROM events e JOIN users u ON u.id = e.author_id
+       WHERE e.id = ?`,
       [id],
     );
 
-    res.status(201).json(formatNews(row, true));
+    res.status(201).json(formatEvent(row, true));
   } catch (err) {
-    console.error('Ошибка создания новости:', err);
-    res.status(500).json({ error: 'Ошибка при создании новости' });
+    console.error('Ошибка создания события:', err);
+    res.status(500).json({ error: 'Ошибка при создании события' });
   }
 });
 
 // ---------------------------------------------------------------------------
-// PUT /api/news/:slug — обновить новость (editor и выше)
+// PUT /api/events/:slug — обновить событие (editor и выше)
 // ---------------------------------------------------------------------------
 router.put('/:slug', requireAuth, isEditor, async (req, res) => {
   const { slug } = req.params;
-  const { title, preview_image_url, content } = req.body;
+  const { title, preview_image_url, preview_image_results_url, content_main, content_results, start_time, end_time } = req.body;
 
   if (!title || typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'Заголовок обязателен' });
@@ -284,12 +264,14 @@ router.put('/:slug', requireAuth, isEditor, async (req, res) => {
   if (title.trim().length > 200) {
     return res.status(400).json({ error: 'Заголовок не может превышать 200 символов' });
   }
+  if (!start_time || typeof start_time !== 'number') {
+    return res.status(400).json({ error: 'Дата начала обязательна' });
+  }
 
   try {
-    const existing = await db.get(`SELECT id, title FROM news WHERE slug = ?`, [slug]);
-    if (!existing) return res.status(404).json({ error: 'Новость не найдена' });
+    const existing = await db.get(`SELECT id, title FROM events WHERE slug = ?`, [slug]);
+    if (!existing) return res.status(404).json({ error: 'Событие не найдено' });
 
-    // Обновляем slug только если изменился заголовок
     let newSlug = slug;
     if (existing.title !== title.trim()) {
       const base = slugify(title.trim());
@@ -299,58 +281,58 @@ router.put('/:slug', requireAuth, isEditor, async (req, res) => {
     const now = Math.floor(Date.now() / 1000);
 
     await db.run(
-      `UPDATE news
-       SET title = ?, slug = ?, preview_image_url = ?, content = ?,
+      `UPDATE events
+       SET title = ?, slug = ?, preview_image_url = ?, preview_image_results_url = ?,
+           content_main = ?, content_results = ?, start_time = ?, end_time = ?,
            updated_at = ?, edited_count = edited_count + 1
        WHERE id = ?`,
-      [title.trim(), newSlug, preview_image_url || null, content || '', now, existing.id],
+      [title.trim(), newSlug, preview_image_url || null, preview_image_results_url || null,
+       content_main || '', content_results || null,
+       start_time, end_time || null, now, existing.id],
     );
-
-    // Удаляем опросы которые были удалены из контента новости.
-    // CASCADE автоматически удалит poll_options и poll_votes.
-    await deleteOrphanedPolls(existing.id, content || '');
 
     const row = await db.get(
       `SELECT
-         n.id, n.title, n.slug, n.preview_image_url, n.is_published,
-         n.published_at, n.updated_at, n.edited_count, n.views, n.created_at,
-         n.content,
+         e.id, e.title, e.slug, e.preview_image_url, e.preview_image_results_url, e.is_published,
+         e.start_time, e.end_time, e.published_at, e.updated_at,
+         e.edited_count, e.views, e.created_at,
+         e.content_main, e.content_results,
          u.id AS author_id, u.username AS author_username,
          u.minecraft_uuid AS author_minecraft_uuid,
-         (SELECT COUNT(*) FROM comments c WHERE c.news_id = n.id) AS comments_count
-       FROM news n JOIN users u ON u.id = n.author_id
-       WHERE n.id = ?`,
+         (SELECT COUNT(*) FROM comments c WHERE c.event_id = e.id) AS comments_count
+       FROM events e JOIN users u ON u.id = e.author_id
+       WHERE e.id = ?`,
       [existing.id],
     );
 
-    res.json(formatNews(row, true));
+    res.json(formatEvent(row, true));
   } catch (err) {
-    console.error('Ошибка обновления новости:', err);
-    res.status(500).json({ error: 'Ошибка при обновлении новости' });
+    console.error('Ошибка обновления события:', err);
+    res.status(500).json({ error: 'Ошибка при обновлении события' });
   }
 });
 
 // ---------------------------------------------------------------------------
-// DELETE /api/news/:slug — удалить новость (только admin)
+// DELETE /api/events/:slug — удалить событие (только admin)
 // ---------------------------------------------------------------------------
 router.delete('/:slug', requireAuth, isAdmin, async (req, res) => {
   const { slug } = req.params;
 
   try {
-    const row = await db.get(`SELECT id FROM news WHERE slug = ?`, [slug]);
-    if (!row) return res.status(404).json({ error: 'Новость не найдена' });
+    const row = await db.get(`SELECT id FROM events WHERE slug = ?`, [slug]);
+    if (!row) return res.status(404).json({ error: 'Событие не найдено' });
 
-    await db.run(`DELETE FROM news WHERE id = ?`, [row.id]);
+    await db.run(`DELETE FROM events WHERE id = ?`, [row.id]);
 
     res.json({ success: true });
   } catch (err) {
-    console.error('Ошибка удаления новости:', err);
-    res.status(500).json({ error: 'Ошибка при удалении новости' });
+    console.error('Ошибка удаления события:', err);
+    res.status(500).json({ error: 'Ошибка при удалении события' });
   }
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/news/upload-image — загрузить изображение для редактора (editor и выше)
+// POST /api/events/upload-image — загрузить изображение для редактора (editor и выше)
 // ---------------------------------------------------------------------------
 router.post('/upload-image', requireAuth, isEditor, (req, res) => {
   uploadMiddleware(req, res, (err) => {
@@ -363,8 +345,8 @@ router.post('/upload-image', requireAuth, isEditor, (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Комментарии к новостям
+// Комментарии к событиям
 // ---------------------------------------------------------------------------
-router.use('/:newsId/comments', newsCommentsRouter);
+router.use('/:eventId/comments', eventCommentsRouter);
 
 module.exports = { router };

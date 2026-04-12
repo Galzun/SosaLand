@@ -130,7 +130,7 @@ router.get('/unread-count', requireAuth, (req, res) => {
         console.error('Ошибка подсчёта непрочитанных:', err.message);
         return res.status(500).json({ error: 'Ошибка сервера' });
       }
-      res.json({ count: row?.count ?? 0 });
+      res.json({ count: Number(row?.count) || 0 });
     }
   );
 });
@@ -185,9 +185,9 @@ router.get('/', requireAuth, (req, res) => {
       const conversations = rows.map(r => ({
         id:               r.id,
         lastMessage:      r.last_message,
-        lastMessageTime:  r.last_message_time,
-        createdAt:        r.created_at,
-        unreadCount:      r.unread_count,
+        lastMessageTime:  r.last_message_time ? Number(r.last_message_time) : null,
+        createdAt:        Number(r.created_at),
+        unreadCount:      Number(r.unread_count) || 0,
         partner: {
           id:           r.partner_id,
           username:     r.partner_username,

@@ -9,7 +9,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
-const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -133,7 +132,7 @@ router.post('/login', async (req, res) => {
     // Используем Promise-обёртку: db.get возвращает одну строку или undefined.
     const user = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id, username, password_hash, minecraft_uuid, role FROM users WHERE username = ?',
+        'SELECT id, username, password_hash, minecraft_uuid, role, is_banned, ban_reason FROM users WHERE username = ?',
         [username.trim()],
         (err, row) => {
           if (err) reject(err);
@@ -171,6 +170,8 @@ router.post('/login', async (req, res) => {
         username: user.username,
         minecraftUuid: user.minecraft_uuid,
         role: user.role,
+        isBanned: !!user.is_banned,
+        banReason: user.ban_reason || null,
       },
     });
 
@@ -182,42 +183,44 @@ router.post('/login', async (req, res) => {
 
 
 // ---------------------------------------------------------------------------
-// GET /api/auth/me — получить данные текущего пользователя по токену
+// GET /api/auth/me — получить данные текущего пользователя по токену.
+// Намеренно НЕ использует requireAuth: забаненный пользователь должен иметь
+// возможность восстановить сессию при перезагрузке страницы.
 // ---------------------------------------------------------------------------
 // Заголовок: Authorization: Bearer <token>
-// Возвращает: { id, username, minecraftUuid, role, createdAt }
+// Возвращает: { id, username, minecraftUuid, role, createdAt, isBanned, banReason }
 // ---------------------------------------------------------------------------
-router.get('/me', requireAuth, async (req, res) => {
-  // req.user был добавлен middleware requireAuth (содержит { id, username, role }).
-  // Делаем запрос к БД чтобы получить актуальные данные (на случай изменений).
+router.get('/me', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Нет токена' });
+  }
+  const rawToken = authHeader.split(' ')[1];
+
   try {
+    const decoded = jwt.verify(rawToken, JWT_SECRET);
+
     const user = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id, username, minecraft_uuid, role, created_at FROM users WHERE id = ?',
-        [req.user.id],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
+        'SELECT id, username, minecraft_uuid, role, created_at, is_banned, ban_reason FROM users WHERE id = ?',
+        [decoded.id],
+        (err, row) => { if (err) reject(err); else resolve(row); }
       );
     });
 
-    if (!user) {
-      // Токен валиден, но пользователь удалён из БД — редкий, но возможный случай.
-      return res.status(404).json({ error: 'Пользователь не найден' });
-    }
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
 
     res.json({
-      id: user.id,
-      username: user.username,
+      id:            user.id,
+      username:      user.username,
       minecraftUuid: user.minecraft_uuid,
-      role: user.role,
-      createdAt: user.created_at,
+      role:          user.role,
+      createdAt:     user.created_at,
+      isBanned:      !!user.is_banned,
+      banReason:     user.ban_reason || null,
     });
-
-  } catch (err) {
-    console.error('Ошибка при получении профиля:', err.message);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  } catch {
+    res.status(401).json({ error: 'Неверный токен' });
   }
 });
 

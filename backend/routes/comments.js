@@ -14,7 +14,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, ROLE_LEVEL } = require('../middleware/auth');
 
 const LIMIT = 20;
 
@@ -298,7 +298,8 @@ commentsDeleteRouter.delete('/:id', requireAuth, async (req, res) => {
 
     if (!comment) return res.status(404).json({ error: 'Комментарий не найден' });
 
-    if (comment.user_id !== userId && userRole !== 'admin') {
+    const callerLevel = ROLE_LEVEL[userRole] ?? 0;
+    if (comment.user_id !== userId && callerLevel < ROLE_LEVEL.admin) {
       return res.status(403).json({ error: 'Нет прав для удаления этого комментария' });
     }
 
@@ -367,10 +368,62 @@ newsCommentsRouter.post('/', requireAuth, async (req, res) => {
 });
 
 
+// ===========================================================================
+// EVENT COMMENTS ROUTER
+// ===========================================================================
+const eventCommentsRouter = express.Router({ mergeParams: true });
+
+eventCommentsRouter.get('/', async (req, res) => {
+  const { eventId } = req.params;
+  const limit  = Math.min(parseInt(req.query.limit)  || LIMIT, 50);
+  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+
+  try {
+    const event = await new Promise((resolve, reject) => {
+      db.get(`SELECT id FROM events WHERE id = ?`, [eventId], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (!event) return res.status(404).json({ error: 'Событие не найдено' });
+
+    const comments = await fetchComments('event_id', eventId, limit, offset);
+    res.json(comments);
+  } catch (err) {
+    console.error('Ошибка получения комментариев к событию:', err.message);
+    res.status(500).json({ error: 'Ошибка при получении комментариев' });
+  }
+});
+
+eventCommentsRouter.post('/', requireAuth, async (req, res) => {
+  const { eventId } = req.params;
+  const { content, imageUrl } = req.body;
+
+  const validationError = validateComment(content, imageUrl);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  try {
+    const event = await new Promise((resolve, reject) => {
+      db.get(`SELECT id FROM events WHERE id = ?`, [eventId], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (!event) return res.status(404).json({ error: 'Событие не найдено' });
+
+    const commentId = await createComment(req.user.id, 'event_id', eventId, content, imageUrl);
+    const comment   = await getCommentWithAuthor(commentId);
+    res.status(201).json(comment);
+  } catch (err) {
+    console.error('Ошибка добавления комментария к событию:', err.message);
+    res.status(500).json({ error: 'Ошибка при добавлении комментария' });
+  }
+});
+
+
 module.exports = {
   postCommentsRouter,
   imageCommentsRouter,
   profileCommentsRouter,
   newsCommentsRouter,
+  eventCommentsRouter,
   commentsDeleteRouter,
 };

@@ -1,15 +1,36 @@
 // routes/users.js
 // Маршруты для работы с профилями пользователей.
 //
-//   GET  /api/users/by-minecraft/:minecraftName — найти пользователя по нику Minecraft
-//   GET  /api/users/:id                         — получить профиль по ID
-//   PUT  /api/users/:id/profile                 — обновить профиль (только владелец)
-//   GET  /api/users/:userId/posts               — посты конкретного пользователя
+//   GET    /api/users/by-minecraft/:minecraftName — найти пользователя по нику Minecraft
+//   GET    /api/users/:id                         — получить профиль по ID
+//   PUT    /api/users/:id/profile                 — обновить профиль (только владелец)
+//   GET    /api/users/:userId/posts               — посты конкретного пользователя
+//   POST   /api/users/:id/clear-data              — очистить данные аккаунта (admin+)
+//   DELETE /api/users/:id                         — полностью удалить аккаунт (admin+)
 
 const express = require('express');
 const jwt     = require('jsonwebtoken');
+const path    = require('path');
+const fs      = require('fs');
 const db = require('../db');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, ROLE_LEVEL } = require('../middleware/auth');
+
+const UPLOADS_DIR = path.join(__dirname, '../uploads');
+
+// Неблокирующее удаление файлов с диска по массиву URL вида "/uploads/filename.ext"
+function deleteFilesFromDisk(urls) {
+  urls.forEach(url => {
+    if (!url || !url.startsWith('/uploads/')) return;
+    const fileName = url.replace(/^\/uploads\//, '');
+    if (fileName.includes('/') || fileName.includes('\\')) return;
+    const filePath = path.join(UPLOADS_DIR, fileName);
+    fs.unlink(filePath, (err) => {
+      if (err && err.code !== 'ENOENT') {
+        console.warn('Не удалось удалить файл:', filePath, err.message);
+      }
+    });
+  });
+}
 const { fetchPosts, optionalAuth } = require('./posts');
 const { getAlbums } = require('./images');
 const { profileCommentsRouter } = require('./comments');
@@ -38,7 +59,8 @@ const profileCols = (prefix = '') => `
   ${prefix}content_wrapper_text_color, ${prefix}content_wrapper_accent_color,
   ${prefix}content_border_color, ${prefix}content_border_width, ${prefix}content_border_radius, ${prefix}content_text_color,
   ${prefix}post_card_border_color, ${prefix}post_card_border_width, ${prefix}post_card_border_radius,
-  ${prefix}post_card_text_color, ${prefix}post_card_accent_color
+  ${prefix}post_card_text_color, ${prefix}post_card_accent_color,
+  ${prefix}is_banned, ${prefix}ban_reason
 `;
 
 // ---------------------------------------------------------------------------
@@ -50,6 +72,8 @@ function formatUser(row) {
     username:       row.username,
     minecraftUuid:  row.minecraft_uuid,
     role:           row.role,
+    isBanned:       !!row.is_banned,
+    banReason:      row.ban_reason   || null,
     coverUrl:       row.cover_url        || null,
     backgroundUrl:  row.background_url   || null,
     bio:            row.bio              || null,
@@ -123,7 +147,7 @@ router.get('/by-minecraft/:minecraftName', async (req, res) => {
         `SELECT ${profileCols('u.')}
          FROM users u
          INNER JOIN players p ON p.uuid = u.minecraft_uuid
-         WHERE p.name = ? COLLATE NOCASE`,
+         WHERE LOWER(p.name) = LOWER(?)`,
         [minecraftName],
         (err, row) => (err ? reject(err) : resolve(row))
       );
@@ -350,7 +374,7 @@ router.get('/:userId/images', async (req, res) => {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
-    const albums = await getAlbums('WHERE i.user_id = ?', [userId], limit, offset);
+    const albums = await getAlbums('WHERE i.user_id = ? AND i.show_in_profile = 1', [userId], limit, offset);
 
     res.json(albums);
   } catch (err) {
@@ -394,6 +418,333 @@ router.get('/:userId/posts', optionalAuth, async (req, res) => {
   } catch (err) {
     console.error('Ошибка получения постов пользователя:', err.message);
     res.status(500).json({ error: 'Ошибка при получении постов' });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
+// PUT /api/users/:id/role — сменить роль пользователя.
+// Доступ: admin (может менять user↔editor↔admin), creator (может всё).
+// Нельзя понизить/повысить другого creator (кроме самого создателя).
+// ---------------------------------------------------------------------------
+router.put('/:id/role', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+
+  const validRoles = ['user', 'editor', 'admin', 'creator'];
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ error: 'Недопустимая роль' });
+  }
+
+  const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
+
+  // Только admin и выше могут менять роли
+  if (callerLevel < ROLE_LEVEL.admin) {
+    return res.status(403).json({ error: 'Недостаточно прав' });
+  }
+
+  try {
+    const target = await new Promise((resolve, reject) => {
+      db.get('SELECT id, username, role FROM users WHERE id = ?', [id], (err, row) => (err ? reject(err) : resolve(row)));
+    });
+
+    if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    // Нельзя изменить себя
+    if (target.id === req.user.id) {
+      return res.status(400).json({ error: 'Нельзя изменить собственную роль' });
+    }
+
+    const targetLevel = ROLE_LEVEL[target.role] ?? 0;
+
+    // Нельзя трогать тех, кто выше или равен тебе (кроме создателя)
+    if (targetLevel >= callerLevel) {
+      return res.status(403).json({ error: 'Нельзя изменить роль пользователя с равными или высшими правами' });
+    }
+
+    // Нельзя назначить роль выше собственной
+    const newLevel = ROLE_LEVEL[role] ?? 0;
+    if (newLevel >= callerLevel) {
+      return res.status(403).json({ error: 'Нельзя назначить роль выше собственной' });
+    }
+
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE users SET role = ? WHERE id = ?', [role, id], (err) => (err ? reject(err) : resolve()));
+    });
+
+    res.json({ success: true, role });
+  } catch (err) {
+    console.error('Ошибка при смене роли:', err.message);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
+// POST /api/users/:id/ban — забанить пользователя.
+// Доступ: admin и выше (нельзя банить равных/высших).
+// ---------------------------------------------------------------------------
+router.post('/:id/ban', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
+  if (callerLevel < ROLE_LEVEL.admin) {
+    return res.status(403).json({ error: 'Недостаточно прав' });
+  }
+
+  try {
+    const target = await new Promise((resolve, reject) => {
+      db.get('SELECT id, role, minecraft_uuid FROM users WHERE id = ?', [id], (err, row) => (err ? reject(err) : resolve(row)));
+    });
+
+    if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (target.id === req.user.id) return res.status(400).json({ error: 'Нельзя забанить самого себя' });
+
+    const targetLevel = ROLE_LEVEL[target.role] ?? 0;
+    if (targetLevel >= callerLevel) {
+      return res.status(403).json({ error: 'Нельзя забанить пользователя с равными или высшими правами' });
+    }
+
+    const bannedAt = Math.floor(Date.now() / 1000);
+    await new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE users SET is_banned = 1, ban_reason = ?, banned_by = ?, banned_at = ? WHERE id = ?',
+        [reason || null, req.user.id, bannedAt, id],
+        (err) => (err ? reject(err) : resolve())
+      );
+    });
+
+    // Синхронизируем бан в таблице players по minecraft_uuid
+    if (target.minecraft_uuid) {
+      await new Promise((resolve, reject) => {
+        db.run('UPDATE players SET is_banned = 1 WHERE uuid = ?', [target.minecraft_uuid], (err) => (err ? reject(err) : resolve()));
+      });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Ошибка при бане:', err.message);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
+// POST /api/users/:id/unban — разбанить пользователя.
+// Доступ: admin и выше.
+// ---------------------------------------------------------------------------
+router.post('/:id/unban', requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
+  if (callerLevel < ROLE_LEVEL.admin) {
+    return res.status(403).json({ error: 'Недостаточно прав' });
+  }
+
+  try {
+    const target = await new Promise((resolve, reject) => {
+      db.get('SELECT id, minecraft_uuid FROM users WHERE id = ?', [id], (err, row) => (err ? reject(err) : resolve(row)));
+    });
+    if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    await new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE users SET is_banned = 0, ban_reason = NULL, banned_by = NULL, banned_at = NULL WHERE id = ?',
+        [id],
+        (err) => (err ? reject(err) : resolve())
+      );
+    });
+
+    // Синхронизируем разбан в таблице players
+    if (target.minecraft_uuid) {
+      await new Promise((resolve, reject) => {
+        db.run('UPDATE players SET is_banned = 0 WHERE uuid = ?', [target.minecraft_uuid], (err) => (err ? reject(err) : resolve()));
+      });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Ошибка при разбане:', err.message);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
+// POST /api/users/:id/clear-data — очистить все данные аккаунта.
+// Удаляет: посты (+ файлы вложений), изображения (+ файлы), альбомы,
+//          обложку и фон профиля (+ файлы), сбрасывает bio и все UI-настройки.
+// Аккаунт (логин, пароль, роль, привязка Minecraft) — остаётся.
+// Доступ: admin и выше; нельзя чистить равного/высшего.
+// ---------------------------------------------------------------------------
+router.post('/:id/clear-data', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
+
+  if (callerLevel < ROLE_LEVEL.admin) {
+    return res.status(403).json({ error: 'Недостаточно прав' });
+  }
+
+  try {
+    const target = await new Promise((resolve, reject) => {
+      db.get('SELECT id, role FROM users WHERE id = ?', [id], (err, row) => (err ? reject(err) : resolve(row)));
+    });
+
+    if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (target.id === req.user.id) return res.status(400).json({ error: 'Нельзя очистить собственный аккаунт' });
+
+    const targetLevel = ROLE_LEVEL[target.role] ?? 0;
+    if (targetLevel >= callerLevel) {
+      return res.status(403).json({ error: 'Нельзя управлять аккаунтом с равными или высшими правами' });
+    }
+
+    // 1. Собираем все файловые URL перед удалением из БД
+    const postFiles = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT p.image_url, pa.file_url
+         FROM posts p
+         LEFT JOIN post_attachments pa ON pa.post_id = p.id
+         WHERE p.user_id = ?`,
+        [id],
+        (err, rows) => (err ? reject(err) : resolve(rows))
+      );
+    });
+
+    const imageFiles = await new Promise((resolve, reject) => {
+      db.all('SELECT image_url FROM images WHERE user_id = ?', [id], (err, rows) => (err ? reject(err) : resolve(rows)));
+    });
+
+    const profileRow = await new Promise((resolve, reject) => {
+      db.get('SELECT cover_url, background_url FROM users WHERE id = ?', [id], (err, row) => (err ? reject(err) : resolve(row)));
+    });
+
+    // Собираем все URL файлов
+    const fileUrls = [];
+    postFiles.forEach(r => {
+      if (r.image_url) fileUrls.push(r.image_url);
+      if (r.file_url)  fileUrls.push(r.file_url);
+    });
+    imageFiles.forEach(r => { if (r.image_url) fileUrls.push(r.image_url); });
+    if (profileRow?.cover_url)      fileUrls.push(profileRow.cover_url);
+    if (profileRow?.background_url) fileUrls.push(profileRow.background_url);
+
+    // 2. Удаляем посты, изображения, альбомы из БД (CASCADE чистит post_attachments, album_images)
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM posts WHERE user_id = ?', [id], (err) => (err ? reject(err) : resolve()));
+    });
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM images WHERE user_id = ?', [id], (err) => (err ? reject(err) : resolve()));
+    });
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM albums WHERE user_id = ?', [id], (err) => (err ? reject(err) : resolve()));
+    });
+
+    // 3. Сбрасываем все поля профиля в дефолт
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE users SET
+          cover_url = NULL, background_url = NULL, bio = NULL,
+          cover_pos_x = 50, cover_pos_y = 50, cover_scale = 100,
+          cover_rotation = 0, cover_fill_color = NULL, cover_blur = 0, cover_edge = 0,
+          bg_pos_x = 50, bg_pos_y = 50, bg_scale = 100,
+          bg_rotation = 0, bg_fill_color = NULL, bg_blur = 0, bg_edge = 0,
+          card_bg_color = '#1a1a1a', card_bg_alpha = 95, card_bg_blur = 0,
+          post_card_bg_color = '#1a1a1a', post_card_bg_alpha = 95, post_card_blur = 0,
+          tabs_bg_color = '#1a1a1a', tabs_bg_alpha = 85, tabs_blur = 0,
+          post_form_bg_color = '#141420', post_form_bg_alpha = 100, post_form_blur = 0,
+          content_bg_color = '#0a0a1a', content_bg_alpha = 0, content_blur = 0,
+          content_wrapper_bg_color = '#1a1a1a', content_wrapper_bg_alpha = 95, content_wrapper_blur = 0,
+          content_wrapper_border_color = NULL, content_wrapper_border_width = 0, content_wrapper_border_radius = 12,
+          content_wrapper_text_color = NULL, content_wrapper_accent_color = NULL,
+          content_border_color = NULL, content_border_width = 0, content_border_radius = 10, content_text_color = NULL,
+          post_card_border_color = NULL, post_card_border_width = 1, post_card_border_radius = 12,
+          post_card_text_color = NULL, post_card_accent_color = NULL,
+          updated_at = ?
+         WHERE id = ?`,
+        [Math.floor(Date.now() / 1000), id],
+        (err) => (err ? reject(err) : resolve())
+      );
+    });
+
+    // 4. Удаляем файлы с диска (неблокирующий)
+    deleteFilesFromDisk(fileUrls);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Ошибка при очистке данных аккаунта:', err.message);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
+// DELETE /api/users/:id — полностью удалить аккаунт пользователя.
+// Удаляет все файлы с диска, затем запись из users (CASCADE чистит всё остальное).
+// Доступ: admin и выше; нельзя удалять равного/высшего.
+// ---------------------------------------------------------------------------
+router.delete('/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
+
+  if (callerLevel < ROLE_LEVEL.admin) {
+    return res.status(403).json({ error: 'Недостаточно прав' });
+  }
+
+  try {
+    const target = await new Promise((resolve, reject) => {
+      db.get('SELECT id, role FROM users WHERE id = ?', [id], (err, row) => (err ? reject(err) : resolve(row)));
+    });
+
+    if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (target.id === req.user.id) return res.status(400).json({ error: 'Нельзя удалить собственный аккаунт' });
+
+    const targetLevel = ROLE_LEVEL[target.role] ?? 0;
+    if (targetLevel >= callerLevel) {
+      return res.status(403).json({ error: 'Нельзя удалить аккаунт с равными или высшими правами' });
+    }
+
+    // 1. Собираем все файловые URL перед удалением
+    const postFiles = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT p.image_url, pa.file_url
+         FROM posts p
+         LEFT JOIN post_attachments pa ON pa.post_id = p.id
+         WHERE p.user_id = ?`,
+        [id],
+        (err, rows) => (err ? reject(err) : resolve(rows))
+      );
+    });
+
+    const imageFiles = await new Promise((resolve, reject) => {
+      db.all('SELECT image_url FROM images WHERE user_id = ?', [id], (err, rows) => (err ? reject(err) : resolve(rows)));
+    });
+
+    const profileRow = await new Promise((resolve, reject) => {
+      db.get('SELECT cover_url, background_url FROM users WHERE id = ?', [id], (err, row) => (err ? reject(err) : resolve(row)));
+    });
+
+    const fileUrls = [];
+    postFiles.forEach(r => {
+      if (r.image_url) fileUrls.push(r.image_url);
+      if (r.file_url)  fileUrls.push(r.file_url);
+    });
+    imageFiles.forEach(r => { if (r.image_url) fileUrls.push(r.image_url); });
+    if (profileRow?.cover_url)      fileUrls.push(profileRow.cover_url);
+    if (profileRow?.background_url) fileUrls.push(profileRow.background_url);
+
+    // 2. Удаляем пользователя (CASCADE чистит посты, вложения, изображения, альбомы, лайки, комментарии, диалоги)
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM users WHERE id = ?', [id], (err) => (err ? reject(err) : resolve()));
+    });
+
+    // 3. Удаляем файлы с диска (неблокирующий)
+    deleteFilesFromDisk(fileUrls);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Ошибка при удалении аккаунта:', err.message);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
 
