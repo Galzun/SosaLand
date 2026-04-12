@@ -132,7 +132,7 @@ router.post('/login', async (req, res) => {
     // Используем Promise-обёртку: db.get возвращает одну строку или undefined.
     const user = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id, username, password_hash, minecraft_uuid, role, is_banned, ban_reason FROM users WHERE username = ?',
+        'SELECT id, username, password_hash, password_reset, minecraft_uuid, role, is_banned, ban_reason FROM users WHERE username = ?',
         [username.trim()],
         (err, row) => {
           if (err) reject(err);
@@ -147,13 +147,34 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Неверный логин или пароль' });
     }
 
-    // bcrypt.compare(введённый_пароль, хеш_из_бд) — сравнивает пароль с хешем.
-    // Возвращает true если совпадает, false иначе.
-    // Никогда не сравнивай пароли через === — это уязвимость к timing-атакам.
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    let passwordWasReset = false;
 
-    if (!passwordMatch) {
-      return res.status(401).json({ error: 'Неверный логин или пароль' });
+    if (user.password_reset) {
+      // Режим сброса пароля: любой валидный пароль становится новым.
+      if (password.length < 6) {
+        return res.status(400).json({
+          error: 'Новый пароль должен содержать минимум 6 символов',
+          passwordReset: true,
+        });
+      }
+      const newHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+      await new Promise((resolve, reject) => {
+        db.run(
+          'UPDATE users SET password_hash = ?, password_reset = 0 WHERE id = ?',
+          [newHash, user.id],
+          (err) => (err ? reject(err) : resolve())
+        );
+      });
+      passwordWasReset = true;
+    } else {
+      // bcrypt.compare(введённый_пароль, хеш_из_бд) — сравнивает пароль с хешем.
+      // Возвращает true если совпадает, false иначе.
+      // Никогда не сравнивай пароли через === — это уязвимость к timing-атакам.
+      const passwordMatch = await bcrypt.compare(password, user.password_hash);
+
+      if (!passwordMatch) {
+        return res.status(401).json({ error: 'Неверный логин или пароль' });
+      }
     }
 
     // Пароль верный — выдаём новый токен.
@@ -173,6 +194,7 @@ router.post('/login', async (req, res) => {
         isBanned: !!user.is_banned,
         banReason: user.ban_reason || null,
       },
+      ...(passwordWasReset ? { passwordWasReset: true } : {}),
     });
 
   } catch (err) {

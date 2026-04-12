@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { usePlayerByName, usePlayer } from '../../context/PlayerContext';
-import { showPrompt } from '../Dialog/dialogManager';
+import { showPrompt, showConfirm } from '../Dialog/dialogManager';
 import './PlayerCard.scss';
 
 const ROLE_LEVEL = { creator: 4, admin: 3, editor: 2, user: 1 };
@@ -15,6 +15,7 @@ function PlayerCard({ username, status, currentUser, token }) {
   const [profile,     setProfile]     = useState(undefined);
   const [loading,     setLoading]     = useState(false);
   const [errorMsg,    setErrorMsg]    = useState(null);
+  const [successMsg,  setSuccessMsg]  = useState(null);
   const wrapperRef = useRef(null);
 
   const player = usePlayerByName(username);
@@ -90,6 +91,71 @@ function PlayerCard({ username, status, currentUser, token }) {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setBanOverride(player?.rawUuid, username, !isBanned, isBanned ? null : banReason);
+    } catch (err) {
+      setErrorMsg(err.response?.data?.error || 'Ошибка');
+      setTimeout(() => setErrorMsg(null), 2500);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!profile) return;
+
+    const ok = await showConfirm(
+      `Сбросить пароль игрока «${username}»?\nПри следующем входе он сможет задать любой новый пароль.`
+    );
+    if (!ok) return;
+
+    setMenuOpen(false);
+    setLoading(true);
+    try {
+      await axios.post(
+        `/api/users/${profile.id}/reset-password`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setSuccessMsg('Пароль сброшен');
+      setTimeout(() => setSuccessMsg(null), 2500);
+    } catch (err) {
+      setErrorMsg(err.response?.data?.error || 'Ошибка');
+      setTimeout(() => setErrorMsg(null), 2500);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangeUsername = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!profile) return;
+
+    const newUsername = await showPrompt(
+      `Новый логин для «${username}»:`,
+      { placeholder: 'Минимум 3 символа...' }
+    );
+    if (newUsername === null) return; // отменили
+
+    const trimmed = newUsername.trim();
+    if (trimmed.length < 3) {
+      setErrorMsg('Логин должен быть не менее 3 символов');
+      setTimeout(() => setErrorMsg(null), 2500);
+      return;
+    }
+
+    setMenuOpen(false);
+    setLoading(true);
+    try {
+      await axios.put(
+        `/api/users/${profile.id}/username`,
+        { username: trimmed },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setProfile(prev => ({ ...prev, username: trimmed }));
+      setSuccessMsg(`Логин → «${trimmed}»`);
+      setTimeout(() => setSuccessMsg(null), 2500);
     } catch (err) {
       setErrorMsg(err.response?.data?.error || 'Ошибка');
       setTimeout(() => setErrorMsg(null), 2500);
@@ -176,6 +242,26 @@ function PlayerCard({ username, status, currentUser, token }) {
                   >
                     {isBannedCurrent ? '✅ Разбанить' : '🚫 Забанить'}
                   </button>
+
+                  {canActOnRole && (
+                    <>
+                      <div className="player-card__menu-divider" />
+                      <button
+                        className="player-card__menu-item"
+                        onClick={handleResetPassword}
+                        disabled={loading}
+                      >
+                        🔑 Сбросить пароль
+                      </button>
+                      <button
+                        className="player-card__menu-item"
+                        onClick={handleChangeUsername}
+                        disabled={loading}
+                      >
+                        📝 Изменить логин
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -206,6 +292,13 @@ function PlayerCard({ username, status, currentUser, token }) {
           {errorMsg && (
             <div className="player-card__error-overlay">
               {errorMsg}
+            </div>
+          )}
+
+          {/* Успех — зелёный оверлей */}
+          {successMsg && (
+            <div className="player-card__success-overlay">
+              {successMsg}
             </div>
           )}
         </div>

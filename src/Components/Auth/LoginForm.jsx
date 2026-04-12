@@ -8,21 +8,18 @@ import { useAuth } from '../../context/AuthContext';
 import './Auth.scss';
 
 function LoginForm({ onSwitchToRegister }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError]       = useState('');    // текст ошибки или пустая строка
-  const [isLoading, setIsLoading] = useState(false); // блокируем кнопку пока идёт запрос
+  const [username, setUsername]   = useState('');
+  const [password, setPassword]   = useState('');
+  const [error, setError]         = useState('');
+  // Подсказка появляется когда администратор сбросил пароль пользователя
+  const [hint, setHint]           = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  // useAuth() — кастомный хук, читает AuthContext.
-  // login() отправит запрос на бэкенд и сохранит токен.
-  const { login } = useAuth();
-
-  // useNavigate — хук React Router для программного перехода между страницами.
-  // navigate('/') заменяет window.location.href, но без полной перезагрузки страницы.
-  const navigate = useNavigate();
+  const { login }  = useAuth();
+  const navigate   = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); // отменяем стандартное поведение формы (перезагрузку страницы)
+    e.preventDefault();
 
     if (!username.trim() || !password) {
       setError('Введите логин и пароль');
@@ -30,30 +27,33 @@ function LoginForm({ onSwitchToRegister }) {
     }
 
     setIsLoading(true);
-    setError(''); // сбрасываем предыдущую ошибку перед новым запросом
+    setError('');
 
     try {
-      // login() бросает исключение при ошибке (неверный пароль, сервер недоступен).
       await login(username.trim(), password);
-
-      // Успех — перенаправляем на главную страницу.
       navigate('/');
     } catch (err) {
-      // axios оборачивает HTTP-ошибки в err.response.
-      // err.response.data.error — сообщение из бэкенда (например: "Неверный логин или пароль").
-      // Если err.response нет — значит сервер недоступен (сетевая ошибка).
-      const message = err.response?.data?.error || 'Не удалось подключиться к серверу';
-      setError(message);
+      const data = err.response?.data;
+      if (data?.passwordReset) {
+        // Пароль сброшен администратором — показываем подсказку
+        setHint('Ваш пароль был сброшен администратором. Введите желаемый новый пароль.');
+        setError(data.error || '');
+      } else {
+        const message = data?.error || 'Не удалось подключиться к серверу';
+        setError(message);
+      }
     } finally {
-      // finally выполняется всегда — и при успехе, и при ошибке.
       setIsLoading(false);
     }
   };
 
   return (
-    // noValidate отключает встроенную браузерную валидацию — используем свою.
     <form className="auth-form" onSubmit={handleSubmit} noValidate>
       <h2>Вход</h2>
+
+      {hint && (
+        <div className="auth-form__hint">{hint}</div>
+      )}
 
       <div className="auth-form__field">
         <label>Логин</label>
@@ -61,30 +61,23 @@ function LoginForm({ onSwitchToRegister }) {
           type="text"
           placeholder="Ваш логин"
           value={username}
-          onChange={(e) => {
-            setUsername(e.target.value);
-            setError(''); // убираем ошибку при вводе
-          }}
+          onChange={(e) => { setUsername(e.target.value); setError(''); }}
           autoFocus
           disabled={isLoading}
         />
       </div>
 
       <div className="auth-form__field">
-        <label>Пароль</label>
+        <label>{hint ? 'Новый пароль' : 'Пароль'}</label>
         <input
           type="password"
-          placeholder="Ваш пароль"
+          placeholder={hint ? 'Минимум 6 символов' : 'Ваш пароль'}
           value={password}
-          onChange={(e) => {
-            setPassword(e.target.value);
-            setError('');
-          }}
+          onChange={(e) => { setPassword(e.target.value); setError(''); }}
           disabled={isLoading}
         />
       </div>
 
-      {/* Показываем ошибку если она есть */}
       {error && (
         <div className="auth-form__error auth-form__error--block">{error}</div>
       )}
@@ -94,8 +87,7 @@ function LoginForm({ onSwitchToRegister }) {
         className="auth-form__submit"
         disabled={isLoading}
       >
-        {/* Показываем "Вхожу..." пока идёт запрос — это называется optimistic UI */}
-        {isLoading ? 'Вхожу...' : 'Войти'}
+        {isLoading ? 'Вхожу...' : hint ? 'Установить пароль и войти' : 'Войти'}
       </button>
 
       <button

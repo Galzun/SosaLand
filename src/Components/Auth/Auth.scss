@@ -153,6 +153,17 @@
     }
   }
 
+  &__hint {
+    padding: 10px 14px;
+    background: rgba(74, 255, 158, 0.08);
+    border: 1px solid rgba(74, 255, 158, 0.3);
+    border-radius: 8px;
+    color: #4aff9e;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+
   &__error {
     display: block;
     margin-top: 6px;

@@ -80,10 +80,11 @@ CREATE TABLE IF NOT EXISTS users (
   post_form_bg_alpha  INTEGER DEFAULT 100,
   post_form_blur      INTEGER DEFAULT 0,
 
-  is_banned  INTEGER DEFAULT 0,
-  ban_reason TEXT,
-  banned_by  TEXT,
-  banned_at  INTEGER
+  is_banned      INTEGER DEFAULT 0,
+  ban_reason     TEXT,
+  banned_by      TEXT,
+  banned_at      INTEGER,
+  password_reset INTEGER DEFAULT 0
 );
 
 
@@ -119,6 +120,9 @@ CREATE TABLE IF NOT EXISTS players (
 
 -- Добавить ban_reason если таблица уже существует (безопасно)
 ALTER TABLE players ADD COLUMN IF NOT EXISTS ban_reason TEXT;
+
+-- Добавить password_reset если таблица уже существует (безопасно)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset INTEGER DEFAULT 0;
 
 
 -- ===========================================================================

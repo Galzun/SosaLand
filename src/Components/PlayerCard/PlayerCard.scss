@@ -227,9 +227,9 @@
 }
 
 // ---------------------------------------------------------------------------
-// Оверлей ошибки — по центру карточки поверх содержимого
+// Оверлеи поверх карточки (ошибка / успех)
 // ---------------------------------------------------------------------------
-.player-card__error-overlay {
+%card-overlay-base {
   position: absolute;
   inset: 0;
   display: flex;
@@ -237,8 +237,6 @@
   justify-content: center;
   padding: 12px;
   border-radius: 12px;
-  background: rgba(18, 10, 10, 0.85);
-  color: #ff6b6b;
   font-size: 13px;
   font-weight: 600;
   text-align: center;
@@ -246,4 +244,16 @@
   z-index: 30;
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
+}
+
+.player-card__error-overlay {
+  @extend %card-overlay-base;
+  background: rgba(18, 10, 10, 0.85);
+  color: #ff6b6b;
+}
+
+.player-card__success-overlay {
+  @extend %card-overlay-base;
+  background: rgba(10, 18, 12, 0.85);
+  color: #4aff9e;
 }

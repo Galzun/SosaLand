@@ -749,6 +749,96 @@ router.delete('/:id', requireAuth, async (req, res) => {
 });
 
 
+// ---------------------------------------------------------------------------
+// POST /api/users/:id/reset-password — сброс пароля пользователя.
+// Администратор сбрасывает пароль: при следующем входе игрок вводит новый.
+// Доступ: admin и выше; нельзя применять к равному/высшему.
+// ---------------------------------------------------------------------------
+router.post('/:id/reset-password', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
+
+  if (callerLevel < ROLE_LEVEL.admin) {
+    return res.status(403).json({ error: 'Недостаточно прав' });
+  }
+
+  try {
+    const target = await new Promise((resolve, reject) => {
+      db.get('SELECT id, role FROM users WHERE id = ?', [id], (err, row) => (err ? reject(err) : resolve(row)));
+    });
+
+    if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (target.id === req.user.id) return res.status(400).json({ error: 'Нельзя сбросить собственный пароль' });
+
+    const targetLevel = ROLE_LEVEL[target.role] ?? 0;
+    if (targetLevel >= callerLevel) {
+      return res.status(403).json({ error: 'Нельзя изменить данные пользователя с равными или высшими правами' });
+    }
+
+    // Устанавливаем флаг и инвалидируем текущий хеш
+    await new Promise((resolve, reject) => {
+      db.run(
+        "UPDATE users SET password_hash = 'RESET', password_reset = 1 WHERE id = ?",
+        [id],
+        (err) => (err ? reject(err) : resolve())
+      );
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Ошибка при сбросе пароля:', err.message);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
+// PUT /api/users/:id/username — изменить логин пользователя.
+// Администратор вводит новый логин, он заменяет старый.
+// Доступ: admin и выше; нельзя применять к равному/высшему.
+// ---------------------------------------------------------------------------
+router.put('/:id/username', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { username: newUsername } = req.body;
+  const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
+
+  if (callerLevel < ROLE_LEVEL.admin) {
+    return res.status(403).json({ error: 'Недостаточно прав' });
+  }
+
+  if (!newUsername || newUsername.trim().length < 3) {
+    return res.status(400).json({ error: 'Логин должен быть не короче 3 символов' });
+  }
+
+  try {
+    const target = await new Promise((resolve, reject) => {
+      db.get('SELECT id, role, username FROM users WHERE id = ?', [id], (err, row) => (err ? reject(err) : resolve(row)));
+    });
+
+    if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (target.id === req.user.id) return res.status(400).json({ error: 'Нельзя изменить собственный логин' });
+
+    const targetLevel = ROLE_LEVEL[target.role] ?? 0;
+    if (targetLevel >= callerLevel) {
+      return res.status(403).json({ error: 'Нельзя изменить данные пользователя с равными или высшими правами' });
+    }
+
+    const trimmed = newUsername.trim();
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE users SET username = ? WHERE id = ?', [trimmed, id], (err) => (err ? reject(err) : resolve()));
+    });
+
+    res.json({ success: true, username: trimmed });
+  } catch (err) {
+    if (err.message?.toLowerCase().includes('unique')) {
+      return res.status(409).json({ error: 'Пользователь с таким логином уже существует' });
+    }
+    console.error('Ошибка при смене логина:', err.message);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+
 // Монтируем роутер комментариев к профилям.
 // Маршруты: GET/POST /api/users/:userId/profile-comments
 router.use('/:userId/profile-comments', profileCommentsRouter);
