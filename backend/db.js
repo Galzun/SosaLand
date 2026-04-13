@@ -23,7 +23,8 @@ const pool = new Pool({
   // SSL нужен только для облачных баз (TimeWeb, Heroku и т.п.).
   // Локально (localhost) SSL не нужен.
   ssl: process.env.DATABASE_URL.includes('localhost') ||
-       process.env.DATABASE_URL.includes('127.0.0.1')
+       process.env.DATABASE_URL.includes('127.0.0.1') ||
+       process.env.DATABASE_URL.includes('192.168.')
     ? false
     : { rejectUnauthorized: false },
 });
