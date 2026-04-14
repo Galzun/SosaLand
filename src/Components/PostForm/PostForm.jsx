@@ -18,8 +18,7 @@ import EmojiPicker from '../EmojiPicker/EmojiPicker';
 import PollBuilder from '../PollBuilder/PollBuilder';
 import './PostForm.scss';
 
-const MAX_CONTENT    = 5000;
-const MAX_TOTAL_SIZE = 100 * 1024 * 1024; // 100 МБ суммарный размер всех вложений
+const MAX_CONTENT = 5000;
 
 // ---------------------------------------------------------------------------
 // Хелперы
@@ -190,48 +189,16 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
     const selected = Array.from(e.target.files || []);
     if (!selected.length) return;
 
-    const currentSize = pendingFiles.reduce((s, p) => s + p.file.size, 0);
-    const newSize     = selected.reduce((s, f) => s + f.size, 0);
-
-    if (currentSize + newSize > MAX_TOTAL_SIZE) {
-      const allowedSize = MAX_TOTAL_SIZE - currentSize;
-      let accumulated = 0;
-      const toAdd = selected.filter(f => {
-        if (accumulated + f.size <= allowedSize) {
-          accumulated += f.size;
-          return true;
-        }
-        return false;
-      });
-
-      if (toAdd.length === 0) {
-        setError('Общий размер файлов не может превышать 100 МБ');
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        return;
-      }
-
-      setError(`Добавлено ${toAdd.length} из ${selected.length} файлов — превышен лимит 100 МБ`);
-      const newItems = toAdd.map(file => ({
-        uid:        nextUid(),
-        file,
-        type:       previewType(file),
-        previewUrl: (file.type.startsWith('image/') || file.type.startsWith('video/'))
-          ? URL.createObjectURL(file)
-          : null,
-      }));
-      setPendingFiles(prev => [...prev, ...newItems]);
-    } else {
-      setError('');
-      const newItems = selected.map(file => ({
-        uid:        nextUid(),
-        file,
-        type:       previewType(file),
-        previewUrl: (file.type.startsWith('image/') || file.type.startsWith('video/'))
-          ? URL.createObjectURL(file)
-          : null,
-      }));
-      setPendingFiles(prev => [...prev, ...newItems]);
-    }
+    setError('');
+    const newItems = selected.map(file => ({
+      uid:        nextUid(),
+      file,
+      type:       previewType(file),
+      previewUrl: (file.type.startsWith('image/') || file.type.startsWith('video/'))
+        ? URL.createObjectURL(file)
+        : null,
+    }));
+    setPendingFiles(prev => [...prev, ...newItems]);
 
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -258,12 +225,6 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
     }
     if (trimmed.length > MAX_CONTENT) {
       setError(`Текст не может превышать ${MAX_CONTENT} символов`);
-      return;
-    }
-
-    const totalSize = pendingFiles.reduce((s, p) => s + p.file.size, 0);
-    if (totalSize > MAX_TOTAL_SIZE) {
-      setError('Общий размер файлов не может превышать 100 МБ');
       return;
     }
 

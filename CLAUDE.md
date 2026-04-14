@@ -90,6 +90,7 @@ PlayerPage (/player/:username)
 | `/dashboard/tickets` | Dashboard/Tickets | Панель модерации заявок (admin и выше) |
 | `/dashboard/profile` | Dashboard/EditProfile | Редактирование профиля (только авторизованный) |
 | `/dashboard/logs` | Dashboard/LogsPage | Логи активности: загрузки файлов, посты, галерея (admin и выше) |
+| `/post/:id` | PostPage | Прямая ссылка на пост — авто-открывает PostModal |
 
 ## Лэйаут приложения
 - `Header` — `position: sticky; top: 0; z-index: 1000`, рендерится ВНЕ `.app-layout`
@@ -133,6 +134,7 @@ PlayerPage (/player/:username)
 | DELETE | `/api/users/:id` | admin+ | Полностью удалить аккаунт: сначала удаляет файлы с диска, затем запись из `users` (CASCADE чистит посты, вложения, изображения, альбомы, лайки, комментарии, диалоги); нельзя удалять равного/высшего |
 | POST | `/api/upload` | JWT | Загрузить файл(ы) → `/uploads/<file>`; поля: `image`, `file`, `files[]`; возвращает `{ url, fileUrl, fileType, fileName, size }` или `{ files: [...] }` |
 | GET | `/api/posts` | все | Лента постов (limit, offset; с commentsCount, attachments[]) |
+| GET | `/api/posts/:id` | все | Один пост по ID (тот же формат что лента; для прямых ссылок `/post/:id`) |
 | POST | `/api/posts` | JWT | Создать пост; тело: `{ content, attachments?: [{fileUrl, fileType, fileName}] }` или `{ content, imageUrl? }` (legacy); `content` может быть пустой строкой (для поста-опроса) |
 | PUT | `/api/posts/:id` | JWT (автор) | Редактировать пост: обновить content, заменить attachments; инкрементирует edit_count, обновляет updated_at |
 | DELETE | `/api/posts/:id` | JWT (автор) | Удалить пост + все файлы с диска (из post_attachments и image_url) |
@@ -140,6 +142,7 @@ PlayerPage (/player/:username)
 | GET | `/api/posts/:postId/comments` | все | Комментарии к посту (limit, offset) |
 | POST | `/api/posts/:postId/comments` | JWT | Добавить комментарий к посту |
 | GET | `/api/images` | все | Глобальная лента фото (limit, offset; с commentsCount) |
+| GET | `/api/images/item/:id` | все | Одно фото по ID (автор, groupId, isGallery; для глубоких ссылок `/gallery?image=id`) |
 | POST | `/api/images` | JWT | Добавить фото в галерею (imageUrl, title?) |
 | DELETE | `/api/images/:id` | JWT (автор/admin) | Удалить фото из базы |
 | GET | `/api/images/:imageId/comments` | все | Комментарии к фото (limit, offset) |
@@ -176,6 +179,7 @@ PlayerPage (/player/:username)
 | GET | `/api/logs` | admin+ | Список логов с фильтрацией (action, username, userId) и пагинацией (limit/offset); возвращает `{ logs[], total, limit, offset }` |
 | GET | `/api/logs/stats` | admin+ | Топ-50 пользователей по объёму загрузок + глобальные итоги (totalActions, totalFiles, totalSize) |
 | GET | `/api/logs/users?q=X` | admin+ | Автодополнение ников по подстроке — возвращает массив строк (до 30) |
+| DELETE | `/api/logs/:id/file` | admin+ | Удалить файл с диска по записи лога; `target_id` обнуляется, запись остаётся |
 | GET | `/api/albums?userId=X` | все | Список именных альбомов пользователя |
 | POST | `/api/albums` | JWT | Создать альбом `{ name }` |
 | PUT | `/api/albums/:id` | JWT (владелец) | Переименовать `{ name }` |
@@ -332,6 +336,8 @@ PlayerPage (/player/:username)
 - Поле **`image`** — только изображения (jpg, png, gif, webp), максимум **1 ГБ**; используется для галереи, обложек, аватаров
 - Поле **`file`** — один любой файл, максимум **1 ГБ**; используется для вложений в сообщениях
 - Поле **`files[]`** — несколько любых файлов (до 200 за раз), максимум **1 ГБ** каждый; используется для вложений в постах
+- **Rate limit**: не более **1 ГБ в час** на пользователя (in-memory Map, ключ = userId, окно сбрасывается каждый час); при превышении → HTTP 429, уже сохранённые файлы текущего запроса удаляются с диска; реализовано в `checkHourlyLimit()` в `routes/upload.js`
+- `logActivity` для `file_upload` сохраняет `targetId: fileUrl` — нужен для ссылки из логов и для удаления файла через `DELETE /api/logs/:id/file`
 - Одиночный ответ: `{ url, fileUrl, fileType, fileName, size }` — `url` для обратной совместимости
 - Множественный ответ: `{ files: [{ url, fileUrl, fileType, fileName, size }, ...] }`
 - Имена файлов: `{timestamp}_{random}.{ext}` (уникальные)
@@ -434,6 +440,7 @@ PlayerPage (/player/:username)
 ## Система постов
 - Посты создаются авторизованными пользователями через `PostForm`
 - Лента `/feed` — глобальная, все посты, сортировка по дате (новые первые)
+- Прямая ссылка на пост `/post/:id` — страница `PostPage` загружает пост через `GET /api/posts/:id` и сразу открывает `PostModal` (`autoOpenModal` prop); кнопка «← Лента» для возврата
 - Страница профиля `/player/:username` — вкладки: **Посты** / **Фото**
 - Лайки: toggle (поставить/убрать), счётчик хранится в `posts.likes_count`
 - Удаление поста: автор **или admin/creator** (для модерации); при удалении физически удаляются все файлы с диска
@@ -447,9 +454,8 @@ PlayerPage (/player/:username)
 ### PostForm
 - Нижняя панель: **слева** — 📎 «Добавить медиа» + 😊 «Смайлики» + 📊 «Добавить опрос»; **справа** — счётчик символов + кнопка «Опубликовать»
 - Бейдж с количеством выбранных файлов поверх иконки скрепки
-- Ограничение: суммарный размер всех файлов ≤ 100 МБ (количество файлов не ограничено)
-- При превышении 100 МБ — добавляются только файлы, помещающиеся в лимит, показывается сообщение об ошибке
-- Превью выбранных файлов **до загрузки**: изображения/видео — миниатюра (blob URL) без рамок, аудио/документы — FileIcon + имя
+- Ограничений по размеру на стороне фронта **нет** (убраны); ограничение на бэкенде — 1 ГБ/ч на пользователя
+- Превью выбранных файлов **до загрузки**: изображения/видео — миниатюра (blob URL) без рамок, аудио/документы — FileIcon + имя + **размер файла** (маленький текст `9px` под именем)
 - Загрузка файлов происходит **при отправке поста** (не при выборе) — один за одним с прогрессом "Загрузка 2 / 5..."
 - Object URL освобождаются при удалении файла из очереди и при размонтировании
 - **Пост-опрос**: текст поста необязателен, если прикреплён опрос (`pendingPoll`); кнопка «Опубликовать» активна при наличии хотя бы одного из двух
@@ -462,6 +468,8 @@ PlayerPage (/player/:username)
 - Вложения отображаются через `PostAttachments` (новый формат) или legacy `imageUrl`
 - `compact={true}` ограничивает медиа-сетку до 4 ячеек с оверлеем "+N"
 - Текст кликабелен: обрезание/раскрытие/PostModal — поведение без изменений
+- Кнопка 🔗 «Скопировать ссылку» (`.post-card__share`) — всегда видна, копирует `/post/${post.id}` через `navigator.clipboard`; opacity 0.5 по умолчанию, акцентный цвет при наведении
+- Props: добавлены `onCommentAdded` (callback при добавлении комментария) и `autoOpenModal` (если true — PostModal открыт сразу при монтировании)
 - Если `post.pollId` задан — рендерит `<PollViewer pollId={post.pollId} cssVars={cssVars} />` над текстом поста
 
 ### PostModal
@@ -505,6 +513,7 @@ Props: `disableScrollLock` — пробрасывается в MediaModal.
 - Поток: загрузка через `POST /api/upload` (поле `files[]`) → сохранение через `POST /api/images`
 - «Удаление» пака из галереи: `DELETE /api/images/album/:groupId` → устанавливает `is_gallery=0` (мягкое скрытие); физически не удаляет — медиа остаётся в профиле и альбомах
 - Клик по фото открывает `ImageModal` — «кинотеатр» для скриншотов/видео
+- **Глубокая ссылка** `/gallery?image=<id>` — при загрузке страницы читается `?image` через `useSearchParams`; после загрузки всех альбомов (`useEffect` на `[deepLinkImageId, allItems]`) автоматически открывается `ImageModal` с нужным фото
 - `ImageModal` рендерится через `ReactDOM.createPortal` в `document.body`
 - Компоненты: `ImageUpload`, `ImageModal`, `GalleryAlbum` (в `src/Components/`)
 
@@ -531,6 +540,7 @@ Props: `disableScrollLock` — пробрасывается в MediaModal.
 - **Альбомы**: `albumRanges [{startIndex, items[]}]` — вычисляется в `Gallery.jsx` и `PlayerPage.jsx` и передаётся в `ImageModal`; текущий диапазон определяется динамически по `currentIndex`
 - **Боковая панель**: по умолчанию закрыта; кнопка `◀`/`▶` в топ-баре; `width:0 → 380px` с `transition:width 0.25s`; внутри — автор, дата, заголовок, `CommentSection stickyForm={true}`; prop `showSidebar` (default `true`) — при `false` кнопка сайдбара и сам сайдбар не рендерятся (используется для лайтбокса новостей/событий)
 - **Кнопка удаления** 🗑: prop `onDeleteItem(imageId)` — если передан, в топ-баре появляется кнопка 🗑; показывает `showConfirm`, навигирует к соседнему медиа (или закрывает если последнее), затем вызывает callback. Передаётся из Gallery (для авторизованных), из PlayerPage «Фото» (для владельца) и из PlayerPage «Альбомы» (для владельца)
+- **Кнопка поделиться** 🔗 (`.image-modal__btn--share`) в топ-баре — копирует `/gallery?image=${current.id}` через `navigator.clipboard`; всегда видна; класс в SCSS `&--share`
 - **Тег альбома** в топ-баре: бейдж `📁 название` — читается из `current.albumName` / `current.albumOwnerUsername` (поля каждого image-объекта, приходят с бэкенда). Prop `showAlbumTag` (default `true`); внутри альбомного ImageModal передаётся `showAlbumTag={false}`. Бэкенд добавляет `albumName`/`albumOwnerUsername` через subquery в `getAlbums` (images.js)
 - При смене фото — плавный fade-in изображения (opacity 0→1 после onLoad)
 - Скролл body блокируется через `position:fixed + top:-scrollY` (как в MediaModal)
@@ -594,7 +604,9 @@ logActivity({ userId, username, action, targetType, targetId, fileName, fileType
 - **Фильтр по типу**: таб-кнопки «Все / Загрузки файлов / Посты / Удаления постов / Галерея»
 - **Поиск по нику**: поле с автодополнением (debounce 220 мс, `GET /api/logs/users?q=X`); дропдаун закрывается по `mousedown` вне (`searchWrapRef`); `onMouseDown` на подсказках (не `onClick`) — чтобы blur не закрыл дропдаун раньше клика
 - Клик по нику в таблице → фильтрация по этому игроку + скролл к началу
-- **Таблица**: Игрок (аватарка + ник + ↗ профиль) / Действие (бейдж с цветом по типу) / Файл или описание / Размер (с цветовой подсветкой >10/100/500 МБ) / Тип MIME / Дата
+- **Таблица**: Игрок (аватарка + ник + ↗ профиль) / Действие (бейдж с цветом по типу) / Файл или описание / Размер (с цветовой подсветкой >10/100/500 МБ) / Тип MIME / Дата / Действия
+  - Столбец «Файл»: если `targetId` начинается с `/uploads/` — рендерится как кликабельная ссылка `<a href=... target="_blank">` (открывает файл в новой вкладке); класс `.logs-page__cell-file--link`
+  - Столбец «Действия»: для `file_upload`-записей с `targetId` — кнопка 🗑 удаления файла; вызывает `DELETE /api/logs/:id/file`, после чего `targetId` обнуляется и кнопка/ссылка исчезают из строки (без перезагрузки)
 - **Пагинация**: 50 записей на страницу
 - Страница без `max-width` — занимает всю ширину `.app__main`
 

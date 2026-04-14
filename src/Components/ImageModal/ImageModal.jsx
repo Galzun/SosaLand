@@ -240,6 +240,17 @@ function ImageModal({ images, initialIndex = 0, onClose, commentType, commentId,
             </div>
 
             <div className="image-modal__actions">
+              {current?.id && (
+                <button
+                  className="image-modal__btn image-modal__btn--share"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const url = `${window.location.origin}/gallery?image=${current.id}`;
+                    navigator.clipboard?.writeText(url);
+                  }}
+                  title="Скопировать ссылку на фото"
+                >🔗</button>
+              )}
               {onDeleteItem && (
                 <button
                   className="image-modal__btn image-modal__btn--delete"

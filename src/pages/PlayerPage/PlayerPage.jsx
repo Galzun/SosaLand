@@ -17,8 +17,6 @@ import usePosts from '../../hooks/usePosts';
 import { showConfirm, showAlert } from '../../Components/Dialog/dialogManager';
 import './PlayerPage.scss';
 
-const MAX_TOTAL_SIZE = 100 * 1024 * 1024;
-const MAX_FILE_SIZE  = 50  * 1024 * 1024;
 
 // Парсим дату/время из имени файла формата "2026-02-10_20.20.19.png"
 function parseDateFromFilename(title) {
@@ -355,27 +353,12 @@ function PlayerPage() {
 
     const newEntries = [];
     for (const file of files) {
-      if (file.size > MAX_FILE_SIZE) continue;
       const isVideo    = file.type.startsWith('video/');
       const previewUrl = (file.type.startsWith('image/') || isVideo)
         ? URL.createObjectURL(file) : null;
       newEntries.push({ file, previewUrl, isVideo });
     }
-
-    const combined  = [...selectedPhotoFiles, ...newEntries];
-    const totalSize = combined.reduce((s, f) => s + f.file.size, 0);
-    if (totalSize > MAX_TOTAL_SIZE) {
-      let acc = selectedPhotoFiles.reduce((s, f) => s + f.file.size, 0);
-      const fitting = [];
-      for (const entry of newEntries) {
-        if (acc + entry.file.size <= MAX_TOTAL_SIZE) { fitting.push(entry); acc += entry.file.size; }
-        else if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
-      }
-      setSelectedPhotoFiles(prev => [...prev, ...fitting]);
-      setPhotoError('Лимит 100 МБ: часть файлов не добавлена');
-    } else {
-      setSelectedPhotoFiles(combined);
-    }
+    setSelectedPhotoFiles(prev => [...prev, ...newEntries]);
     if (photoFileInputRef.current) photoFileInputRef.current.value = '';
   };
 
@@ -597,25 +580,11 @@ function PlayerPage() {
     setAlbumUploadError(null);
     const newEntries = [];
     for (const file of files) {
-      if (file.size > MAX_FILE_SIZE) continue;
       const isVideo    = file.type.startsWith('video/');
       const previewUrl = (file.type.startsWith('image/') || isVideo) ? URL.createObjectURL(file) : null;
       newEntries.push({ file, previewUrl, isVideo });
     }
-    const combined = [...albumUploadFiles, ...newEntries];
-    const total    = combined.reduce((s, f) => s + f.file.size, 0);
-    if (total > MAX_TOTAL_SIZE) {
-      let acc = albumUploadFiles.reduce((s, f) => s + f.file.size, 0);
-      const fitting = [];
-      for (const entry of newEntries) {
-        if (acc + entry.file.size <= MAX_TOTAL_SIZE) { fitting.push(entry); acc += entry.file.size; }
-        else if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
-      }
-      setAlbumUploadFiles(prev => [...prev, ...fitting]);
-      setAlbumUploadError('Лимит 100 МБ: часть файлов не добавлена');
-    } else {
-      setAlbumUploadFiles(combined);
-    }
+    setAlbumUploadFiles(prev => [...prev, ...newEntries]);
     if (albumFileInputRef.current) albumFileInputRef.current.value = '';
   };
 
@@ -1032,8 +1001,8 @@ function PlayerPage() {
                 </div>
 
                 {selectedPhotoFiles.length > 0 && (
-                  <div className={`player-page__photo-size${totalPhotoSize > MAX_TOTAL_SIZE ? ' player-page__photo-size--over' : ''}`}>
-                    {selectedPhotoFiles.length} файл(ов) · {formatBytes(totalPhotoSize)} / 100 МБ
+                  <div className="player-page__photo-size">
+                    {selectedPhotoFiles.length} файл(ов) · {formatBytes(totalPhotoSize)}
                   </div>
                 )}
 
@@ -1052,6 +1021,7 @@ function PlayerPage() {
                           <div className="player-page__photo-preview-file">📄</div>
                         )}
                         <span className="player-page__photo-preview-name">{entry.file.name}</span>
+                        <span className="player-page__photo-preview-size">{formatBytes(entry.file.size)}</span>
                         <button
                           type="button"
                           className="player-page__photo-preview-remove"
@@ -1079,7 +1049,7 @@ function PlayerPage() {
                 <button
                   type="submit"
                   className="player-page__photo-submit"
-                  disabled={submitting || selectedPhotoFiles.length === 0 || totalPhotoSize > MAX_TOTAL_SIZE}
+                  disabled={submitting || selectedPhotoFiles.length === 0}
                 >
                   {submitting ? (uploadStatus || 'Загрузка...') : 'Опубликовать'}
                 </button>
@@ -1299,8 +1269,8 @@ function PlayerPage() {
                 </div>
 
                 {albumUploadFiles.length > 0 && (
-                  <div className={`player-page__photo-size${totalAlbumUploadSize > MAX_TOTAL_SIZE ? ' player-page__photo-size--over' : ''}`}>
-                    {albumUploadFiles.length} файл(ов) · {formatBytes(totalAlbumUploadSize)} / 100 МБ
+                  <div className="player-page__photo-size">
+                    {albumUploadFiles.length} файл(ов) · {formatBytes(totalAlbumUploadSize)}
                   </div>
                 )}
 
@@ -1319,6 +1289,7 @@ function PlayerPage() {
                           <div className="player-page__photo-preview-file">📄</div>
                         )}
                         <span className="player-page__photo-preview-name">{entry.file.name}</span>
+                        <span className="player-page__photo-preview-size">{formatBytes(entry.file.size)}</span>
                         <button
                           type="button"
                           className="player-page__photo-preview-remove"
@@ -1344,7 +1315,7 @@ function PlayerPage() {
                 <button
                   type="submit"
                   className="player-page__photo-submit"
-                  disabled={albumSubmitting || albumUploadFiles.length === 0 || totalAlbumUploadSize > MAX_TOTAL_SIZE}
+                  disabled={albumSubmitting || albumUploadFiles.length === 0}
                 >
                   {albumSubmitting ? (albumUploadStatus || 'Загрузка...') : 'Добавить в альбом'}
                 </button>

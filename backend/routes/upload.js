@@ -9,7 +9,7 @@
 //   "files[]" — несколько любых файлов: вложения в постах и галерее
 //
 // Файлы сохраняются в backend/uploads/, доступны по /uploads/<имя>
-// Максимальный размер: 50 МБ на файл
+// Ограничение: не более 1 ГБ на файл; не более 1 ГБ на пользователя в час
 
 const express = require('express');
 const multer  = require('multer');
@@ -19,6 +19,42 @@ const { requireAuth } = require('../middleware/auth');
 const { logActivity } = require('../utils/logActivity');
 
 const router = express.Router();
+
+// ---------------------------------------------------------------------------
+// Rate-limiting: 1 ГБ в час на пользователя (in-memory)
+// ---------------------------------------------------------------------------
+const HOURLY_LIMIT = 1024 * 1024 * 1024; // 1 ГБ
+const HOUR_MS      = 60 * 60 * 1000;
+
+// Map userId → { used: bytes, resetAt: timestamp }
+const uploadUsage = new Map();
+
+// Очищаем устаревшие записи раз в час
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, entry] of uploadUsage) {
+    if (now >= entry.resetAt) uploadUsage.delete(id);
+  }
+}, HOUR_MS);
+
+/**
+ * checkAndAccumulate — проверяет лимит и накапливает размер.
+ * Возвращает { allowed: bool, used: bytes, remaining: bytes }
+ */
+function checkHourlyLimit(userId, addBytes) {
+  const now = Date.now();
+  let entry = uploadUsage.get(userId);
+  if (!entry || now >= entry.resetAt) {
+    entry = { used: 0, resetAt: now + HOUR_MS };
+    uploadUsage.set(userId, entry);
+  }
+  const remaining = HOURLY_LIMIT - entry.used;
+  if (addBytes > remaining) {
+    return { allowed: false, used: entry.used, remaining };
+  }
+  entry.used += addBytes;
+  return { allowed: true, used: entry.used, remaining: remaining - addBytes };
+}
 
 // Декодируем имя файла: браузер отправляет UTF-8, но multer читает как Latin-1
 function decodeFileName(name) {
@@ -113,6 +149,21 @@ router.post('/', requireAuth, (req, res) => {
     // --- Многофайловый режим (files[]) ---
     const multiFiles = req.files?.['files[]'];
     if (multiFiles && multiFiles.length > 0) {
+      // Проверяем часовой лимит на суммарный размер пакета
+      const totalSize = multiFiles.reduce((s, f) => s + f.size, 0);
+      const limitCheck = checkHourlyLimit(req.user.id, totalSize);
+      if (!limitCheck.allowed) {
+        // Удаляем уже сохранённые файлы
+        multiFiles.forEach(f => {
+          fs.unlink(path.join(UPLOADS_DIR, f.filename), () => {});
+        });
+        const usedMb      = (uploadUsage.get(req.user.id)?.used / (1024 * 1024 * 1024) || 0).toFixed(2);
+        const remainingMb = (limitCheck.remaining / (1024 * 1024)).toFixed(0);
+        return res.status(429).json({
+          error: `Превышен лимит загрузок 1 ГБ в час. Осталось: ${remainingMb} МБ. Попробуйте позже.`,
+        });
+      }
+
       const result = multiFiles.map(file => ({
         url:      `/uploads/${file.filename}`, // обратная совместимость
         fileUrl:  `/uploads/${file.filename}`,
@@ -124,11 +175,13 @@ router.post('/', requireAuth, (req, res) => {
       // Логируем каждый файл отдельно для детального трекинга
       const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
       for (const file of multiFiles) {
+        const fUrl = `/uploads/${file.filename}`;
         logActivity({
           userId:     req.user.id,
           username:   req.user.username,
           action:     'file_upload',
           targetType: req.body?.context || 'post',
+          targetId:   fUrl,
           fileName:   decodeFileName(file.originalname),
           fileType:   file.mimetype,
           fileSize:   file.size,
@@ -148,6 +201,16 @@ router.post('/', requireAuth, (req, res) => {
       });
     }
 
+    // Проверяем часовой лимит
+    const singleCheck = checkHourlyLimit(req.user.id, single.size);
+    if (!singleCheck.allowed) {
+      fs.unlink(path.join(UPLOADS_DIR, single.filename), () => {});
+      const remainingMb = (singleCheck.remaining / (1024 * 1024)).toFixed(0);
+      return res.status(429).json({
+        error: `Превышен лимит загрузок 1 ГБ в час. Осталось: ${remainingMb} МБ. Попробуйте позже.`,
+      });
+    }
+
     const fileUrl  = `/uploads/${single.filename}`;
     const fileType = single.mimetype;
     const fileName = decodeFileName(single.originalname);
@@ -160,6 +223,7 @@ router.post('/', requireAuth, (req, res) => {
       username:   req.user.username,
       action:     'file_upload',
       targetType: req.body?.context || singleContext,
+      targetId:   fileUrl,
       fileName,
       fileType,
       fileSize:   single.size,

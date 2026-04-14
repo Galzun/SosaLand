@@ -373,6 +373,22 @@ router.get('/', optionalAuth, async (req, res) => {
 
 
 // ---------------------------------------------------------------------------
+// GET /api/posts/:id — получить один пост по ID (для прямой ссылки /post/:id).
+// ---------------------------------------------------------------------------
+router.get('/:id', optionalAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const posts = await fetchPosts('WHERE p.id = ?', [id], req.user?.id, 1, 0);
+    if (!posts.length) return res.status(404).json({ error: 'Пост не найден' });
+    res.json(posts[0]);
+  } catch (err) {
+    console.error('Ошибка получения поста:', err.message);
+    res.status(500).json({ error: 'Ошибка при получении поста' });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
 // PUT /api/posts/:id — редактировать пост.
 //
 // Тело запроса (JSON):

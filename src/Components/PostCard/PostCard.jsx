@@ -17,11 +17,11 @@ import './PostCard.scss';
 
 const CONTENT_TRUNCATE = 300;
 
-function PostCard({ post, onLike, onDelete, onEdit, cssVars }) {
+function PostCard({ post, onLike, onDelete, onEdit, onCommentAdded, cssVars, autoOpenModal }) {
   const articleRef = useRef(null);
 
   const [imgError,         setImgError]         = useState(false);
-  const [postModalOpen,    setPostModalOpen]    = useState(false);
+  const [postModalOpen,    setPostModalOpen]    = useState(!!autoOpenModal);
   const [editModalOpen,    setEditModalOpen]    = useState(false);
   const [contentExpanded,  setContentExpanded]  = useState(false);
   // Локальный счётчик комментариев — обновляется при inline-отправке
@@ -51,6 +51,7 @@ function PostCard({ post, onLike, onDelete, onEdit, cssVars }) {
 
   const handleCommentAdded = () => {
     setLocalCount(prev => prev + 1);
+    onCommentAdded?.();
   };
 
   // Клик по тексту: если обрезан — раскрыть; если уже раскрыт — открыть PostModal
@@ -98,18 +99,30 @@ function PostCard({ post, onLike, onDelete, onEdit, cssVars }) {
           </div>
         </Link>
 
-        {(isOwner || isAdmin) && (
-          <div className="post-card__header-actions">
-            {isOwner && onEdit && (
-              <button className="post-card__edit" onClick={() => setEditModalOpen(true)} title="Редактировать пост">
-                ✏️
+        <div className="post-card__header-actions">
+          <button
+            className="post-card__share"
+            onClick={() => {
+              const url = `${window.location.origin}/post/${post.id}`;
+              navigator.clipboard?.writeText(url);
+            }}
+            title="Скопировать ссылку на пост"
+          >
+            🔗
+          </button>
+          {(isOwner || isAdmin) && (
+            <>
+              {isOwner && onEdit && (
+                <button className="post-card__edit" onClick={() => setEditModalOpen(true)} title="Редактировать пост">
+                  ✏️
+                </button>
+              )}
+              <button className="post-card__delete" onClick={handleDelete} title="Удалить пост">
+                🗑
               </button>
-            )}
-            <button className="post-card__delete" onClick={handleDelete} title="Удалить пост">
-              🗑
-            </button>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Новые вложения (post_attachments) — изображения, видео, аудио, документы */}

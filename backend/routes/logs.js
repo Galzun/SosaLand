@@ -1,13 +1,18 @@
 // routes/logs.js
 // Логи активности — только для администраторов и создателя.
 //
-// GET /api/logs              — список логов с фильтрацией и пагинацией
-// GET /api/logs/stats        — статистика загрузок по пользователям
-// GET /api/logs/users?q=...  — автодополнение ников для поиска
+// GET    /api/logs              — список логов с фильтрацией и пагинацией
+// GET    /api/logs/stats        — статистика загрузок по пользователям
+// GET    /api/logs/users?q=...  — автодополнение ников для поиска
+// DELETE /api/logs/:id/file     — удалить файл с диска (по target_id), запись лога остаётся
 
 const express = require('express');
+const path    = require('path');
+const fs      = require('fs');
 const db      = require('../db');
 const { requireAuth, isAdmin } = require('../middleware/auth');
+
+const UPLOADS_DIR = path.join(__dirname, '../uploads');
 
 const router = express.Router();
 
@@ -224,6 +229,54 @@ router.get('/', requireAuth, isAdmin, async (req, res) => {
   } catch (err) {
     console.error('Ошибка получения логов:', err.message);
     res.status(500).json({ error: 'Ошибка при получении логов' });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
+// DELETE /api/logs/:id/file — удалить файл с диска.
+//
+// Запись лога остаётся (для истории), но файл удаляется физически.
+// Обнуляем target_id в записи лога после удаления.
+// ---------------------------------------------------------------------------
+router.delete('/:id/file', requireAuth, isAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const log = await db.get(
+      `SELECT id, target_id, file_name FROM activity_logs WHERE id = ?`, [id]
+    );
+    if (!log) return res.status(404).json({ error: 'Запись лога не найдена' });
+
+    const fileUrl = log.target_id;
+    if (!fileUrl || !fileUrl.startsWith('/uploads/')) {
+      return res.status(400).json({ error: 'У этой записи нет удаляемого файла' });
+    }
+
+    const fileName = fileUrl.replace(/^\/uploads\//, '');
+    // Защита от path traversal
+    if (fileName.includes('/') || fileName.includes('\\') || fileName.includes('..')) {
+      return res.status(400).json({ error: 'Некорректный путь файла' });
+    }
+
+    const filePath = path.join(UPLOADS_DIR, fileName);
+    await new Promise((resolve) => {
+      fs.unlink(filePath, (err) => {
+        if (err && err.code !== 'ENOENT') {
+          console.warn('Не удалось удалить файл из логов:', filePath, err.message);
+        }
+        resolve();
+      });
+    });
+
+    // Обнуляем target_id — файл больше не существует
+    await db.run(
+      `UPDATE activity_logs SET target_id = NULL WHERE id = ?`, [id]
+    );
+
+    res.json({ ok: true, deleted: fileUrl });
+  } catch (err) {
+    console.error('Ошибка удаления файла из логов:', err.message);
+    res.status(500).json({ error: 'Ошибка при удалении файла' });
   }
 });
 

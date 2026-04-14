@@ -46,13 +46,6 @@ function ImageUpload({ onUpload, label = 'Выбрать изображение'
       return;
     }
 
-    // Проверяем размер файла (50 МБ).
-    const maxSize = 50 * 1024 * 1024;
-    if (file.size > maxSize) {
-      setError('Файл слишком большой. Максимум 50 МБ');
-      return;
-    }
-
     // Создаём локальный URL для мгновенного предпросмотра (до ответа сервера).
     // URL.createObjectURL создаёт временный blob-URL в памяти браузера.
     const localPreview = URL.createObjectURL(file);

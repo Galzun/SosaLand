@@ -1,0 +1,37 @@
+// PostPage.scss
+.post-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+
+  &__back {
+    margin-bottom: 16px;
+  }
+
+  &__back-link {
+    color: rgba(255,255,255,0.5);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.15s;
+
+    &:hover { color: #fff; }
+  }
+
+  &__loading,
+  &__error {
+    text-align: center;
+    padding: 60px 0;
+    color: rgba(255,255,255,0.5);
+    font-size: 1rem;
+  }
+
+  &__error {
+    color: #ff6b6b;
+  }
+
+  &__container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+}

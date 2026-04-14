@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import { showConfirm } from '../../Components/Dialog/dialogManager';
 import './LogsPage.scss';
 
 const ROLE_LEVEL = { user: 1, editor: 2, admin: 3, creator: 4 };
@@ -21,7 +22,7 @@ const ACTION_TABS = [
 
 function actionColor(action) {
   switch (action) {
-    case 'file_upload':    return 'var(--logs-accent)';
+    case 'file_upload':    return 'var(--accent)';
     case 'post_create':    return '#7eb8f7';
     case 'post_delete':    return '#ff4a4a';
     case 'image_add':      return '#b8a9ff';
@@ -211,6 +212,24 @@ export default function LogsPage() {
     pageTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  // Удаление файла из лога
+  async function handleDeleteFile(log) {
+    const ok = await showConfirm(
+      `Удалить файл «${log.fileName || log.targetId}» с диска?\n\nЗапись в логах останется, но файл будет удалён безвозвратно.`,
+      { confirmText: 'Удалить', cancelText: 'Отмена' }
+    );
+    if (!ok) return;
+    try {
+      await axios.delete(`/api/logs/${log.id}/file`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // Обновляем запись в локальном состоянии: убираем targetId
+      setLogs(prev => prev.map(l => l.id === log.id ? { ...l, targetId: null } : l));
+    } catch (e) {
+      alert(e.response?.data?.error || 'Ошибка при удалении файла');
+    }
+  }
+
   // Свернуть топ и проскроллить наверх страницы
   function collapseTop() {
     setTopVisible(TOP_STEP);
@@ -258,7 +277,7 @@ export default function LogsPage() {
                     <span className="logs-page__top-files">{u.totalFiles.toLocaleString('ru')} файл.</span>
                     <span
                       className="logs-page__top-size"
-                      style={{ color: sizeColor(u.totalSize) || 'var(--logs-accent)' }}
+                      style={{ color: sizeColor(u.totalSize) || 'var(--accent)' }}
                     >
                       {u.totalSizeFmt}
                     </span>
@@ -365,6 +384,7 @@ export default function LogsPage() {
                   <th>Размер</th>
                   <th>Тип</th>
                   <th>Дата</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -411,9 +431,21 @@ export default function LogsPage() {
 
                     <td className="logs-page__cell-file">
                       {log.fileName ? (
-                        <span className="logs-page__filename" title={log.fileName}>
-                          {fileTypeIcon(log.fileType)}&nbsp;{log.fileName}
-                        </span>
+                        log.targetId?.startsWith('/uploads/') ? (
+                          <a
+                            className="logs-page__filename logs-page__filename--link"
+                            href={log.targetId}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={`Открыть файл: ${log.fileName}`}
+                          >
+                            {fileTypeIcon(log.fileType)}&nbsp;{log.fileName}
+                          </a>
+                        ) : (
+                          <span className="logs-page__filename" title={log.fileName}>
+                            {fileTypeIcon(log.fileType)}&nbsp;{log.fileName}
+                          </span>
+                        )
                       ) : log.details?.preview ? (
                         <span className="logs-page__preview" title={log.details.preview}>
                           «{log.details.preview.slice(0, 60)}{log.details.preview.length > 60 ? '…' : ''}»
@@ -446,6 +478,17 @@ export default function LogsPage() {
                     </td>
 
                     <td className="logs-page__cell-date">{fmtDate(log.createdAt)}</td>
+                    <td className="logs-page__cell-actions">
+                      {log.action === 'file_upload' && log.targetId?.startsWith('/uploads/') && (
+                        <button
+                          className="logs-page__delete-btn"
+                          onClick={() => handleDeleteFile(log)}
+                          title="Удалить файл с диска"
+                        >
+                          🗑
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

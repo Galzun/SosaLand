@@ -425,6 +425,41 @@
     color: #ccc;
     font-family: 'Consolas', monospace;
     font-size: 0.83rem;
+
+    &--link {
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      transition: color 0.12s;
+
+      &:hover {
+        color: #fff;
+        text-decoration: underline;
+      }
+    }
+  }
+
+  // Ячейка — действия (удаление)
+  &__cell-actions {
+    width: 36px;
+    text-align: center;
+    padding: 9px 8px;
+  }
+
+  &__delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.95rem;
+    padding: 3px 5px;
+    border-radius: 4px;
+    opacity: 0.4;
+    transition: opacity 0.15s, background 0.15s;
+
+    &:hover {
+      opacity: 1;
+      background: rgba(255, 74, 74, 0.15);
+    }
   }
 
   &__preview {

@@ -213,6 +213,17 @@
       color: #ff4a4a;
     }
   }
+
+  &--share {
+    font-size: 14px;
+    opacity: 0.6;
+    &:hover {
+      opacity: 1;
+      background: rgba(74, 255, 158, 0.12);
+      border-color: var(--cards-accent-color, #4aff9e);
+      color: var(--cards-accent-color, #4aff9e);
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

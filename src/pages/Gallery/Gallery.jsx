@@ -4,7 +4,7 @@
 // Клик на элемент альбома → ImageModal с навигацией по ВСЕЙ галерее + комментарии.
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import GalleryAlbum from '../../Components/GalleryAlbum/GalleryAlbum';
@@ -13,9 +13,7 @@ import { timeAgo } from '../../utils/timeFormatter';
 import { showConfirm, showAlert } from '../../Components/Dialog/dialogManager';
 import './Gallery.scss';
 
-const LIMIT          = 30;
-const MAX_TOTAL_SIZE = 100 * 1024 * 1024; // 100 МБ
-const MAX_FILE_SIZE  = 50  * 1024 * 1024; // 50 МБ
+const LIMIT = 30;
 
 function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} КБ`;
@@ -26,6 +24,7 @@ function formatBytes(bytes) {
 function Gallery() {
   const { user, token } = useAuth();
   const fileInputRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Альбомы из API
   const [albums,  setAlbums]  = useState([]);
@@ -35,6 +34,10 @@ function Gallery() {
 
   // Индекс в плоском списке всех фото для ImageModal
   const [modalIndex, setModalIndex] = useState(null);
+
+  // Прямая ссылка: /gallery?image=<id>
+  // После загрузки альбомов ищем фото и открываем модал
+  const deepLinkImageId = searchParams.get('image');
 
   // Форма загрузки
   const [showUpload,    setShowUpload]    = useState(false);
@@ -80,6 +83,17 @@ function Gallery() {
     setModalIndex(start + itemIdx);
   };
 
+  // Открываем фото по deep link (?image=id) как только загрузились альбомы
+  useEffect(() => {
+    if (!deepLinkImageId || allItems.length === 0) return;
+    const idx = allItems.findIndex(item => item.id === deepLinkImageId);
+    if (idx !== -1) {
+      setModalIndex(idx);
+      // Убираем параметр из URL, чтобы при закрытии модала URL был чистым
+      setSearchParams({}, { replace: true });
+    }
+  }, [deepLinkImageId, allItems]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ---------------------------------------------------------------------------
   // Загрузка
   // ---------------------------------------------------------------------------
@@ -111,32 +125,15 @@ function Gallery() {
     setUploadError(null);
 
     const newEntries = [];
-    let skipped = 0;
 
     for (const file of files) {
-      if (file.size > MAX_FILE_SIZE) { skipped++; continue; }
       const isVideo    = file.type.startsWith('video/');
       const previewUrl = (file.type.startsWith('image/') || isVideo)
         ? URL.createObjectURL(file) : null;
       newEntries.push({ file, previewUrl, isVideo });
     }
 
-    const combined  = [...selectedFiles, ...newEntries];
-    const newTotal  = combined.reduce((s, f) => s + f.file.size, 0);
-
-    if (newTotal > MAX_TOTAL_SIZE) {
-      let acc = selectedFiles.reduce((s, f) => s + f.file.size, 0);
-      const fitting = [];
-      for (const entry of newEntries) {
-        if (acc + entry.file.size <= MAX_TOTAL_SIZE) { fitting.push(entry); acc += entry.file.size; }
-        else { if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl); skipped++; }
-      }
-      setSelectedFiles(prev => [...prev, ...fitting]);
-      setUploadError(`Лимит 100 МБ: пропущено ${skipped} файл(ов)`);
-    } else {
-      setSelectedFiles(combined);
-      if (skipped > 0) setUploadError(`Пропущено ${skipped} файл(ов) — превышает 50 МБ`);
-    }
+    setSelectedFiles(prev => [...prev, ...newEntries]);
 
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -260,8 +257,8 @@ function Gallery() {
           </button>
 
           {selectedFiles.length > 0 && (
-            <div className={`gallery__upload-size ${totalSize > MAX_TOTAL_SIZE ? 'gallery__upload-size--over' : ''}`}>
-              {selectedFiles.length} файл(ов) · {formatBytes(totalSize)} / 100 МБ
+            <div className="gallery__upload-size">
+              {selectedFiles.length} файл(ов) · {formatBytes(totalSize)}
             </div>
           )}
 
@@ -280,6 +277,7 @@ function Gallery() {
                     <div className="gallery__upload-preview-file">📄</div>
                   )}
                   <span className="gallery__upload-preview-name">{entry.file.name}</span>
+                  <span className="gallery__upload-preview-size">{formatBytes(entry.file.size)}</span>
                   <button
                     type="button"
                     className="gallery__upload-preview-remove"
@@ -307,7 +305,7 @@ function Gallery() {
           <button
             type="submit"
             className="gallery__upload-submit"
-            disabled={submitting || selectedFiles.length === 0 || totalSize > MAX_TOTAL_SIZE}
+            disabled={submitting || selectedFiles.length === 0}
           >
             {submitting ? (uploadStatus || 'Загрузка...') : 'Опубликовать'}
           </button>

@@ -159,6 +159,52 @@ router.get('/', async (req, res) => {
 
 
 // ---------------------------------------------------------------------------
+// GET /api/images/item/:id — получить одно фото по ID (для прямой ссылки /gallery?image=id).
+// Возвращает объект изображения с данными автора и group_id для навигации.
+// ---------------------------------------------------------------------------
+router.get('/item/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const row = await dbGet(`
+      SELECT
+        i.id, i.image_url, i.file_type, i.file_size, i.is_video, i.title,
+        i.group_id, i.created_at, i.is_gallery,
+        u.id AS author_id, u.username AS author_username, u.minecraft_uuid AS author_minecraft_uuid
+      FROM images i
+      JOIN users u ON u.id = i.user_id
+      WHERE i.id = ?
+    `, [id]);
+
+    if (!row) return res.status(404).json({ error: 'Фото не найдено' });
+
+    res.json({
+      id:                  row.id,
+      imageUrl:            row.image_url,
+      fileUrl:             row.image_url,
+      fileType:            row.file_type || (row.is_video ? 'video/mp4' : 'image/jpeg'),
+      fileSize:            row.file_size || null,
+      isVideo:             !!row.is_video,
+      title:               row.title    || null,
+      groupId:             row.group_id || null,
+      isGallery:           !!row.is_gallery,
+      createdAt:           row.created_at,
+      author: {
+        id:            row.author_id,
+        username:      row.author_username,
+        minecraftUuid: row.author_minecraft_uuid || null,
+        avatarUrl: row.author_minecraft_uuid
+          ? `https://crafatar.icehost.xyz/avatars/${row.author_minecraft_uuid}?size=64&overlay`
+          : null,
+      },
+    });
+  } catch (err) {
+    console.error('Ошибка получения фото:', err.message);
+    res.status(500).json({ error: 'Ошибка при получении фото' });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
 // POST /api/images — добавить медиа в галерею.
 //
 // Формат 1 (старый, один файл):
