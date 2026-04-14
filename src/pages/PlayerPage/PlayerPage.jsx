@@ -441,11 +441,11 @@ function PlayerPage() {
 
   const handleAlbumDelete = async (album) => {
     const msg = album.count > 1
-      ? `Удалить альбом (${album.count} файлов)?`
-      : 'Удалить фото?';
+      ? `Убрать ${album.count} файлов из профиля?`
+      : 'Убрать фото из профиля?';
     if (!(await showConfirm(msg))) return;
     try {
-      await axios.delete(`/api/images/album/${album.albumId}`, {
+      await axios.delete(`/api/images/group/${album.albumId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setPhotos(prev => prev.filter(a => a.albumId !== album.albumId));
@@ -522,12 +522,22 @@ function PlayerPage() {
   };
 
   const handleDeleteAlbum = async (album) => {
-    if (!(await showConfirm(`Удалить альбом «${album.name}»? Фотографии останутся во вкладке «Фото».`))) return;
+    if (!(await showConfirm(`Удалить альбом «${album.name}»? Все фотографии в нём будут удалены с диска.`))) return;
     try {
       await axios.delete(`/api/albums/${album.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUserAlbums(prev => prev.filter(a => a.id !== album.id));
+      // Убираем фото альбома из вкладки «Фото» и альбомного ImageModal
+      if (albumImages.length > 0) {
+        const deletedIds = new Set(albumImages.map(img => img.id));
+        setPhotos(prev => prev
+          .map(a => ({ ...a, items: a.items.filter(item => !deletedIds.has(item.id)) }))
+          .filter(a => a.items.length > 0)
+        );
+      }
+      setCurrentAlbum(null);
+      setAlbumImages([]);
     } catch (err) {
       await showAlert(err.response?.data?.error || 'Ошибка при удалении альбома');
     }

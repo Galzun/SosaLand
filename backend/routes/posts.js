@@ -16,7 +16,7 @@ const { v4: uuidv4 } = require('uuid');
 const db      = require('../db');
 const { requireAuth, ROLE_LEVEL } = require('../middleware/auth');
 const { postCommentsRouter } = require('./comments');
-const { logActivity } = require('../utils/logActivity');
+const { logActivity, markFileDeletedInLogs } = require('../utils/logActivity');
 
 const router = express.Router();
 
@@ -443,6 +443,7 @@ router.put('/:id', requireAuth, async (req, res) => {
 
     // Удаляем с диска вложения, которые убрали из поста
     deleteFilesFromDisk(toDelete);
+    for (const url of toDelete) await markFileDeletedInLogs(url);
 
     const posts = await fetchPosts(`WHERE p.id = ?`, [id], userId, 1, 0);
     if (!posts.length) return res.status(404).json({ error: 'Пост не найден после обновления' });
@@ -486,6 +487,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     attachments.forEach(a => { if (a.file_url) urlsToDelete.add(a.file_url); });
     if (post.image_url) urlsToDelete.add(post.image_url);
     deleteFilesFromDisk([...urlsToDelete]);
+    for (const url of urlsToDelete) await markFileDeletedInLogs(url);
 
     res.json({ success: true, id });
 

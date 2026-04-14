@@ -89,7 +89,7 @@ PlayerPage (/player/:username)
 | `/dashboard/news/:slug/edit` | Dashboard/NewsCreate | Редактирование новости (editor и выше) |
 | `/dashboard/tickets` | Dashboard/Tickets | Панель модерации заявок (admin и выше) |
 | `/dashboard/profile` | Dashboard/EditProfile | Редактирование профиля (только авторизованный) |
-| `/dashboard/logs` | Dashboard/LogsPage | Логи активности: загрузки файлов, посты, галерея (admin и выше) |
+| `/dashboard/logs` | Dashboard/LogsPage | Логи активности: загрузки и удаления файлов, посты, новости, события (admin и выше) |
 | `/post/:id` | PostPage | Прямая ссылка на пост — авто-открывает PostModal |
 
 ## Лэйаут приложения
@@ -144,7 +144,8 @@ PlayerPage (/player/:username)
 | GET | `/api/images` | все | Глобальная лента фото (limit, offset; с commentsCount) |
 | GET | `/api/images/item/:id` | все | Одно фото по ID (автор, groupId, isGallery; для глубоких ссылок `/gallery?image=id`) |
 | POST | `/api/images` | JWT | Добавить фото в галерею (imageUrl, title?) |
-| DELETE | `/api/images/:id` | JWT (автор/admin) | Удалить фото из базы |
+| DELETE | `/api/images/:id` | JWT (автор/admin) | Удалить одно медиа из профиля: если в альбоме → `show_in_profile=0, is_gallery=0`; иначе физически + с диска |
+| DELETE | `/api/images/group/:groupId` | JWT (автор/admin) | Удалить группу (пак) из профиля: альбомные скрываются, остальные физически удаляются |
 | GET | `/api/images/:imageId/comments` | все | Комментарии к фото (limit, offset) |
 | POST | `/api/images/:imageId/comments` | JWT | Добавить комментарий к фото |
 | DELETE | `/api/comments/:id` | JWT (автор/admin) | Удалить комментарий |
@@ -183,7 +184,7 @@ PlayerPage (/player/:username)
 | GET | `/api/albums?userId=X` | все | Список именных альбомов пользователя |
 | POST | `/api/albums` | JWT | Создать альбом `{ name }` |
 | PUT | `/api/albums/:id` | JWT (владелец) | Переименовать `{ name }` |
-| DELETE | `/api/albums/:id` | JWT (владелец) | Удалить альбом (медиа в images остаются) |
+| DELETE | `/api/albums/:id` | JWT (владелец) | Удалить альбом + физически удалить все его фото (из images, с диска) |
 | GET | `/api/albums/:id/images` | все | Медиа внутри альбома |
 | POST | `/api/albums/:id/images` | JWT (владелец) | Привязать медиа `{ imageIds: [] }` |
 | DELETE | `/api/albums/:id/images/:imageId` | JWT (владелец) | Удалить медиа из альбома + из images + с диска |
@@ -511,7 +512,7 @@ Props: `disableScrollLock` — пробрасывается в MediaModal.
 - Файлы, загруженные за один раз, объединяются в **пак** (`group_id`) — авто-группировка при пакетной загрузке
 - Авторизованный пользователь может добавить фото/видео через форму на странице галереи
 - Поток: загрузка через `POST /api/upload` (поле `files[]`) → сохранение через `POST /api/images`
-- «Удаление» пака из галереи: `DELETE /api/images/album/:groupId` → устанавливает `is_gallery=0` (мягкое скрытие); физически не удаляет — медиа остаётся в профиле и альбомах
+- «Удаление» пака из галереи: `DELETE /api/images/album/:groupId` → устанавливает `is_gallery=0` (мягкое скрытие); медиа остаётся в профиле и альбомах
 - Клик по фото открывает `ImageModal` — «кинотеатр» для скриншотов/видео
 - **Глубокая ссылка** `/gallery?image=<id>` — при загрузке страницы читается `?image` через `useSearchParams`; после загрузки всех альбомов (`useEffect` на `[deepLinkImageId, allItems]`) автоматически открывается `ImageModal` с нужным фото
 - `ImageModal` рендерится через `ReactDOM.createPortal` в `document.body`
@@ -522,9 +523,18 @@ Props: `disableScrollLock` — пробрасывается в MediaModal.
 - **Альбом** (named album, таблица `albums`) ≠ **пак** (auto `group_id` в images)
 - При загрузке в альбом: файлы → `/api/upload` → `/api/images` → `/api/albums/:id/images`
 - Форма загрузки содержит два чекбокса (оба `true` по умолчанию): **«Также загрузить на страницу»** → `show_in_profile` (видно на вкладке «Фото»); **«Также загрузить в галерею»** → `is_gallery` (видно в глобальной галерее)
-- Удаление медиа **из альбома** (`DELETE /api/albums/:id/images/:imageId`) → физически удаляет из `images` + с диска
-- «Удаление» медиа **из вкладки «Фото»** (`DELETE /api/images/:id`) → `show_in_profile=0` (мягкое скрытие); медиа остаётся в альбоме и галерее
-- «Удаление» медиа **из галереи** (`DELETE /api/images/album/:groupId`) → `is_gallery=0`; медиа остаётся в профиле и альбоме
+### Иерархия удаления медиа (1 > 2 > 3)
+
+**1. Альбом** (наивысший приоритет):
+- 🗑 одного медиа из альбома (`DELETE /api/albums/:id/images/:imageId`) → физически: удаляет из `images`, cascade убирает `album_images`, удаляет файл с диска
+- Удалить весь альбом (`DELETE /api/albums/:id`) → физически удаляет все медиа альбома из `images` + с диска; записи `file_delete` в логах
+
+**2. Профиль** (`DELETE /api/images/:id` или `DELETE /api/images/group/:groupId`):
+- Если медиа **в именном альбоме** (`album_images`) → `show_in_profile=0, is_gallery=0` (скрывается из профиля и галереи, файл остаётся в альбоме)
+- Если медиа **НЕ в именном альбоме** → физически: удаляет из `images`, файл с диска, запись `file_delete` в логах
+
+**3. Галерея** (наименьший приоритет):
+- `DELETE /api/images/album/:groupId` → `is_gallery=0`; медиа остаётся в профиле и альбоме, файл на диске не трогается
 - `GET /api/albums?userId=X`: показывает все альбомы пользователя; возвращает `coverUrl`, `coverFileType` (для корректного рендера видео-обложки), `count`
 - Кнопка 🗑 в топ-баре `ImageModal` — prop `onDeleteItem(imageId)`; рендерится только когда передан; для альбомного ImageModal передаётся владельцем через PlayerPage
 - **Сортировка внутри альбома** — панель кнопок над сеткой (показывается при ≥2 файлах): «По дате ↓/↑» (парсит дату из `item.title` по паттерну `YYYY-MM-DD_HH.MM.SS`, fallback — `createdAt`) и «Добавлено ↓/↑» (по `createdAt`); стейт `albumSort` в `PlayerPage`; `parseDateFromFilename(title)` — утилита вне компонента; сортировка применяется к `sortedAlbumImages` (useMemo), которое используется и в сетке, и в `ImageModal`
@@ -582,26 +592,39 @@ Props: `disableScrollLock` — пробрасывается в MediaModal.
 | Действие | action | Где пишется |
 |---|---|---|
 | Загрузка файла (любое поле) | `file_upload` | `routes/upload.js` — после сохранения каждого файла |
+| Физическое удаление файла | `file_delete` | `routes/images.js`, `routes/albums.js`, `routes/logs.js` — при удалении из профиля/альбома/кнопкой в логах |
 | Создание поста | `post_create` | `routes/posts.js` — после `INSERT INTO posts` |
 | Удаление поста | `post_delete` | `routes/posts.js` — после `DELETE FROM posts` |
-| Добавление фото в галерею | `image_add` | `routes/images.js` — после `INSERT INTO images` |
+| Создание новости | `news_create` | `routes/news.js` |
+| Изменение новости | `news_update` | `routes/news.js` |
+| Удаление новости | `news_delete` | `routes/news.js` |
+| Создание события | `event_create` | `routes/events.js` |
+| Изменение события | `event_update` | `routes/events.js` |
+| Удаление события | `event_delete` | `routes/events.js` |
 
-### Хелпер логирования
+### Хелперы логирования
 
-`backend/utils/logActivity.js` — fire-and-forget функция:
+`backend/utils/logActivity.js` — два хелпера:
+
 ```js
 logActivity({ userId, username, action, targetType, targetId, fileName, fileType, fileSize, fileCount, ip, details })
 ```
-- Никогда не бросает исключений (`try/catch` внутри) — не прерывает основной запрос
-- IP берётся из `req.headers['x-forwarded-for']` или `req.socket.remoteAddress`
-- `details` — объект, сохраняется как JSON-строка; например `{ preview: content.slice(0, 80) }` для постов
+- fire-and-forget; никогда не бросает исключений
+- `targetId` для `file_upload` = fileUrl (`/uploads/...`) — используется для ссылки в логах и для `markFileDeletedInLogs`
+
+```js
+await markFileDeletedInLogs(fileUrl)
+```
+- Обнуляет `file_size` и `target_id` в `activity_logs` для записи с `target_id = fileUrl`
+- Вызывать с `await` при физическом удалении файла — статистика "Занято на диске" уменьшится немедленно
+- Вызывается в: `routes/images.js` (profile/group delete), `routes/albums.js` (album delete + item delete), `routes/posts.js` (post delete/edit), `routes/logs.js` (admin file delete via logs page)
 
 ### Страница LogsPage (`src/pages/Dashboard/LogsPage.jsx`)
 
 - Редирект на `/auth` если не авторизован, на `/` если роль ниже admin
 - **Секция статистики**: 3 карточки (файлов загружено / занято на диске / действий всего) + топ по объёму загрузок
 - **Топ загрузчиков**: показывает первые 5 строк, кнопка «Показать ещё +5» раскрывает по 5, кнопка «Свернуть ↑» сворачивает и скроллит к началу (`pageTopRef`)
-- **Фильтр по типу**: таб-кнопки «Все / Загрузки файлов / Посты / Удаления постов / Галерея»
+- **Фильтр по типу**: таб-кнопки «Все / Загрузки файлов / Удаления файлов / Посты / Удаления постов / Новости / Удаления новостей / События / Удаления событий»; «Новости» и «События» фильтруют по `action=X_create,X_update` (запятая = IN)
 - **Поиск по нику**: поле с автодополнением (debounce 220 мс, `GET /api/logs/users?q=X`); дропдаун закрывается по `mousedown` вне (`searchWrapRef`); `onMouseDown` на подсказках (не `onClick`) — чтобы blur не закрыл дропдаун раньше клика
 - Клик по нику в таблице → фильтрация по этому игроку + скролл к началу
 - **Таблица**: Игрок (аватарка + ник + ↗ профиль) / Действие (бейдж с цветом по типу) / Файл или описание / Размер (с цветовой подсветкой >10/100/500 МБ) / Тип MIME / Дата / Действия
@@ -615,9 +638,13 @@ logActivity({ userId, username, action, targetType, targetId, fileName, fileType
 | action | цвет |
 |---|---|
 | `file_upload` | `#4aff9e` (акцент) |
+| `file_delete` | `#ff4a4a` (красный) |
 | `post_create` | `#7eb8f7` (голубой) |
 | `post_delete` | `#ff4a4a` (красный) |
-| `image_add` | `#b8a9ff` (фиолетовый) |
+| `news_create` / `news_update` | `#7eb8f7` (голубой) |
+| `news_delete` | `#ff4a4a` (красный) |
+| `event_create` / `event_update` | `#7eb8f7` (голубой) |
+| `event_delete` | `#ff4a4a` (красный) |
 | `comment_create` | `#ffd700` (золотой) |
 
 ### Важно: PostgreSQL — JOIN + WHERE с одинаковыми именами столбцов
@@ -735,7 +762,7 @@ logActivity({ userId, username, action, targetType, targetId, fileName, fileType
 - `id` TEXT PK (UUID)
 - `user_id` TEXT → users.id ON DELETE SET NULL — может стать NULL если аккаунт удалён
 - `username` TEXT NOT NULL — ник на момент действия (денормализация; не меняется при смене ника)
-- `action` TEXT — тип действия: `'file_upload'` | `'post_create'` | `'post_delete'` | `'image_add'` | `'comment_create'`
+- `action` TEXT — тип действия: `'file_upload'` | `'file_delete'` | `'post_create'` | `'post_delete'` | `'comment_create'` | `'news_create'` | `'news_update'` | `'news_delete'` | `'event_create'` | `'event_update'` | `'event_delete'`
 - `target_type` TEXT — уточнение цели: `'post'` | `'cover'` | `'message'` | `'gallery'` | `'profile'` | `'album'` и т.д.
 - `target_id` TEXT — id целевого объекта (поста, изображения и т.п.)
 - `file_name` TEXT — оригинальное имя файла
@@ -749,8 +776,8 @@ logActivity({ userId, username, action, targetType, targetId, fileName, fileType
 - **Не имеет CASCADE** на users — запись остаётся при удалении аккаунта (историческая запись)
 
 **images** — дополнительные поля:
-- `is_gallery` INTEGER DEFAULT 1 (migration 024) — 1 = видно в глобальной галерее; `DELETE /api/images/album/:groupId` устанавливает 0 вместо физического удаления
-- `show_in_profile` INTEGER DEFAULT 1 (migration 026) — 1 = видно на вкладке «Фото» профиля; `DELETE /api/images/:id` устанавливает 0 вместо физического удаления
+- `is_gallery` INTEGER DEFAULT 1 (migration 024) — 1 = видно в глобальной галерее; `DELETE /api/images/album/:groupId` устанавливает 0; профильное удаление альбомных файлов тоже устанавливает 0
+- `show_in_profile` INTEGER DEFAULT 1 (migration 026) — 1 = видно на вкладке «Фото» профиля; устанавливается в 0 когда альбомный файл удаляется из профиля (но не физически — он остаётся в альбоме)
 
 ## Система новостей
 

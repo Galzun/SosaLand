@@ -11,6 +11,7 @@ const path    = require('path');
 const fs      = require('fs');
 const db      = require('../db');
 const { requireAuth, isAdmin } = require('../middleware/auth');
+const { logActivity } = require('../utils/logActivity');
 
 const UPLOADS_DIR = path.join(__dirname, '../uploads');
 
@@ -30,10 +31,17 @@ function formatBytes(bytes) {
 
 const ACTION_LABEL = {
   file_upload:    'Загрузка файла',
+  file_delete:    'Удаление файла',
   post_create:    'Создание поста',
   post_delete:    'Удаление поста',
   image_add:      'Фото в галерею',
   comment_create: 'Комментарий',
+  news_create:    'Создание новости',
+  news_update:    'Изменение новости',
+  news_delete:    'Удаление новости',
+  event_create:   'Создание события',
+  event_update:   'Изменение события',
+  event_delete:   'Удаление события',
 };
 
 // ---------------------------------------------------------------------------
@@ -128,7 +136,7 @@ router.get('/stats', requireAuth, isAdmin, async (req, res) => {
 // В запросе подсчёта JOIN отсутствует — там используем `username` без алиаса.
 //
 // Query-параметры:
-//   action   — фильтр по типу действия
+//   action   — фильтр по типу действия; несколько значений через запятую (news_create,news_update)
 //   username — фильтр по нику (подстрока, регистронезависимо)
 //   userId   — фильтр по конкретному userId
 //   limit    — количество записей (default 50, max 200)
@@ -149,9 +157,18 @@ router.get('/', requireAuth, isAdmin, async (req, res) => {
   const params    = [];   // параметры общие для обоих запросов
 
   if (action) {
-    mainWhere.push('al.action = ?');
-    cntWhere.push('action = ?');
-    params.push(action);
+    // action может быть одним значением или несколькими через запятую
+    const actions = action.split(',').map(a => a.trim()).filter(Boolean);
+    if (actions.length === 1) {
+      mainWhere.push('al.action = ?');
+      cntWhere.push('action = ?');
+      params.push(actions[0]);
+    } else if (actions.length > 1) {
+      const ph = actions.map(() => '?').join(', ');
+      mainWhere.push(`al.action IN (${ph})`);
+      cntWhere.push(`action IN (${ph})`);
+      params.push(...actions);
+    }
   }
   if (userId) {
     mainWhere.push('al.user_id = ?');
@@ -243,7 +260,7 @@ router.delete('/:id/file', requireAuth, isAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     const log = await db.get(
-      `SELECT id, target_id, file_name FROM activity_logs WHERE id = ?`, [id]
+      `SELECT id, target_id, file_name, file_type, file_size FROM activity_logs WHERE id = ?`, [id]
     );
     if (!log) return res.status(404).json({ error: 'Запись лога не найдена' });
 
@@ -268,12 +285,28 @@ router.delete('/:id/file', requireAuth, isAdmin, async (req, res) => {
       });
     });
 
-    // Обнуляем target_id — файл больше не существует
+    // Обнуляем target_id и file_size — файл удалён, статистика уменьшится
     await db.run(
-      `UPDATE activity_logs SET target_id = NULL WHERE id = ?`, [id]
+      `UPDATE activity_logs SET target_id = NULL, file_size = NULL WHERE id = ?`, [id]
     );
 
     res.json({ ok: true, deleted: fileUrl });
+
+    // Логируем факт удаления файла
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+    logActivity({
+      userId:     req.user.id,
+      username:   req.user.username,
+      action:     'file_delete',
+      targetType: 'file',
+      targetId:   null,
+      fileName:   log.file_name || fileName,
+      fileType:   log.file_type || null,
+      fileSize:   log.file_size || null,
+      fileCount:  1,
+      ip:         clientIp,
+      details:    { originalUrl: fileUrl },
+    });
   } catch (err) {
     console.error('Ошибка удаления файла из логов:', err.message);
     res.status(500).json({ error: 'Ошибка при удалении файла' });

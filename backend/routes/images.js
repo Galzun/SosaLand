@@ -4,10 +4,11 @@
 // Альбом = группа файлов с одинаковым group_id.
 // Одиночный файл: group_id = NULL → альбом из 1 элемента.
 //
-// GET  /api/images                   — глобальная лента альбомов (все пользователи)
-// POST /api/images                   — добавить медиа (возвращает альбом)
-// DELETE /api/images/:id             — удалить один файл + с диска
-// DELETE /api/images/album/:groupId  — удалить весь альбом (все файлы + с диска)
+// GET    /api/images                   — глобальная лента альбомов (все пользователи)
+// POST   /api/images                   — добавить медиа (возвращает альбом)
+// DELETE /api/images/:id               — физически удалить одно медиа + с диска
+// DELETE /api/images/group/:groupId    — физически удалить всю группу (пак) + с диска
+// DELETE /api/images/album/:groupId    — скрыть пак из галереи (is_gallery=0, файлы остаются)
 
 const express = require('express');
 const path    = require('path');
@@ -16,7 +17,7 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { imageCommentsRouter } = require('./comments');
-const { logActivity } = require('../utils/logActivity');
+const { logActivity, markFileDeletedInLogs } = require('../utils/logActivity');
 
 const router = express.Router();
 
@@ -264,25 +265,6 @@ router.post('/', requireAuth, async (req, res) => {
       );
 
       res.status(201).json(albums[0] || { albumId: albumKey, items: [], count: 0 });
-
-      // Логируем загрузку в галерею (по одной записи на файл)
-      const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
-      const userRow  = await dbGet(`SELECT username FROM users WHERE id = ?`, [userId]).catch(() => null);
-      const uname    = userRow?.username || userId;
-      for (const f of files) {
-        if (!f.fileUrl) continue;
-        logActivity({
-          userId:     userId,
-          username:   uname,
-          action:     'image_add',
-          targetType: galleryFlag ? 'gallery' : 'profile',
-          fileName:   f.fileName || null,
-          fileType:   f.fileType || null,
-          fileSize:   f.size     || null,
-          fileCount:  1,
-          ip:         clientIp,
-        });
-      }
     } catch (err) {
       console.error('Ошибка пакетного добавления:', err.message);
       res.status(500).json({ error: 'Ошибка при добавлении медиа' });
@@ -319,8 +301,80 @@ router.post('/', requireAuth, async (req, res) => {
 
 
 // ---------------------------------------------------------------------------
+// DELETE /api/images/group/:groupId — удалить пак из вкладки «Фото» профиля.
+//
+// Иерархия: профиль > галерея. Для каждого файла:
+//   — если в именном альбоме → show_in_profile=0, is_gallery=0 (диск не трогать)
+//   — иначе → физически удалить из БД + с диска
+// ---------------------------------------------------------------------------
+router.delete('/group/:groupId', requireAuth, async (req, res) => {
+  const { groupId } = req.params;
+  const userId      = req.user.id;
+  const userRole    = req.user.role;
+
+  try {
+    const images = await dbAll(
+      `SELECT id, user_id, image_url, file_type, file_size FROM images WHERE COALESCE(group_id, id) = ?`,
+      [groupId]
+    );
+
+    if (images.length === 0) return res.status(404).json({ error: 'Медиа не найдено' });
+
+    if (images[0].user_id !== userId && userRole !== 'admin') {
+      return res.status(403).json({ error: 'Нет прав для удаления' });
+    }
+
+    const ids          = images.map(img => img.id);
+    const placeholders = ids.map(() => '?').join(', ');
+
+    const albumLinked    = await dbAll(
+      `SELECT DISTINCT image_id FROM album_images WHERE image_id IN (${placeholders})`, ids
+    );
+    const albumLinkedSet = new Set(albumLinked.map(r => r.image_id));
+
+    const softIds      = ids.filter(id =>  albumLinkedSet.has(id));
+    const physicalImgs = images.filter(img => !albumLinkedSet.has(img.id));
+
+    // Скрыть из профиля и галереи (файл остаётся в альбоме и на диске)
+    if (softIds.length > 0) {
+      const softPh = softIds.map(() => '?').join(', ');
+      await dbRun(`UPDATE images SET show_in_profile = 0, is_gallery = 0 WHERE id IN (${softPh})`, softIds);
+    }
+
+    // Физически удалить
+    if (physicalImgs.length > 0) {
+      const physPh = physicalImgs.map(() => '?').join(', ');
+      await dbRun(`DELETE FROM images WHERE id IN (${physPh})`, physicalImgs.map(i => i.id));
+      const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+      for (const img of physicalImgs) {
+        deleteFileFromDisk(img.image_url);
+        await markFileDeletedInLogs(img.image_url);
+        logActivity({
+          userId,
+          username:   req.user.username,
+          action:     'file_delete',
+          targetType: 'profile',
+          fileName:   img.image_url?.split('/uploads/')[1] || null,
+          fileType:   img.file_type || null,
+          fileSize:   img.file_size || null,
+          fileCount:  1,
+          ip:         clientIp,
+          details:    { originalUrl: img.image_url },
+        });
+      }
+    }
+
+    res.json({ success: true, hidden: softIds.length, deleted: physicalImgs.length });
+  } catch (err) {
+    console.error('Ошибка удаления группы медиа:', err.message);
+    res.status(500).json({ error: 'Ошибка при удалении' });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
 // DELETE /api/images/album/:groupId — скрыть пак из глобальной галереи (is_gallery=0).
-// Физически не удаляет: медиа остаётся в профиле и альбомах.
+// Медиа остаётся в профиле и именных альбомах — только скрывается из ленты галереи.
 // ---------------------------------------------------------------------------
 router.delete('/album/:groupId', requireAuth, async (req, res) => {
   const { groupId } = req.params;
@@ -352,8 +406,10 @@ router.delete('/album/:groupId', requireAuth, async (req, res) => {
 
 
 // ---------------------------------------------------------------------------
-// DELETE /api/images/:id — скрыть медиа со страницы «Фото» (show_in_profile=0).
-// Физически не удаляет: медиа остаётся в альбомах и галерее.
+// DELETE /api/images/:id — удалить одно медиа из профиля (иерархия: профиль > галерея).
+//
+// Если файл привязан к именному альбому → скрыть из профиля И галереи (файл остаётся
+// в альбоме и на диске). Иначе → физически удалить из БД + с диска.
 // ---------------------------------------------------------------------------
 router.delete('/:id', requireAuth, async (req, res) => {
   const { id }   = req.params;
@@ -362,7 +418,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
   try {
     const image = await dbGet(
-      `SELECT id, user_id FROM images WHERE id = ?`, [id]
+      `SELECT id, user_id, image_url, file_type, file_size FROM images WHERE id = ?`, [id]
     );
 
     if (!image) return res.status(404).json({ error: 'Медиа не найдено' });
@@ -371,7 +427,32 @@ router.delete('/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Нет прав для удаления' });
     }
 
-    await dbRun(`UPDATE images SET show_in_profile = 0 WHERE id = ?`, [id]);
+    const albumLink = await dbGet(
+      `SELECT id FROM album_images WHERE image_id = ?`, [id]
+    );
+
+    if (albumLink) {
+      // Файл в альбоме — скрыть из профиля и галереи, диск не трогать
+      await dbRun(`UPDATE images SET show_in_profile = 0, is_gallery = 0 WHERE id = ?`, [id]);
+    } else {
+      // Нет в альбоме — физически удалить
+      await dbRun(`DELETE FROM images WHERE id = ?`, [id]);
+      deleteFileFromDisk(image.image_url);
+      await markFileDeletedInLogs(image.image_url);
+      const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+      logActivity({
+        userId,
+        username:   req.user.username,
+        action:     'file_delete',
+        targetType: 'profile',
+        fileName:   image.image_url?.split('/uploads/')[1] || null,
+        fileType:   image.file_type || null,
+        fileSize:   image.file_size || null,
+        fileCount:  1,
+        ip:         clientIp,
+        details:    { originalUrl: image.image_url },
+      });
+    }
 
     res.json({ success: true, id });
   } catch (err) {

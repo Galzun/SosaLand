@@ -11,11 +11,14 @@ const db = require('../db');
  * logActivity — записать событие в лог активности.
  *
  * @param {object} opts
- * @param {string}  opts.userId     — ID пользователя (из req.user.id)
- * @param {string}  opts.username   — ник пользователя
- * @param {string}  opts.action     — тип действия:
- *                                    'file_upload' | 'post_create' | 'post_delete' |
- *                                    'image_add' | 'comment_create'
+ * @param {string}  opts.userId       — ID пользователя (из req.user.id)
+ * @param {string}  opts.username     — ник пользователя
+ * @param {string}  opts.action       — тип действия:
+ *                                      'file_upload' | 'file_delete' |
+ *                                      'post_create' | 'post_delete' |
+ *                                      'image_add' | 'comment_create' |
+ *                                      'news_create' | 'news_update' | 'news_delete' |
+ *                                      'event_create' | 'event_update' | 'event_delete'
  * @param {string}  [opts.targetType] — тип цели: 'post' | 'gallery' | 'message' | 'cover' | 'news' | 'event'
  * @param {string}  [opts.targetId]   — ID связанного объекта
  * @param {string}  [opts.fileName]   — оригинальное имя файла
@@ -66,4 +69,22 @@ async function logActivity({
   }
 }
 
-module.exports = { logActivity };
+/**
+ * markFileDeletedInLogs — обнуляет file_size и target_id в логах для удалённого файла.
+ * Вызывать при физическом удалении файла с диска — статистика "на диске" уменьшится.
+ *
+ * @param {string} fileUrl — путь вида /uploads/filename.ext
+ */
+async function markFileDeletedInLogs(fileUrl) {
+  if (!fileUrl || !fileUrl.startsWith('/uploads/')) return;
+  try {
+    await db.run(
+      `UPDATE activity_logs SET target_id = NULL, file_size = NULL WHERE target_id = ?`,
+      [fileUrl]
+    );
+  } catch (err) {
+    console.error('[markFileDeletedInLogs] Ошибка обновления лога:', err.message);
+  }
+}
+
+module.exports = { logActivity, markFileDeletedInLogs };

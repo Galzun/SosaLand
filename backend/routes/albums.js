@@ -16,6 +16,7 @@ const fs      = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { logActivity, markFileDeletedInLogs } = require('../utils/logActivity');
 
 const router = express.Router();
 
@@ -139,7 +140,7 @@ router.put('/:id', requireAuth, async (req, res) => {
 
 
 // ---------------------------------------------------------------------------
-// DELETE /api/albums/:id — удалить альбом (фото в images остаются)
+// DELETE /api/albums/:id — удалить альбом + все его фото физически (с диска и из images)
 // ---------------------------------------------------------------------------
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
@@ -148,7 +149,43 @@ router.delete('/:id', requireAuth, async (req, res) => {
     if (album.user_id !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Нет прав' });
     }
+
+    // Собираем все изображения альбома до удаления
+    const images = await dbAll(`
+      SELECT i.id, i.image_url, i.file_type, i.file_size
+      FROM album_images ai
+      JOIN images i ON i.id = ai.image_id
+      WHERE ai.album_id = ?
+    `, [req.params.id]);
+
+    // Удаляем альбом — CASCADE удалит album_images
     await dbRun(`DELETE FROM albums WHERE id = ?`, [req.params.id]);
+
+    // Физически удаляем все изображения альбома
+    if (images.length > 0) {
+      const ids = images.map(i => i.id);
+      const ph  = ids.map(() => '?').join(', ');
+      await dbRun(`DELETE FROM images WHERE id IN (${ph})`, ids);
+
+      const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+      for (const img of images) {
+        deleteFileFromDisk(img.image_url);
+        await markFileDeletedInLogs(img.image_url);
+        logActivity({
+          userId:     req.user.id,
+          username:   req.user.username,
+          action:     'file_delete',
+          targetType: 'album',
+          fileName:   img.image_url?.split('/uploads/')[1] || null,
+          fileType:   img.file_type || null,
+          fileSize:   img.file_size || null,
+          fileCount:  1,
+          ip:         clientIp,
+          details:    { originalUrl: img.image_url },
+        });
+      }
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('Ошибка удаления альбома:', err.message);
@@ -256,13 +293,30 @@ router.delete('/:id/images/:imageId', requireAuth, async (req, res) => {
     );
     if (!link) return res.status(404).json({ error: 'Медиа не найдено в альбоме' });
 
-    // Получаем данные файла (для удаления с диска)
-    const image = await dbGet(`SELECT id, image_url FROM images WHERE id = ?`, [req.params.imageId]);
+    // Получаем данные файла (для удаления с диска и логирования)
+    const image = await dbGet(
+      `SELECT id, image_url, file_type, file_size FROM images WHERE id = ?`,
+      [req.params.imageId]
+    );
 
     // Удаляем из images — CASCADE уберёт album_images автоматически
     if (image) {
       await dbRun(`DELETE FROM images WHERE id = ?`, [req.params.imageId]);
       deleteFileFromDisk(image.image_url);
+      await markFileDeletedInLogs(image.image_url);
+      const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+      logActivity({
+        userId:     req.user.id,
+        username:   req.user.username,
+        action:     'file_delete',
+        targetType: 'album',
+        fileName:   image.image_url?.split('/uploads/')[1] || null,
+        fileType:   image.file_type || null,
+        fileSize:   image.file_size || null,
+        fileCount:  1,
+        ip:         clientIp,
+        details:    { originalUrl: image.image_url },
+      });
     }
 
     res.json({ success: true });

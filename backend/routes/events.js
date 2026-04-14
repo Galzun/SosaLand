@@ -19,6 +19,7 @@ const { v4: uuidv4 } = require('uuid');
 const db      = require('../db');
 const { requireAuth, isAdmin, isEditor } = require('../middleware/auth');
 const { eventCommentsRouter } = require('./comments');
+const { logActivity } = require('../utils/logActivity');
 
 const router = express.Router();
 
@@ -245,6 +246,17 @@ router.post('/', requireAuth, isEditor, async (req, res) => {
     );
 
     res.status(201).json(formatEvent(row, true));
+
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+    logActivity({
+      userId:     req.user.id,
+      username:   req.user.username,
+      action:     'event_create',
+      targetType: 'event',
+      targetId:   slug,
+      ip:         clientIp,
+      details:    { preview: title.trim().slice(0, 80) },
+    });
   } catch (err) {
     console.error('Ошибка создания события:', err);
     res.status(500).json({ error: 'Ошибка при создании события' });
@@ -306,6 +318,17 @@ router.put('/:slug', requireAuth, isEditor, async (req, res) => {
     );
 
     res.json(formatEvent(row, true));
+
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+    logActivity({
+      userId:     req.user.id,
+      username:   req.user.username,
+      action:     'event_update',
+      targetType: 'event',
+      targetId:   newSlug,
+      ip:         clientIp,
+      details:    { preview: title.trim().slice(0, 80) },
+    });
   } catch (err) {
     console.error('Ошибка обновления события:', err);
     res.status(500).json({ error: 'Ошибка при обновлении события' });
@@ -319,12 +342,25 @@ router.delete('/:slug', requireAuth, isAdmin, async (req, res) => {
   const { slug } = req.params;
 
   try {
-    const row = await db.get(`SELECT id FROM events WHERE slug = ?`, [slug]);
+    const row = await db.get(
+      `SELECT id, title FROM events WHERE slug = ?`, [slug]
+    );
     if (!row) return res.status(404).json({ error: 'Событие не найдено' });
 
     await db.run(`DELETE FROM events WHERE id = ?`, [row.id]);
 
     res.json({ success: true });
+
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+    logActivity({
+      userId:     req.user.id,
+      username:   req.user.username,
+      action:     'event_delete',
+      targetType: 'event',
+      targetId:   slug,
+      ip:         clientIp,
+      details:    { preview: row.title?.slice(0, 80) },
+    });
   } catch (err) {
     console.error('Ошибка удаления события:', err);
     res.status(500).json({ error: 'Ошибка при удалении события' });

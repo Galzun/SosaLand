@@ -13,20 +13,31 @@ const PAGE_SIZE  = 50;
 const TOP_STEP   = 5;   // сколько строк топа показывать / раскрывать за раз
 
 const ACTION_TABS = [
-  { value: '',             label: 'Все' },
-  { value: 'file_upload',  label: 'Загрузки файлов' },
-  { value: 'post_create',  label: 'Посты' },
-  { value: 'post_delete',  label: 'Удаления постов' },
-  { value: 'image_add',    label: 'Галерея' },
+  { value: '',                                   label: 'Все' },
+  { value: 'file_upload',                        label: 'Загрузки файлов' },
+  { value: 'file_delete',                        label: 'Удаления файлов' },
+  { value: 'post_create',                        label: 'Посты' },
+  { value: 'post_delete',                        label: 'Удаления постов' },
+  { value: 'news_create,news_update',            label: 'Новости' },
+  { value: 'news_delete',                        label: 'Удаления новостей' },
+  { value: 'event_create,event_update',          label: 'События' },
+  { value: 'event_delete',                       label: 'Удаления событий' },
 ];
 
 function actionColor(action) {
   switch (action) {
     case 'file_upload':    return 'var(--accent)';
+    case 'file_delete':    return '#ff4a4a';
     case 'post_create':    return '#7eb8f7';
-    case 'post_delete':    return '#ff4a4a';
+    case 'post_delete':    return '#ff6b6b';
     case 'image_add':      return '#b8a9ff';
     case 'comment_create': return '#ffd700';
+    case 'news_create':    return '#4fc3f7';
+    case 'news_update':    return '#81d4fa';
+    case 'news_delete':    return '#f48fb1';
+    case 'event_create':   return '#81c784';
+    case 'event_update':   return '#a5d6a7';
+    case 'event_delete':   return '#ffb74d';
     default:               return '#555';
   }
 }
@@ -100,12 +111,14 @@ export default function LogsPage() {
   }, [user, navigate]);
 
   // Загрузка статистики
-  useEffect(() => {
+  const fetchStats = useCallback(() => {
     if (!token) return;
     axios.get('/api/logs/stats', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => setStats(r.data))
       .catch(() => {});
   }, [token]);
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
 
   // Закрытие дропдауна при клике вне
   useEffect(() => {
@@ -223,8 +236,12 @@ export default function LogsPage() {
       await axios.delete(`/api/logs/${log.id}/file`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Обновляем запись в локальном состоянии: убираем targetId
-      setLogs(prev => prev.map(l => l.id === log.id ? { ...l, targetId: null } : l));
+      // Обновляем запись в локальном состоянии: убираем targetId и fileSize
+      setLogs(prev => prev.map(l =>
+        l.id === log.id ? { ...l, targetId: null, fileSize: null } : l
+      ));
+      // Перезагружаем статистику чтобы цифры обновились
+      fetchStats();
     } catch (e) {
       alert(e.response?.data?.error || 'Ошибка при удалении файла');
     }
@@ -374,6 +391,28 @@ export default function LogsPage() {
             {appliedUser ? ` · игрок «${appliedUser}»` : ''}
           </div>
 
+          {totalPages > 1 && (
+            <div className="logs-page__pagination">
+              <button
+                className="logs-page__page-btn"
+                disabled={offset === 0}
+                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+              >
+                ← Назад
+              </button>
+              <span className="logs-page__page-info">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                className="logs-page__page-btn"
+                disabled={offset + PAGE_SIZE >= total}
+                onClick={() => setOffset(offset + PAGE_SIZE)}
+              >
+                Вперёд →
+              </button>
+            </div>
+          )}
+
           <div className="logs-page__table-wrap">
             <table className="logs-page__table">
               <thead>
@@ -447,9 +486,38 @@ export default function LogsPage() {
                           </span>
                         )
                       ) : log.details?.preview ? (
-                        <span className="logs-page__preview" title={log.details.preview}>
-                          «{log.details.preview.slice(0, 60)}{log.details.preview.length > 60 ? '…' : ''}»
-                        </span>
+                        <>
+                          <span className="logs-page__preview" title={log.details.preview}>
+                            «{log.details.preview.slice(0, 60)}{log.details.preview.length > 60 ? '…' : ''}»
+                          </span>
+                          {(log.action === 'post_create' || log.action === 'post_delete') && log.targetId && (
+                            <Link
+                              to={`/post/${log.targetId}`}
+                              className="logs-page__post-link"
+                              title="Открыть пост"
+                            >
+                              &nbsp;↗
+                            </Link>
+                          )}
+                          {['news_create', 'news_update', 'news_delete'].includes(log.action) && log.targetId && (
+                            <Link
+                              to={`/news/${log.targetId}`}
+                              className="logs-page__post-link"
+                              title="Открыть новость"
+                            >
+                              &nbsp;↗
+                            </Link>
+                          )}
+                          {['event_create', 'event_update', 'event_delete'].includes(log.action) && log.targetId && (
+                            <Link
+                              to={`/events/${log.targetId}`}
+                              className="logs-page__post-link"
+                              title="Открыть событие"
+                            >
+                              &nbsp;↗
+                            </Link>
+                          )}
+                        </>
                       ) : '—'}
                     </td>
 

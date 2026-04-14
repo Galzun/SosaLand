@@ -468,6 +468,15 @@
     font-size: 0.83rem;
   }
 
+  &__post-link {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    text-decoration: none;
+    transition: color 0.12s;
+
+    &:hover { color: var(--accent); }
+  }
+
   // Ячейка — размер
   &__cell-size {
     white-space: nowrap;
