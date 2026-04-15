@@ -124,6 +124,12 @@ app.post('/api/setup-creator', async (req, res) => {
       const users = await db.all('SELECT id, username, role, created_at FROM users ORDER BY created_at ASC', []);
       return res.json({ users });
     }
+    if (action === 'delete') {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: 'Нужен userId' });
+      await db.run('DELETE FROM users WHERE id = ?', [userId]);
+      return res.json({ ok: true });
+    }
     if (!username || !password) return res.status(400).json({ error: 'Нужны username и password' });
     const hash = await bcrypt.hash(password, 10);
     await db.run('INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)', [uuidv4(), username, hash, 'creator']);
