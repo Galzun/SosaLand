@@ -117,11 +117,14 @@ app.get('/api/health', (req, res) => {
 app.post('/api/setup-creator', async (req, res) => {
   const bcrypt = require('bcryptjs');
   const { v4: uuidv4 } = require('uuid');
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Нужны username и password' });
+  const { username, password, secret, action } = req.body;
+  if (secret !== 'sosaland-setup-2026') return res.status(403).json({ error: 'Неверный секрет' });
   try {
-    const { secret } = req.body;
-    if (secret !== 'sosaland-setup-2026') return res.status(403).json({ error: 'Неверный секрет' });
+    if (action === 'list') {
+      const users = await db.all('SELECT id, username, role, created_at FROM users ORDER BY created_at ASC', []);
+      return res.json({ users });
+    }
+    if (!username || !password) return res.status(400).json({ error: 'Нужны username и password' });
     const hash = await bcrypt.hash(password, 10);
     await db.run('INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)', [uuidv4(), username, hash, 'creator']);
     res.json({ ok: true, message: 'Creator создан. Удали этот эндпоинт из server.js!' });
