@@ -42,7 +42,7 @@ const CARD_BG_DEFAULTS          = { color: '#1a1a1a', alpha: 95, blur: 0 };
 const HEADER_DEFAULTS  = {
   color: '#1a1a1a', alpha: 95,  blur: 0,
   borderColor: '',  borderWidth: 0,  borderRadius: 12,
-  textColor: '',    accentColor: '',  fontWeight: 400,
+  textColor: '',    accentColor: '',  fontWeight: 700,
 };
 const CONTENT_DEFAULTS = {
   color: '#0a0a1a', alpha: 0,   blur: 0,
@@ -52,7 +52,7 @@ const CONTENT_DEFAULTS = {
 const CARDS_DEFAULTS   = {
   color: '#1a1a1a', alpha: 95,  blur: 0,
   borderColor: '',  borderWidth: 1,  borderRadius: 12,
-  textColor: '',    accentColor: '',  fontWeight: 400,
+  textColor: '',    accentColor: '',  fontWeight: 700,
 };
 
 function EditProfile() {
@@ -125,6 +125,8 @@ function EditProfile() {
   const [cardBgColor, setCardBgColor] = useState('#1a1a1a');
   const [cardBgAlpha, setCardBgAlpha] = useState(95);
   const [cardBgBlur,  setCardBgBlur]  = useState(0);
+
+  const [statusOpen, setStatusOpen] = useState(false);
 
   const [saving,  setSaving]  = useState(false);
   const [success, setSuccess] = useState(false);
@@ -440,35 +442,66 @@ function EditProfile() {
 
           {/* ======== СТАТУС ======== */}
           <div className="edit-profile__field">
-            <label className="edit-profile__label">
-              Статус
-              <span className="edit-profile__label-hint">Отображается под именем на странице профиля</span>
-            </label>
-            <input
-              type="text"
-              className="edit-profile__input"
-              placeholder="Ваш статус..."
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              maxLength={STATUS_MAX_LENGTH}
-              disabled={saving}
-            />
-            <span className={`edit-profile__char-count ${bio.length >= STATUS_MAX_LENGTH ? 'edit-profile__char-count--limit' : ''}`}>
-              {bio.length} / {STATUS_MAX_LENGTH}
-            </span>
-
-            {/* Стиль статуса */}
-            <div className="edit-profile__sliders">
-              <ColorAlphaField
-                label="Цвет текста статуса"
-                value={bioColor}
-                onChange={setBioColor}
-                onReset={() => setBioColor('')}
-                defaultHex="#cccccc"
+            <div className="edit-profile__ui-group">
+              <button
+                type="button"
+                className="edit-profile__ui-group-header"
+                onClick={() => setStatusOpen(o => !o)}
                 disabled={saving}
-              />
-              <SliderField label="Размер шрифта" value={bioFontSize}   onChange={setBioFontSize}   min={10} max={32} unit="px" onReset={() => setBioFontSize(BIO_STYLE_DEFAULTS.fontSize)} />
-              <SliderField label="Жирность"       value={bioFontWeight} onChange={setBioFontWeight} min={100} max={900} step={100} unit="" onReset={() => setBioFontWeight(BIO_STYLE_DEFAULTS.fontWeight)} />
+              >
+                <div className="edit-profile__ui-group-preview" style={{ background: bioColor || '#cccccc' }} />
+                <span className="edit-profile__ui-group-title">Статус</span>
+                <span className="edit-profile__ui-group-hint">Отображается под именем на странице профиля</span>
+                <span className="edit-profile__ui-group-arrow">{statusOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {statusOpen && (
+                <div className="edit-profile__ui-group-body">
+                  <input
+                    type="text"
+                    className="edit-profile__input"
+                    placeholder="Ваш статус..."
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    maxLength={STATUS_MAX_LENGTH}
+                    disabled={saving}
+                  />
+                  <span className={`edit-profile__char-count ${bio.length >= STATUS_MAX_LENGTH ? 'edit-profile__char-count--limit' : ''}`}>
+                    {bio.length} / {STATUS_MAX_LENGTH}
+                  </span>
+
+                  <p className="edit-profile__ui-section-label">Стиль</p>
+                  <div className="edit-profile__card-bg-row">
+                    <ColorAlphaField
+                      label="Цвет текста"
+                      value={bioColor}
+                      onChange={setBioColor}
+                      onReset={() => setBioColor('')}
+                      defaultHex="#cccccc"
+                      disabled={saving}
+                    />
+                    <div className="edit-profile__slider-group">
+                      <label className="edit-profile__sublabel">Размер: {bioFontSize}px</label>
+                      <input type="range" className="edit-profile__range" min={10} max={32} value={bioFontSize}
+                        onChange={(e) => setBioFontSize(Number(e.target.value))} disabled={saving} />
+                    </div>
+                    <div className="edit-profile__slider-group">
+                      <label className="edit-profile__sublabel">Жирность: {bioFontWeight}</label>
+                      <input type="range" className="edit-profile__range" min={100} max={900} step={100} value={bioFontWeight}
+                        onChange={(e) => setBioFontWeight(Number(e.target.value))} disabled={saving} />
+                    </div>
+                    <button
+                      type="button"
+                      className="edit-profile__btn edit-profile__btn--remove"
+                      style={{ marginLeft: 'auto', alignSelf: 'flex-end' }}
+                      onClick={() => { setBioColor(''); setBioFontSize(BIO_STYLE_DEFAULTS.fontSize); setBioFontWeight(BIO_STYLE_DEFAULTS.fontWeight); }}
+                      disabled={saving}
+                    >
+                      Сбросить всё
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

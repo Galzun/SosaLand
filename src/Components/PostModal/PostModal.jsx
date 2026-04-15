@@ -18,6 +18,49 @@ import PollViewer from '../PollViewer/PollViewer';
 import { showConfirm } from '../Dialog/dialogManager';
 import './PostModal.scss';
 
+// Безопасно рендерит HTML-контент поста: допускает <a>, <br>, блочные теги.
+// Также автоматически определяет URL в обычном тексте.
+const URL_SPLIT_REGEX = /(https?:\/\/[^\s<>"']+)/g;
+
+function processTextNode(text, prefix) {
+  return text.split(URL_SPLIT_REGEX).map((part, i) =>
+    /^https?:\/\//.test(part)
+      ? <a key={`${prefix}-u${i}`} href={part} target="_blank" rel="noopener noreferrer">{part}</a>
+      : part
+  );
+}
+
+function renderPostHtml(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  let key = 0;
+
+  function walk(node) {
+    if (node.nodeType === 3) return processTextNode(node.textContent, key++);
+    if (node.nodeType !== 1) return [];
+
+    switch (node.tagName) {
+      case 'A': {
+        const href = node.getAttribute('href') || '';
+        if (/^https?:\/\//i.test(href)) {
+          return [<a key={key++} href={href} target="_blank" rel="noopener noreferrer">{node.textContent}</a>];
+        }
+        return [node.textContent];
+      }
+      case 'BR':
+        return [<br key={key++} />];
+      case 'DIV':
+      case 'P': {
+        const children = Array.from(node.childNodes).flatMap(walk);
+        return [...children, <br key={key++} />];
+      }
+      default:
+        return Array.from(node.childNodes).flatMap(walk);
+    }
+  }
+
+  return Array.from(doc.body.childNodes).flatMap(walk);
+}
+
 const PM_MIN_WIDTH    = 400;
 const PM_MAX_WIDTH    = 1280;
 const PM_DEFAULT_WIDTH = 680;
@@ -207,7 +250,7 @@ function PostModal({ post, onClose, onLike, onDelete, onEdit, onCommentAdded, cs
 
         {/* Полный текст */}
         {!editMode && post.content && (
-          <p className="post-modal__content">{post.content}</p>
+          <p className="post-modal__content">{renderPostHtml(post.content)}</p>
         )}
 
         {/* Статистика */}

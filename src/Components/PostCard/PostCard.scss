@@ -221,6 +221,15 @@
   white-space: pre-wrap;
   word-break: break-word;
 
+  // Ссылки внутри поста
+  a {
+    color: var(--cards-accent-color, #4aff9e);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover { opacity: 0.8; }
+  }
+
   // Кликабельный текст поста
   &--clickable {
     cursor: pointer;

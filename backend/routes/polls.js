@@ -100,9 +100,9 @@ async function getPostAuthorId(postId) {
   return row?.user_id || null;
 }
 
-// Проверяет, что пользователь может управлять опросом (admin или автор поста)
+// Проверяет, что пользователь может управлять опросом (admin/creator или автор поста)
 async function canManagePoll(poll, user) {
-  if (user.role === 'admin') return true;
+  if (user.role === 'admin' || user.role === 'creator') return true;
   if (poll.post_id) {
     const authorId = await getPostAuthorId(poll.post_id);
     return authorId === user.id;
@@ -131,7 +131,7 @@ router.post('/', requireAuth, async (req, res) => {
   if (news_id && post_id) {
     return res.status(400).json({ error: 'Укажите только одно: news_id или post_id' });
   }
-  if (!news_id && !post_id && req.user.role !== 'admin') {
+  if (!news_id && !post_id && !['admin', 'creator'].includes(req.user.role)) {
     return res.status(400).json({ error: 'Укажите news_id или post_id' });
   }
   if (!question || typeof question !== 'string' || !question.trim()) {
@@ -158,13 +158,13 @@ router.post('/', requireAuth, async (req, res) => {
     }
   }
 
-  // Проверяем права: для новостей только admin, для постов — автор или admin
-  if (news_id && req.user.role !== 'admin') {
+  // Проверяем права: для новостей только admin/creator, для постов — автор или admin/creator
+  if (news_id && !['admin', 'creator'].includes(req.user.role)) {
     return res.status(403).json({ error: 'Создавать опросы в новостях может только администратор' });
   }
   if (post_id) {
     const authorId = await getPostAuthorId(post_id);
-    if (req.user.role !== 'admin' && authorId !== req.user.id) {
+    if (!['admin', 'creator'].includes(req.user.role) && authorId !== req.user.id) {
       return res.status(403).json({ error: 'Создавать опросы в чужих постах нельзя' });
     }
   }

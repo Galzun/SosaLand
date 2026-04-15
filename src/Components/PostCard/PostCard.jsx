@@ -17,6 +17,52 @@ import './PostCard.scss';
 
 const CONTENT_TRUNCATE = 300;
 
+// Безопасно рендерит HTML-контент поста:
+// допускает только <a>, <br>, блочные теги (→ <br>); остальное — текст.
+// Также автоматически определяет URL в обычном тексте.
+const URL_SPLIT_REGEX = /(https?:\/\/[^\s<>"']+)/g;
+
+function processTextNode(text, prefix) {
+  return text.split(URL_SPLIT_REGEX).map((part, i) =>
+    /^https?:\/\//.test(part)
+      ? <a key={`${prefix}-u${i}`} href={part} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>{part}</a>
+      : part
+  );
+}
+
+function renderPostHtml(html, onLinkClick) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  let key = 0;
+
+  function walk(node) {
+    if (node.nodeType === 3) { // TEXT_NODE
+      return processTextNode(node.textContent, key++);
+    }
+    if (node.nodeType !== 1) return []; // не ELEMENT_NODE — пропускаем
+
+    switch (node.tagName) {
+      case 'A': {
+        const href = node.getAttribute('href') || '';
+        if (/^https?:\/\//i.test(href)) {
+          return [<a key={key++} href={href} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>{node.textContent}</a>];
+        }
+        return [node.textContent];
+      }
+      case 'BR':
+        return [<br key={key++} />];
+      case 'DIV':
+      case 'P': {
+        const children = Array.from(node.childNodes).flatMap(walk);
+        return [...children, <br key={key++} />];
+      }
+      default:
+        return Array.from(node.childNodes).flatMap(walk);
+    }
+  }
+
+  return Array.from(doc.body.childNodes).flatMap(walk);
+}
+
 function PostCard({ post, onLike, onDelete, onEdit, onCommentAdded, cssVars, autoOpenModal }) {
   const articleRef = useRef(null);
 
@@ -34,9 +80,15 @@ function PostCard({ post, onLike, onDelete, onEdit, onCommentAdded, cssVars, aut
   const timeText = timeAgo(post.createdAt * 1000);
 
   const content    = post.content || '';
-  const isTrunc    = content.length > CONTENT_TRUNCATE;
+  // Для обрезания считаем длину по textContent (без HTML-тегов)
+  const contentText = (() => {
+    const doc = new DOMParser().parseFromString(content, 'text/html');
+    return doc.body.textContent || '';
+  })();
+  const isTrunc    = contentText.length > CONTENT_TRUNCATE;
+  // В свёрнутом виде — обрезанный plain text; в раскрытом — полный HTML
   const displayContent = isTrunc && !contentExpanded
-    ? content.slice(0, CONTENT_TRUNCATE) + '…'
+    ? contentText.slice(0, CONTENT_TRUNCATE) + '…'
     : content;
 
   const handleLike = () => {
@@ -156,7 +208,7 @@ function PostCard({ post, onLike, onDelete, onEdit, onCommentAdded, cssVars, aut
             onClick={handleTextClick}
             title={isTrunc && !contentExpanded ? 'Нажмите, чтобы раскрыть' : 'Открыть пост'}
           >
-            {displayContent}
+            {renderPostHtml(displayContent)}
           </p>
           {isTrunc && contentExpanded && (
             <button className="post-card__collapse" onClick={handleCollapse}>

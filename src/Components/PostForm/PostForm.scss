@@ -64,7 +64,7 @@
   }
 }
 
-.post-form__textarea {
+.post-form__editor {
   width: 100%;
   background: transparent;
   border: none;
@@ -73,14 +73,30 @@
   font-size: 0.95rem;
   line-height: 1.5;
   padding: 10px 12px 8px;
-  resize: vertical;
   min-height: 80px;
   font-family: inherit;
   box-sizing: border-box;
+  white-space: pre-wrap;
+  word-break: break-word;
+  outline: none;
 
-  &::placeholder { color: #555; }
-  &:focus { outline: none; }
-  &:disabled { opacity: 0.6; }
+  // Плейсхолдер — только когда div пуст
+  &:empty::before {
+    content: attr(data-placeholder);
+    color: #555;
+    pointer-events: none;
+  }
+
+  &[contenteditable='false'] { opacity: 0.6; }
+
+  // Стиль ссылок внутри редактора
+  a {
+    color: var(--cards-accent-color, #4aff9e);
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:hover { opacity: 0.8; }
+  }
 }
 
 // ---------------------------------------------------------------------------

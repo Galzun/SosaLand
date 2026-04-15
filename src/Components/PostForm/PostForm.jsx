@@ -1,9 +1,10 @@
 // Components/PostForm/PostForm.jsx
 // Форма создания и редактирования поста. Поддерживает несколько вложений (изображения, видео, аудио, документы).
+// Использует contenteditable для поддержки гиперссылок.
 //
 // Props:
 //   onSubmit(content, attachments)  — callback при создании/сохранении поста
-//     content     — текст поста (string)
+//     content     — HTML строка (может содержать <a>, <br>, <div>)
 //     attachments — массив [{ fileUrl, fileType, fileName }] итоговых вложений
 //   onPollLinked(postId, pollId)    — опционально, вызывается после создания опроса
 //   initialPost                     — объект поста для режима редактирования
@@ -16,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import FileIcon from '../FileIcon/FileIcon';
 import EmojiPicker from '../EmojiPicker/EmojiPicker';
 import PollBuilder from '../PollBuilder/PollBuilder';
+import { showPrompt } from '../Dialog/dialogManager';
 import './PostForm.scss';
 
 const MAX_CONTENT = 5000;
@@ -44,6 +46,14 @@ function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} Б`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+}
+
+// Считает длину текста без HTML-тегов
+function htmlTextLength(html) {
+  if (!html) return 0;
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return (div.textContent || '').length;
 }
 
 let _uid = 0;
@@ -148,7 +158,6 @@ function ExistingAttachmentPreview({ att, onRemove, disabled }) {
 function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
   const isEditing = Boolean(initialPost);
 
-  const [content,        setContent]        = useState(initialPost?.content || '');
   // Существующие вложения (в режиме редактирования — те, что уже есть у поста)
   const [existingAtts,   setExistingAtts]   = useState(
     isEditing ? (initialPost.attachments || []) : []
@@ -161,10 +170,27 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
   const [showEmoji,      setShowEmoji]      = useState(false);
   const [showPollBuilder, setShowPollBuilder] = useState(false);
   const [pendingPoll,    setPendingPoll]    = useState(null);
+  // Длина текста (без тегов) — для счётчика символов и canSubmit
+  const [textLen,        setTextLen]        = useState(
+    isEditing ? htmlTextLength(initialPost?.content || '') : 0
+  );
 
+  const editorRef     = useRef(null);
   const fileInputRef  = useRef(null);
   const emojiWrapRef  = useRef(null);
   const { token, user } = useAuth();
+
+  // Устанавливаем начальное содержимое в режиме редактирования
+  useEffect(() => {
+    if (isEditing && editorRef.current && initialPost?.content) {
+      editorRef.current.innerHTML = initialPost.content;
+      // Гарантируем target="_blank" на всех ссылках
+      editorRef.current.querySelectorAll('a').forEach(a => {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!showEmoji) return;
@@ -184,6 +210,60 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
       });
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------------------------------------------------------------------------
+  // Обработчики редактора
+  // ---------------------------------------------------------------------------
+
+  const handleEditorInput = () => {
+    const el = editorRef.current;
+    if (!el) return;
+    setTextLen((el.textContent || '').length);
+  };
+
+  // Вставка только plain text (без форматирования из буфера)
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData)?.getData('text/plain') || '';
+    document.execCommand('insertText', false, text);
+  };
+
+  // Кнопка ссылки: сохраняем выделение → диалог → createLink
+  const handleLinkClick = async () => {
+    const sel = window.getSelection();
+    let savedRange = null;
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+      savedRange = sel.getRangeAt(0).cloneRange();
+    }
+
+    const input = await showPrompt('Введите URL ссылки:', { placeholder: 'https://...' });
+    if (input === null || !input.trim()) return;
+
+    let url = input.trim();
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+    editorRef.current?.focus();
+
+    if (savedRange) {
+      const newSel = window.getSelection();
+      newSel?.removeAllRanges();
+      newSel?.addRange(savedRange);
+    }
+
+    document.execCommand('createLink', false, url);
+
+    // target="_blank" + rel на все ссылки
+    editorRef.current?.querySelectorAll('a').forEach(a => {
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener noreferrer');
+    });
+
+    handleEditorInput();
+  };
+
+  // ---------------------------------------------------------------------------
+  // Файлы
+  // ---------------------------------------------------------------------------
 
   const handleFileChange = (e) => {
     const selected = Array.from(e.target.files || []);
@@ -215,15 +295,23 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
     setExistingAtts(prev => prev.filter(a => a.fileUrl !== fileUrl));
   };
 
+  // ---------------------------------------------------------------------------
+  // Отправка
+  // ---------------------------------------------------------------------------
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const trimmed = content.trim();
-    if (!trimmed && !pendingPoll && !isEditing) {
+    const el = editorRef.current;
+    const htmlContent = el?.innerHTML || '';
+    const textContent = el?.textContent || '';
+    const trimmedText = textContent.trim();
+
+    if (!trimmedText && !pendingPoll && !isEditing) {
       setError('Напишите что-нибудь или добавьте опрос');
       return;
     }
-    if (trimmed.length > MAX_CONTENT) {
+    if (trimmedText.length > MAX_CONTENT) {
       setError(`Текст не может превышать ${MAX_CONTENT} символов`);
       return;
     }
@@ -264,7 +352,7 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
       // Итоговые вложения: сохранённые существующие + новые
       const finalAttachments = [...existingAtts, ...newlyUploaded];
 
-      const newPost = await onSubmit(trimmed, finalAttachments);
+      const newPost = await onSubmit(htmlContent, finalAttachments);
 
       // Создаём опрос, если есть (только при создании поста, не при редактировании)
       if (!isEditing && pendingPoll && newPost?.id) {
@@ -282,7 +370,8 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
       }
 
       if (!isEditing) {
-        setContent('');
+        if (el) el.innerHTML = '';
+        setTextLen(0);
         pendingFiles.forEach(pf => { if (pf.previewUrl) URL.revokeObjectURL(pf.previewUrl); });
         setPendingFiles([]);
         setPendingPoll(null);
@@ -297,17 +386,18 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
   };
 
   const handleEmojiSelect = (emoji) => {
-    setContent(prev => prev + emoji);
+    editorRef.current?.focus();
+    document.execCommand('insertText', false, emoji);
     setShowEmoji(false);
   };
 
   if (!user) return null;
 
-  const charsLeft = MAX_CONTENT - content.length;
+  const charsLeft = MAX_CONTENT - textLen;
   const isBusy    = submitting || uploading;
   const canSubmit = isEditing
-    ? (content.trim().length > 0 || existingAtts.length > 0 || pendingFiles.length > 0) && charsLeft >= 0 && !isBusy
-    : (content.trim().length > 0 || pendingPoll) && charsLeft >= 0 && !isBusy;
+    ? (textLen > 0 || existingAtts.length > 0 || pendingFiles.length > 0) && charsLeft >= 0 && !isBusy
+    : (textLen > 0 || pendingPoll) && charsLeft >= 0 && !isBusy;
 
   return (
     <form className={`post-form${isEditing ? ' post-form--editing' : ''}`} onSubmit={handleSubmit}>
@@ -337,14 +427,15 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
         />
 
         <div className="post-form__textarea-wrap">
-          <textarea
-            className="post-form__textarea"
-            placeholder={isEditing ? 'Текст поста...' : 'Что нового на сервере?'}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={isEditing ? 4 : 3}
-            maxLength={MAX_CONTENT}
-            disabled={isBusy}
+          {/* Редактор с поддержкой ссылок */}
+          <div
+            ref={editorRef}
+            className="post-form__editor"
+            contentEditable={isBusy ? 'false' : 'true'}
+            onInput={handleEditorInput}
+            onPaste={handlePaste}
+            data-placeholder={isEditing ? 'Текст поста...' : 'Что нового на сервере?'}
+            suppressContentEditableWarning
           />
 
           {/* Существующие вложения (режим редактирования) */}
@@ -420,6 +511,17 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
                 </button>
                 {showEmoji && <EmojiPicker onSelect={handleEmojiSelect} />}
               </div>
+
+              {/* Кнопка ссылки */}
+              <button
+                type="button"
+                className="post-form__attach-icon"
+                onClick={handleLinkClick}
+                disabled={isBusy}
+                title="Добавить ссылку (выделите текст)"
+              >
+                🔗
+              </button>
 
               {/* Кнопка опроса — только при создании (не при редактировании) */}
               {!isEditing && (

@@ -417,6 +417,11 @@ function PlayerPage() {
 
       const { data: uploadResult } = await axios.post('/api/upload', formData, {
         headers: { Authorization: `Bearer ${token}` },
+        onUploadProgress: (ev) => {
+          if (ev.total) {
+            setUploadStatus(`Загрузка ${Math.round((ev.loaded / ev.total) * 100)}%...`);
+          }
+        },
       });
 
       const uploadedFiles = uploadResult.files || [uploadResult];
@@ -664,6 +669,11 @@ function PlayerPage() {
       setAlbumUploadStatus('Загрузка...');
       const { data: uploadResult } = await axios.post('/api/upload', formData, {
         headers: { Authorization: `Bearer ${token}` },
+        onUploadProgress: (ev) => {
+          if (ev.total) {
+            setAlbumUploadStatus(`Загрузка ${Math.round((ev.loaded / ev.total) * 100)}%...`);
+          }
+        },
       });
       const uploadedFiles = uploadResult.files || [uploadResult];
       setAlbumUploadStatus('Сохранение...');

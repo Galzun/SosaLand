@@ -340,6 +340,14 @@
   white-space: pre-wrap;
   word-break: break-word;
   border-bottom: 1px solid var(--cards-border-color, #1e1e1e);
+
+  a {
+    color: var(--cards-accent-color, #4aff9e);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover { opacity: 0.8; }
+  }
 }
 
 // ---------------------------------------------------------------------------
