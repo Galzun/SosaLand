@@ -127,6 +127,7 @@ app.post('/api/setup-creator', async (req, res) => {
     if (action === 'delete') {
       const { userId } = req.body;
       if (!userId) return res.status(400).json({ error: 'Нужен userId' });
+      await db.run('UPDATE tickets SET approved_by = NULL WHERE approved_by = ?', [userId]);
       await db.run('DELETE FROM users WHERE id = ?', [userId]);
       return res.json({ ok: true });
     }
