@@ -111,6 +111,25 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
+// POST /api/setup-creator — ВРЕМЕННЫЙ эндпоинт для создания первого creator.
+// Работает только если в таблице users нет ни одного пользователя.
+// УДАЛИ ЭТОТ БЛОК после первого использования!
+app.post('/api/setup-creator', async (req, res) => {
+  const bcrypt = require('bcryptjs');
+  const { v4: uuidv4 } = require('uuid');
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Нужны username и password' });
+  try {
+    const existing = await db.get('SELECT COUNT(*) AS cnt FROM users', []);
+    if (Number(existing.cnt) > 0) return res.status(403).json({ error: 'Пользователи уже есть. Эндпоинт заблокирован.' });
+    const hash = await bcrypt.hash(password, 10);
+    await db.run('INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)', [uuidv4(), username, hash, 'creator']);
+    res.json({ ok: true, message: 'Creator создан. Удали этот эндпоинт из server.js!' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Подключаем роутер аутентификации.
 // app.use(prefix, router) — все маршруты роутера будут иметь этот префикс.
 // /register → /api/auth/register
