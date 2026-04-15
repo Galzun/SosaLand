@@ -19,10 +19,12 @@
 - **bcryptjs** — хеширование паролей
 - **jsonwebtoken** — JWT авторизация
 - **uuid** — генерация уникальных ID
-- **multer** — загрузка файлов (изображения и любые другие файлы)
+- **multer** — загрузка файлов (изображения и любые другие файлы); использует `memoryStorage()` — файлы не пишутся на диск, сразу уходят в S3 или локальный `uploads/`
+- **@aws-sdk/client-s3** — загрузка файлов в S3-совместимое хранилище (TimeWeb Object Storage)
 - **cors, dotenv** — CORS и переменные окружения
 - Запуск: `cd backend && npm start` → `http://localhost:3001`
-- Миграции: `cd backend && npm run migrate` — применяет `backend/schema.sql` (полная схема, `IF NOT EXISTS`, безопасно перезапускать)
+- Миграции применяются **автоматически при старте сервера** (`runMigrations` в `server.js`); вручную: `cd backend && npm run migrate`
+- `backend/utils/storage.js` — абстракция хранилища: если заданы `S3_BUCKET + S3_ACCESS_KEY + S3_SECRET_KEY` → S3, иначе → локальный `backend/uploads/`
 
 ### База данных — PostgreSQL
 
@@ -330,19 +332,36 @@ PlayerPage (/player/:username)
 - INDEX on conversation_id, INDEX on sender_id
 
 ## Загрузка файлов
-- Файлы сохраняются в `backend/uploads/` (папка в .gitignore)
-- Папка создаётся автоматически при старте сервера (в `routes/upload.js`)
-- Статика раздаётся через `app.use('/uploads', express.static(...))`
-- Vite проксирует `/uploads/*` на `http://localhost:3001`
+
+### Хранилище (`backend/utils/storage.js`)
+- **S3 (продакшн)**: если заданы `S3_BUCKET + S3_ACCESS_KEY + S3_SECRET_KEY` — файлы уходят в TimeWeb Object Storage; публичный URL: `https://<bucket>.s3.timeweb.cloud/<filename>` или `S3_PUBLIC_URL` из `.env`
+- **Локально (разработка)**: если S3 не настроен — файлы сохраняются в `backend/uploads/`; статика раздаётся через `app.use('/uploads', express.static(...))` (только когда `USE_S3 = false`); Vite проксирует `/uploads/*` на `http://localhost:3001`
+- `uploadFile(buffer, filename, mimetype)` — загружает файл и возвращает публичный URL
+- `deleteFile(fileUrl)` — удаляет файл из S3 или с диска по URL
+- `deleteFileAsync(fileUrl)` — fire-and-forget обёртка над `deleteFile`
+- `generateFilename(originalname)` — генерирует уникальное имя `{timestamp}_{random}.{ext}`
+- `USE_S3` — булев флаг, экспортируется для условной логики в `server.js` и роутах
+- multer везде использует `memoryStorage()` — файлы не пишутся на диск, обрабатываются в памяти
+
+### Поля загрузки
 - Поле **`image`** — только изображения (jpg, png, gif, webp), максимум **1 ГБ**; используется для галереи, обложек, аватаров
 - Поле **`file`** — один любой файл, максимум **1 ГБ**; используется для вложений в сообщениях
 - Поле **`files[]`** — несколько любых файлов (до 200 за раз), максимум **1 ГБ** каждый; используется для вложений в постах
-- **Rate limit**: не более **1 ГБ в час** на пользователя (in-memory Map, ключ = userId, окно сбрасывается каждый час); при превышении → HTTP 429, уже сохранённые файлы текущего запроса удаляются с диска; реализовано в `checkHourlyLimit()` в `routes/upload.js`
+- **Rate limit**: не более **1 ГБ в час** на пользователя (in-memory Map, ключ = userId, окно сбрасывается каждый час); при превышении → HTTP 429, уже сохранённые файлы текущего запроса удаляются; реализовано в `checkHourlyLimit()` в `routes/upload.js`
 - `logActivity` для `file_upload` сохраняет `targetId: fileUrl` — нужен для ссылки из логов и для удаления файла через `DELETE /api/logs/:id/file`
 - Одиночный ответ: `{ url, fileUrl, fileType, fileName, size }` — `url` для обратной совместимости
 - Множественный ответ: `{ files: [{ url, fileUrl, fileType, fileName, size }, ...] }`
-- Имена файлов: `{timestamp}_{random}.{ext}` (уникальные)
 - `fileName` (оригинальное имя) декодируется через `decodeFileName()` в `upload.js`: `Buffer.from(name, 'latin1').toString('utf8')` — исправляет русские символы, которые multer читает как Latin-1
+
+### Переменные окружения S3 (TimeWeb)
+```
+S3_ACCESS_KEY=...        # Ключ доступа из панели TimeWeb → Object Storage
+S3_SECRET_KEY=...        # Секретный ключ
+S3_BUCKET=...            # Название бакета
+S3_ENDPOINT=https://s3.timeweb.cloud
+S3_REGION=ru-1
+S3_PUBLIC_URL=https://<bucket>.s3.timeweb.cloud  # опционально
+```
 
 ## Фон страницы игрока
 - Фон рендерится как `position:fixed; inset:0; z-index:-1` — покрывает весь viewport
