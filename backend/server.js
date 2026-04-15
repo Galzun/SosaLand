@@ -120,8 +120,8 @@ app.post('/api/setup-creator', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Нужны username и password' });
   try {
-    const existing = await db.get('SELECT COUNT(*) AS cnt FROM users', []);
-    if (Number(existing.cnt) > 0) return res.status(403).json({ error: 'Пользователи уже есть. Эндпоинт заблокирован.' });
+    const { secret } = req.body;
+    if (secret !== 'sosaland-setup-2026') return res.status(403).json({ error: 'Неверный секрет' });
     const hash = await bcrypt.hash(password, 10);
     await db.run('INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)', [uuidv4(), username, hash, 'creator']);
     res.json({ ok: true, message: 'Creator создан. Удали этот эндпоинт из server.js!' });
