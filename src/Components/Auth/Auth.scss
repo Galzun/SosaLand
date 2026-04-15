@@ -228,3 +228,18 @@
     margin: 0 auto 20px;
   }
 }
+
+@media (max-width: 480px) {
+  .auth-form {
+    padding: 20px 16px;
+
+    &__field input {
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+
+    &__players-list {
+      max-height: 220px;
+    }
+  }
+}

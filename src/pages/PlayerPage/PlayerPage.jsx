@@ -253,7 +253,14 @@ function PlayerPage() {
     '--header-border-width':         `${profile.contentWrapperBorderWidth  ?? 0}px`,
     '--header-border-radius':        `${profile.contentWrapperBorderRadius ?? 12}px`,
     '--header-text-color':           profile.contentWrapperTextColor  || 'inherit',
+    '--header-font-weight':          profile.contentWrapperFontWeight ?? 400,
     '--header-accent-color':         headerAccent,
+    '--cover-container-width':       `${profile.coverContainerWidth ?? 100}%`,
+    '--cover-aspect-w':              profile.coverAspectW ?? 4,
+    '--cover-aspect-h':              profile.coverAspectH ?? 1,
+    '--bio-color':                   profile.bioColor || 'var(--header-text-muted, #ccc)',
+    '--bio-font-size':               `${profile.bioFontSize ?? 14}px`,
+    '--bio-font-weight':             profile.bioFontWeight ?? 400,
     '--header-accent-10':            hexAlphaToRgba(headerAccent, 10),
     '--header-accent-12':            hexAlphaToRgba(headerAccent, 12),
     '--header-accent-35':            hexAlphaToRgba(headerAccent, 35),
@@ -275,6 +282,7 @@ function PlayerPage() {
     '--cards-border-width':  `${profile.postCardBorderWidth  ?? 1}px`,
     '--cards-border-radius': `${profile.postCardBorderRadius ?? 12}px`,
     '--cards-text-color':    profile.postCardTextColor    || 'inherit',
+    '--cards-font-weight':   profile.postCardFontWeight  ?? 400,
     '--cards-accent-color':  cardsAccent,
     '--cards-accent-04':     hexAlphaToRgba(cardsAccent, 4),
     '--cards-accent-08':     hexAlphaToRgba(cardsAccent, 8),
@@ -738,16 +746,17 @@ function PlayerPage() {
 
   const lastSeenText = player.isOnline ? 'В игре' : timeAgo(player.lastSeen);
 
-  const edgeMask = (edge) => {
-    if (!edge) return {};
-    const p = Math.round(edge * 0.4);
-    const h = `linear-gradient(to right, transparent 0%, black ${p}%, black ${100 - p}%, transparent 100%)`;
-    const v = `linear-gradient(to bottom, transparent 0%, black ${p}%, black ${100 - p}%, transparent 100%)`;
+  const edgeMask = (edgeH, edgeV) => {
+    if (!edgeH && !edgeV) return {};
+    const pH = edgeH ? Math.round(edgeH * 0.4) : 0;
+    const pV = edgeV ? Math.round(edgeV * 0.4) : 0;
+    const h = pH > 0 ? `linear-gradient(to right, transparent 0%, black ${pH}%, black ${100 - pH}%, transparent 100%)` : null;
+    const v = pV > 0 ? `linear-gradient(to bottom, transparent 0%, black ${pV}%, black ${100 - pV}%, transparent 100%)` : null;
+    const maskValue = h && v ? `${h}, ${v}` : (h || v);
     return {
-      WebkitMaskImage:     `${h}, ${v}`,
-      maskImage:           `${h}, ${v}`,
-      WebkitMaskComposite: 'destination-in',
-      maskComposite:       'intersect',
+      WebkitMaskImage:     maskValue,
+      maskImage:           maskValue,
+      ...(h && v ? { WebkitMaskComposite: 'destination-in', maskComposite: 'intersect' } : {}),
     };
   };
 
@@ -760,7 +769,7 @@ function PlayerPage() {
     backgroundRepeat:   'no-repeat',
     transform:          (profile.coverRotation ?? 0) !== 0 ? `rotate(${profile.coverRotation}deg)` : undefined,
     filter:             (profile.coverBlur ?? 0) > 0 ? `blur(${profile.coverBlur}px)` : undefined,
-    ...edgeMask(profile.coverEdge ?? 0),
+    ...edgeMask(profile.coverEdgeH ?? 0, profile.coverEdgeV ?? 0),
   } : null;
 
   const bgInnerStyle = profile?.backgroundUrl ? {
@@ -772,7 +781,7 @@ function PlayerPage() {
     backgroundRepeat:   'no-repeat',
     transform:          (profile.bgRotation ?? 0) !== 0 ? `rotate(${profile.bgRotation}deg)` : undefined,
     filter:             (profile.bgBlur ?? 0) > 0 ? `blur(${profile.bgBlur}px)` : undefined,
-    ...edgeMask(profile.bgEdge ?? 0),
+    ...edgeMask(profile.bgEdgeH ?? 0, profile.bgEdgeV ?? 0),
   } : null;
 
   return (

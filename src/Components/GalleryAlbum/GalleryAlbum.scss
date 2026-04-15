@@ -118,3 +118,22 @@
     }
   }
 }
+
+@media (max-width: 768px) {
+  .gallery-album {
+    // На тач-устройствах кнопка удаления всегда видна
+    &__delete {
+      opacity: 1;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .gallery-album {
+    border-radius: 8px;
+
+    &__thumb-overlay span {
+      font-size: 1.1rem;
+    }
+  }
+}

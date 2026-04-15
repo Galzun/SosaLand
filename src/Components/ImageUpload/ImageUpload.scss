@@ -60,3 +60,12 @@
     margin: 0;
   }
 }
+
+@media (max-width: 480px) {
+  .image-upload {
+    &__btn {
+      font-size: 0.85rem;
+      padding: 7px 14px;
+    }
+  }
+}

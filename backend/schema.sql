@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS users (
   cover_url        TEXT,
   background_url   TEXT,
   bio              TEXT,
+  bio_color        TEXT,
+  bio_font_size    INTEGER DEFAULT 14,
+  bio_font_weight  INTEGER DEFAULT 400,
   created_at       INTEGER DEFAULT (unix_now()),
   updated_at       INTEGER,
 
@@ -34,6 +37,11 @@ CREATE TABLE IF NOT EXISTS users (
   cover_fill_color TEXT,
   cover_blur       INTEGER DEFAULT 0,
   cover_edge       INTEGER DEFAULT 0,
+  cover_edge_h     INTEGER DEFAULT 0,
+  cover_edge_v     INTEGER DEFAULT 0,
+  cover_container_width INTEGER DEFAULT 100,
+  cover_aspect_w   INTEGER DEFAULT 4,
+  cover_aspect_h   INTEGER DEFAULT 1,
 
   bg_pos_x         INTEGER DEFAULT 50,
   bg_pos_y         INTEGER DEFAULT 50,
@@ -42,6 +50,8 @@ CREATE TABLE IF NOT EXISTS users (
   bg_fill_color    TEXT,
   bg_blur          INTEGER DEFAULT 0,
   bg_edge          INTEGER DEFAULT 0,
+  bg_edge_h        INTEGER DEFAULT 0,
+  bg_edge_v        INTEGER DEFAULT 0,
 
   card_bg_color                   TEXT DEFAULT '#1a1a1a',
   card_bg_alpha                   INTEGER DEFAULT 95,
@@ -54,6 +64,7 @@ CREATE TABLE IF NOT EXISTS users (
   content_wrapper_border_radius   INTEGER DEFAULT 12,
   content_wrapper_text_color      TEXT,
   content_wrapper_accent_color    TEXT,
+  content_wrapper_font_weight     INTEGER DEFAULT 400,
 
   content_bg_color      TEXT,
   content_bg_alpha      INTEGER DEFAULT 0,
@@ -71,6 +82,7 @@ CREATE TABLE IF NOT EXISTS users (
   post_card_border_radius INTEGER DEFAULT 12,
   post_card_text_color   TEXT,
   post_card_accent_color TEXT,
+  post_card_font_weight  INTEGER DEFAULT 400,
 
   tabs_bg_color  TEXT DEFAULT '#1a1a1a',
   tabs_bg_alpha  INTEGER DEFAULT 85,

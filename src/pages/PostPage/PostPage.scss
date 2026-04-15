@@ -35,3 +35,9 @@
     gap: 0;
   }
 }
+
+@media (max-width: 480px) {
+  .post-page {
+    padding: 14px 10px 40px;
+  }
+}

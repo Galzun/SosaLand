@@ -138,3 +138,38 @@
     pointer-events: none;
   }
 }
+
+@media (max-width: 768px) {
+  .slider-viewer {
+    &__arrow {
+      width: 48px;
+      font-size: 2rem;
+    }
+
+    &__thumb {
+      width: 46px;
+      height: 46px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .slider-viewer {
+    margin: 14px 0;
+
+    &__arrow {
+      width: 36px;
+      font-size: 1.6rem;
+    }
+
+    &__thumb {
+      width: 40px;
+      height: 40px;
+    }
+
+    &__strip {
+      gap: 5px;
+      padding: 8px 0;
+    }
+  }
+}

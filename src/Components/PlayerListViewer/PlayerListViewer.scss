@@ -46,3 +46,24 @@
     transition: color 0.15s;
   }
 }
+
+@media (max-width: 600px) {
+  .player-list-viewer {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 400px) {
+  .player-list-viewer {
+    grid-template-columns: 1fr;
+
+    &__avatar {
+      width: 40px;
+      height: 40px;
+    }
+
+    &__name {
+      font-size: 0.9rem;
+    }
+  }
+}

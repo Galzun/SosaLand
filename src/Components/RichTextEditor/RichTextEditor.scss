@@ -566,3 +566,90 @@
     margin: 0;
   }
 }
+
+@media (max-width: 768px) {
+  .rte {
+    &__toolbar {
+      gap: 1px;
+      padding: 6px 8px;
+    }
+
+    &__btn {
+      min-width: 28px;
+      height: 28px;
+      font-size: 0.8rem;
+    }
+
+    &__sep {
+      height: 18px;
+      margin: 0 2px;
+    }
+
+    &__media-bar {
+      flex-wrap: wrap;
+      gap: 3px;
+      padding: 5px 8px;
+    }
+
+    &__editor {
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      min-height: 240px;
+    }
+
+    &__modal-overlay {
+      padding: 12px;
+      align-items: flex-end;
+    }
+
+    &__modal-box {
+      max-width: 100%;
+      max-height: 90vh;
+      border-radius: 14px 14px 0 0;
+
+      &--narrow { max-width: 100%; }
+    }
+
+    &__modal-poll-inner {
+      max-width: 100%;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .rte {
+    &__toolbar {
+      padding: 5px 6px;
+    }
+
+    &__btn {
+      min-width: 26px;
+      height: 26px;
+      padding: 0 4px;
+      font-size: 0.78rem;
+    }
+
+    &__editor {
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      min-height: 200px;
+
+      h2 { font-size: 1.25rem; }
+      h3 { font-size: 1.1rem; }
+    }
+
+    &__modal-actions {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    &__modal-actions-right {
+      width: 100%;
+      justify-content: flex-end;
+    }
+
+    &__modal-grid {
+      grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+    }
+  }
+}

@@ -95,11 +95,24 @@
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 20px;
-  backdrop-filter: blur(4px);
   pointer-events: none;
   white-space: nowrap;
 
   &--started {
     color: #ffcc44;
+  }
+}
+
+@media (max-width: 480px) {
+  .event-card {
+    border-radius: 10px;
+
+    &__content {
+      padding: 10px 12px 12px;
+    }
+
+    &__title {
+      font-size: 0.88rem;
+    }
   }
 }

@@ -288,18 +288,9 @@
   line-height: 1;
 }
 
-/* Адаптивность для мобилок */
-@media (max-width: 768px) {
-  .header__container {
-    flex-direction: column;
-    text-align: center;
-  }
-  
-  .header__info {
-    justify-content: center;
-  }
-  
-  .header__title {
-    font-size: 20px;
+/* На мобилке/планшете — header скрыт, навигация в бургер-меню */
+@media (max-width: 1024px) {
+  .header {
+    display: none;
   }
 }

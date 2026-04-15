@@ -419,3 +419,24 @@
   .post-form__pending-item { width: 76px; }
   .post-form__pending-thumb { width: 76px; height: 60px; }
 }
+
+@media (max-width: 480px) {
+  .post-form {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .post-form__avatar {
+    display: none; // скрываем аватарку на маленьких экранах
+  }
+
+  .post-form__submit {
+    padding: 7px 12px;
+    font-size: 0.85rem;
+  }
+
+  .post-form__cancel {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+}

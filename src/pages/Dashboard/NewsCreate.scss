@@ -221,3 +221,18 @@
     // Стили news-content применяются через класс
   }
 }
+
+@media (max-width: 768px) {
+  .news-create {
+    padding: 16px 12px 40px;
+
+    &__title { font-size: 1.25rem; }
+    &__header-actions { flex-wrap: wrap; }
+  }
+}
+
+@media (max-width: 480px) {
+  .news-create {
+    padding: 12px 8px 30px;
+  }
+}

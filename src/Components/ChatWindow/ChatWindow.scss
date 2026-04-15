@@ -394,3 +394,37 @@
     color: #ff4a4a !important;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Кнопка «Назад» — только на мобилке
+// ---------------------------------------------------------------------------
+.chat-window__back-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: #4aff9e;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background 0.15s;
+
+  &:hover { background: rgba(74, 255, 158, 0.1); }
+}
+
+@media (max-width: 768px) {
+  .chat-window__back-btn {
+    display: flex;
+    align-items: center;
+  }
+
+  .chat-window__header {
+    padding: 10px 14px;
+  }
+
+  .chat-window__messages {
+    padding: 12px;
+  }
+}

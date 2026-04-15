@@ -178,8 +178,8 @@ function MessagesPage() {
         loading={loadingConversations}
       />
 
-      {/* Правая колонка: чат или заглушка */}
-      <div className="messages-page__chat">
+      {/* Правая колонка: чат или заглушка. На мобилке --active сдвигает поверх списка */}
+      <div className={`messages-page__chat${activePartner ? ' messages-page__chat--active' : ''}`}>
         {activePartner ? (
           <ChatWindow
             partner={activePartner}
@@ -189,6 +189,7 @@ function MessagesPage() {
             onSend={handleSend}
             onDelete={handleDelete}
             onLoadOlder={handleLoadOlder}
+            onBack={() => setActivePartner(null)}
           />
         ) : (
           <div className="messages-page__no-chat">

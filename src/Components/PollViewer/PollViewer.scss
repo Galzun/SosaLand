@@ -363,3 +363,40 @@
     font-style: italic;
   }
 }
+
+@media (max-width: 480px) {
+  .poll-viewer {
+    padding: 12px;
+
+    &__question {
+      font-size: 0.95rem;
+    }
+
+    &__option--selectable {
+      padding: 8px 10px;
+    }
+
+    &__option-text {
+      font-size: 0.85rem;
+    }
+
+    &__footer {
+      gap: 8px;
+    }
+
+    &__submit,
+    &__change-vote {
+      flex: 1;
+      text-align: center;
+    }
+
+    &__add-option-form {
+      flex-wrap: wrap;
+
+      input {
+        width: 100%;
+        flex: none;
+      }
+    }
+  }
+}

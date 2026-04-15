@@ -257,3 +257,31 @@
   background: rgba(10, 18, 12, 0.85);
   color: #4aff9e;
 }
+
+@media (max-width: 600px) {
+  .player-card {
+    padding: 14px 14px 18px;
+    min-height: 260px;
+  }
+
+  .player-card__avatar {
+    width: 150px;
+    height: 150px;
+  }
+
+  .player-card__name {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .player-card {
+    padding: 12px 10px 16px;
+    margin: 6px;
+  }
+
+  .player-card__avatar {
+    width: 120px;
+    height: 120px;
+  }
+}

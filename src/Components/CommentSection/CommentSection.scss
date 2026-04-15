@@ -425,3 +425,13 @@
     &:hover { text-decoration: underline; }
   }
 }
+
+@media (max-width: 480px) {
+  .comment-section__form {
+    gap: 8px;
+  }
+
+  .comment-section__form-sticky {
+    padding: 8px 0 4px;
+  }
+}

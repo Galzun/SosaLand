@@ -158,11 +158,11 @@
     border-radius: 8px;
   }
 
-  // Превью обложки — ОБЯЗАТЕЛЬНО тот же aspect-ratio что у .player-page__cover (4:1).
+  // Превью обложки — aspect-ratio задаётся inline style (берётся из состояния W:H).
   // position:relative + overflow:hidden нужны для inner-div с transform:rotate().
   &__preview-cover {
     width: 100%;
-    aspect-ratio: 4 / 1;
+    // aspect-ratio задаётся через inline style в EditProfile.jsx
     border-radius: 8px;
     background-color: #222;
     border: 1px solid #333;
@@ -439,6 +439,7 @@
 @media (max-width: 600px) {
   .edit-profile {
     margin: 20px auto;
+    padding: 20px 14px 40px;
 
     &__container {
       padding: 20px;
@@ -453,4 +454,88 @@
       text-align: center;
     }
   }
+}
+
+@media (max-width: 480px) {
+  .edit-profile {
+    padding: 14px 10px 30px;
+
+    &__container {
+      padding: 16px;
+      border-radius: 10px;
+    }
+
+    &__title {
+      font-size: 1.3rem;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ColorAlphaField — строка пикера с alpha-слайдером.
+// ---------------------------------------------------------------------------
+.edit-profile__color-alpha-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+// ColorField с встроенным alpha-слайдером
+.edit-profile__slider-row--color {
+  grid-template-columns: 130px 1fr 1fr 24px;
+}
+
+.edit-profile__color-alpha-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+
+  .edit-profile__sublabel {
+    font-size: 0.75rem;
+    color: #888;
+    white-space: nowrap;
+  }
+
+  .edit-profile__range {
+    width: 100%;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AspectRatioField — два числовых поля «W : H».
+// ---------------------------------------------------------------------------
+.edit-profile__aspect-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-profile__aspect-input {
+  width: 56px;
+  padding: 5px 8px;
+  background: #0f0f1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.9rem;
+  text-align: center;
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    opacity: 0.4;
+  }
+}
+
+.edit-profile__aspect-sep {
+  font-size: 1.1rem;
+  color: #666;
+  font-weight: 600;
+}
+
+.edit-profile__aspect-preview {
+  font-size: 0.75rem;
+  color: #4aff9e;
+  font-family: monospace;
+  white-space: nowrap;
 }

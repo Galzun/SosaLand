@@ -86,3 +86,13 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 480px) {
+  .events-page {
+    padding: 16px 12px 40px;
+  }
+
+  .events-page__title {
+    font-size: 1.4rem;
+  }
+}

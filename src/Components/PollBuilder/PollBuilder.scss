@@ -267,3 +267,50 @@
     }
   }
 }
+
+@media (max-width: 600px) {
+  .poll-builder {
+    &__body {
+      padding: 14px;
+      gap: 12px;
+      max-height: 70vh;
+    }
+
+    &__header,
+    &__footer {
+      padding: 12px 14px;
+    }
+
+    &__footer {
+      gap: 8px;
+    }
+
+    &__btn-cancel,
+    &__btn-confirm {
+      flex: 1;
+      text-align: center;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .poll-builder {
+    &__body {
+      padding: 12px;
+      max-height: 75vh;
+    }
+
+    &__label {
+      font-size: 0.75rem;
+    }
+
+    &__input,
+    &__textarea {
+      font-size: 0.85rem;
+    }
+
+    &__checkbox-row {
+      font-size: 0.82rem;
+    }
+  }
+}

@@ -147,22 +147,23 @@ function PostModal({ post, onClose, onLike, onDelete, onEdit, onCommentAdded, cs
             <span className="post-modal__author-name">{post.author?.username}</span>
           </Link>
 
-          {(isOwner || isAdmin) && (
-            <div className="post-modal__header-actions">
-              {isOwner && onEdit && (
-                <button
-                  className="post-modal__edit"
-                  onClick={() => setEditMode(v => !v)}
-                  title={editMode ? 'Отменить редактирование' : 'Редактировать пост'}
-                >
-                  ✏️
-                </button>
-              )}
+          <div className="post-modal__header-actions">
+            {isOwner && onEdit && (
+              <button
+                className="post-modal__edit"
+                onClick={() => setEditMode(v => !v)}
+                title={editMode ? 'Отменить редактирование' : 'Редактировать пост'}
+              >
+                ✏️
+              </button>
+            )}
+            {(isOwner || isAdmin) && (
               <button className="post-modal__delete" onClick={handleDelete} title="Удалить пост">
                 🗑
               </button>
-            </div>
-          )}
+            )}
+            <button className="post-modal__close-btn" onClick={onClose} title="Закрыть">✕</button>
+          </div>
         </div>
 
         {/* Режим редактирования */}

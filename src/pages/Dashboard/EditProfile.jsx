@@ -8,16 +8,41 @@ import { useAuth } from '../../context/AuthContext';
 import ImageUpload from '../../Components/ImageUpload/ImageUpload';
 import './EditProfile.scss';
 
-const STATUS_MAX_LENGTH = 50;
+const STATUS_MAX_LENGTH = 100;
+
+// ---------------------------------------------------------------------------
+// Хелперы для цвета с alpha-каналом.
+// ---------------------------------------------------------------------------
+function parseColorVal(str) {
+  if (!str) return { hex: '#888888', alpha: 100 };
+  const m = str.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)/);
+  if (m) {
+    const hex = '#' + [m[1], m[2], m[3]]
+      .map(n => parseInt(n).toString(16).padStart(2, '0')).join('');
+    const alpha = m[4] !== undefined ? Math.round(parseFloat(m[4]) * 100) : 100;
+    return { hex, alpha };
+  }
+  return { hex: str.startsWith('#') ? str : '#888888', alpha: 100 };
+}
+
+function buildColorVal(hex, alpha) {
+  if (alpha >= 100) return hex;
+  const h = (hex || '#888888').replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16) || 0;
+  const g = parseInt(h.slice(2, 4), 16) || 0;
+  const b = parseInt(h.slice(4, 6), 16) || 0;
+  return `rgba(${r},${g},${b},${(alpha / 100).toFixed(2)})`;
+}
 
 // Дефолтные значения параметров изображения — используются при сбросе.
-const COVER_DEFAULTS            = { posX: 50, posY: 50, scale: 100, rotation: 0, fillColor: '', blur: 0, edge: 0 };
-const BG_DEFAULTS               = { posX: 50, posY: 50, scale: 100, rotation: 0, fillColor: '', blur: 0, edge: 0 };
+const COVER_DEFAULTS = { posX: 50, posY: 50, scale: 100, rotation: 0, fillColor: '', blur: 0, edge: 0, edgeH: 0, edgeV: 0, containerWidth: 100, aspectW: 4, aspectH: 1 };
+const BIO_STYLE_DEFAULTS = { color: '', fontSize: 14, fontWeight: 400 };
+const BG_DEFAULTS    = { posX: 50, posY: 50, scale: 100, rotation: 0, fillColor: '', blur: 0, edge: 0, edgeH: 0, edgeV: 0 };
 const CARD_BG_DEFAULTS          = { color: '#1a1a1a', alpha: 95, blur: 0 };
 const HEADER_DEFAULTS  = {
   color: '#1a1a1a', alpha: 95,  blur: 0,
   borderColor: '',  borderWidth: 0,  borderRadius: 12,
-  textColor: '',    accentColor: '',
+  textColor: '',    accentColor: '',  fontWeight: 400,
 };
 const CONTENT_DEFAULTS = {
   color: '#0a0a1a', alpha: 0,   blur: 0,
@@ -27,7 +52,7 @@ const CONTENT_DEFAULTS = {
 const CARDS_DEFAULTS   = {
   color: '#1a1a1a', alpha: 95,  blur: 0,
   borderColor: '',  borderWidth: 1,  borderRadius: 12,
-  textColor: '',    accentColor: '',
+  textColor: '',    accentColor: '',  fontWeight: 400,
 };
 
 function EditProfile() {
@@ -41,8 +66,12 @@ function EditProfile() {
   const [coverScale,     setCoverScale]     = useState(COVER_DEFAULTS.scale);
   const [coverRotation,  setCoverRotation]  = useState(COVER_DEFAULTS.rotation);
   const [coverFillColor, setCoverFillColor] = useState(COVER_DEFAULTS.fillColor);
-  const [coverBlur,      setCoverBlur]      = useState(COVER_DEFAULTS.blur);
-  const [coverEdge,      setCoverEdge]      = useState(COVER_DEFAULTS.edge);
+  const [coverBlur,           setCoverBlur]           = useState(COVER_DEFAULTS.blur);
+  const [coverEdgeH,          setCoverEdgeH]          = useState(COVER_DEFAULTS.edgeH);
+  const [coverEdgeV,          setCoverEdgeV]          = useState(COVER_DEFAULTS.edgeV);
+  const [coverContainerWidth, setCoverContainerWidth] = useState(COVER_DEFAULTS.containerWidth);
+  const [coverAspectW,        setCoverAspectW]        = useState(COVER_DEFAULTS.aspectW);
+  const [coverAspectH,        setCoverAspectH]        = useState(COVER_DEFAULTS.aspectH);
 
   // --- Фон страницы ---
   const [backgroundUrl, setBackgroundUrl] = useState('');
@@ -51,11 +80,15 @@ function EditProfile() {
   const [bgScale,       setBgScale]       = useState(BG_DEFAULTS.scale);
   const [bgRotation,    setBgRotation]    = useState(BG_DEFAULTS.rotation);
   const [bgFillColor,   setBgFillColor]   = useState(BG_DEFAULTS.fillColor);
-  const [bgBlur,        setBgBlur]        = useState(BG_DEFAULTS.blur);
-  const [bgEdge,        setBgEdge]        = useState(BG_DEFAULTS.edge);
+  const [bgBlur,  setBgBlur]  = useState(BG_DEFAULTS.blur);
+  const [bgEdgeH, setBgEdgeH] = useState(BG_DEFAULTS.edgeH);
+  const [bgEdgeV, setBgEdgeV] = useState(BG_DEFAULTS.edgeV);
 
-  // --- О себе ---
-  const [bio, setBio] = useState('');
+  // --- Статус ---
+  const [bio,           setBio]           = useState('');
+  const [bioColor,      setBioColor]      = useState(BIO_STYLE_DEFAULTS.color);
+  const [bioFontSize,   setBioFontSize]   = useState(BIO_STYLE_DEFAULTS.fontSize);
+  const [bioFontWeight, setBioFontWeight] = useState(BIO_STYLE_DEFAULTS.fontWeight);
 
   // --- Шапка профиля (content_wrapper_*) ---
   const [headerBgColor,      setHeaderBgColor]      = useState(HEADER_DEFAULTS.color);
@@ -66,6 +99,7 @@ function EditProfile() {
   const [headerBorderRadius, setHeaderBorderRadius] = useState(HEADER_DEFAULTS.borderRadius);
   const [headerTextColor,    setHeaderTextColor]    = useState(HEADER_DEFAULTS.textColor);
   const [headerAccentColor,  setHeaderAccentColor]  = useState(HEADER_DEFAULTS.accentColor);
+  const [headerFontWeight,   setHeaderFontWeight]   = useState(HEADER_DEFAULTS.fontWeight);
 
   // --- Область контента (content_*) ---
   const [contentBgColor,      setContentBgColor]      = useState(CONTENT_DEFAULTS.color);
@@ -85,6 +119,7 @@ function EditProfile() {
   const [cardsBorderRadius, setCardsBorderRadius] = useState(CARDS_DEFAULTS.borderRadius);
   const [cardsTextColor,    setCardsTextColor]    = useState(CARDS_DEFAULTS.textColor);
   const [cardsAccentColor,  setCardsAccentColor]  = useState(CARDS_DEFAULTS.accentColor);
+  const [cardsFontWeight,   setCardsFontWeight]   = useState(CARDS_DEFAULTS.fontWeight);
 
   // --- Фон карточки (устаревшее, оставлено для совместимости) ---
   const [cardBgColor, setCardBgColor] = useState('#1a1a1a');
@@ -106,7 +141,11 @@ function EditProfile() {
       setCoverRotation(data.coverRotation ?? COVER_DEFAULTS.rotation);
       setCoverFillColor(data.coverFillColor || '');
       setCoverBlur(data.coverBlur ?? COVER_DEFAULTS.blur);
-      setCoverEdge(data.coverEdge ?? COVER_DEFAULTS.edge);
+      setCoverEdgeH(data.coverEdgeH ?? COVER_DEFAULTS.edgeH);
+      setCoverEdgeV(data.coverEdgeV ?? COVER_DEFAULTS.edgeV);
+      setCoverContainerWidth(data.coverContainerWidth ?? COVER_DEFAULTS.containerWidth);
+      setCoverAspectW(data.coverAspectW ?? COVER_DEFAULTS.aspectW);
+      setCoverAspectH(data.coverAspectH ?? COVER_DEFAULTS.aspectH);
       setBackgroundUrl(data.backgroundUrl || '');
       setBgPosX(data.bgPosX ?? BG_DEFAULTS.posX);
       setBgPosY(data.bgPosY ?? BG_DEFAULTS.posY);
@@ -114,8 +153,12 @@ function EditProfile() {
       setBgRotation(data.bgRotation ?? BG_DEFAULTS.rotation);
       setBgFillColor(data.bgFillColor || '');
       setBgBlur(data.bgBlur ?? BG_DEFAULTS.blur);
-      setBgEdge(data.bgEdge ?? BG_DEFAULTS.edge);
+      setBgEdgeH(data.bgEdgeH ?? BG_DEFAULTS.edgeH);
+      setBgEdgeV(data.bgEdgeV ?? BG_DEFAULTS.edgeV);
       setBio(data.bio || '');
+      setBioColor(data.bioColor || BIO_STYLE_DEFAULTS.color);
+      setBioFontSize(data.bioFontSize ?? BIO_STYLE_DEFAULTS.fontSize);
+      setBioFontWeight(data.bioFontWeight ?? BIO_STYLE_DEFAULTS.fontWeight);
       setCardBgColor(data.cardBgColor || '#1a1a1a');
       setCardBgAlpha(data.cardBgAlpha ?? 95);
       setCardBgBlur(data.cardBgBlur ?? 0);
@@ -128,6 +171,7 @@ function EditProfile() {
       setHeaderBorderRadius(data.contentWrapperBorderRadius ?? HEADER_DEFAULTS.borderRadius);
       setHeaderTextColor(data.contentWrapperTextColor || HEADER_DEFAULTS.textColor);
       setHeaderAccentColor(data.contentWrapperAccentColor || HEADER_DEFAULTS.accentColor);
+      setHeaderFontWeight(data.contentWrapperFontWeight ?? HEADER_DEFAULTS.fontWeight);
       // Область контента
       setContentBgColor(data.contentBgColor || CONTENT_DEFAULTS.color);
       setContentBgAlpha(data.contentBgAlpha ?? CONTENT_DEFAULTS.alpha);
@@ -145,6 +189,7 @@ function EditProfile() {
       setCardsBorderRadius(data.postCardBorderRadius ?? CARDS_DEFAULTS.borderRadius);
       setCardsTextColor(data.postCardTextColor || CARDS_DEFAULTS.textColor);
       setCardsAccentColor(data.postCardAccentColor || CARDS_DEFAULTS.accentColor);
+      setCardsFontWeight(data.postCardFontWeight ?? CARDS_DEFAULTS.fontWeight);
     }).catch(err => console.error('Ошибка загрузки профиля:', err.message));
   }, [user]);
 
@@ -162,17 +207,18 @@ function EditProfile() {
   const rotStyle    = (deg)   => deg !== 0 ? `rotate(${deg}deg)` : undefined;
   const filterStyle = (blur)  => blur > 0 ? `blur(${blur}px)` : undefined;
 
-  // CSS-маска для плавного растворения краёв.
-  const edgeMask = (edge) => {
-    if (!edge) return {};
-    const p = Math.round(edge * 0.4);
-    const h = `linear-gradient(to right, transparent 0%, black ${p}%, black ${100 - p}%, transparent 100%)`;
-    const v = `linear-gradient(to bottom, transparent 0%, black ${p}%, black ${100 - p}%, transparent 100%)`;
+  // CSS-маска для плавного растворения краёв (раздельно горизонталь/вертикаль).
+  const edgeMask = (edgeH, edgeV) => {
+    if (!edgeH && !edgeV) return {};
+    const pH = edgeH ? Math.round(edgeH * 0.4) : 0;
+    const pV = edgeV ? Math.round(edgeV * 0.4) : 0;
+    const h = pH > 0 ? `linear-gradient(to right, transparent 0%, black ${pH}%, black ${100 - pH}%, transparent 100%)` : null;
+    const v = pV > 0 ? `linear-gradient(to bottom, transparent 0%, black ${pV}%, black ${100 - pV}%, transparent 100%)` : null;
+    const maskValue = h && v ? `${h}, ${v}` : (h || v);
     return {
-      WebkitMaskImage:     `${h}, ${v}`,
-      maskImage:           `${h}, ${v}`,
-      WebkitMaskComposite: 'destination-in',
-      maskComposite:       'intersect',
+      WebkitMaskImage:     maskValue,
+      maskImage:           maskValue,
+      ...(h && v ? { WebkitMaskComposite: 'destination-in', maskComposite: 'intersect' } : {}),
     };
   };
 
@@ -194,10 +240,15 @@ function EditProfile() {
           coverUrl:      coverUrl.trim()      || null,
           backgroundUrl: backgroundUrl.trim() || null,
           bio:           bio.trim()           || null,
+          bioColor: bioColor || null,
+          bioFontSize, bioFontWeight,
           coverPosX, coverPosY, coverScale,
-          coverRotation, coverFillColor: coverFillColor || null, coverBlur, coverEdge,
+          coverRotation, coverFillColor: coverFillColor || null, coverBlur,
+          coverEdgeH, coverEdgeV,
+          coverAspectW, coverAspectH,
           bgPosX, bgPosY, bgScale,
-          bgRotation, bgFillColor: bgFillColor || null, bgBlur, bgEdge,
+          bgRotation, bgFillColor: bgFillColor || null, bgBlur,
+          bgEdgeH, bgEdgeV,
           cardBgColor, cardBgAlpha, cardBgBlur,
           // Шапка профиля → content_wrapper_*
           contentWrapperBgColor:      headerBgColor,
@@ -208,6 +259,7 @@ function EditProfile() {
           contentWrapperBorderRadius: headerBorderRadius,
           contentWrapperTextColor:    headerTextColor    || null,
           contentWrapperAccentColor:  headerAccentColor  || null,
+          contentWrapperFontWeight:   headerFontWeight,
           // Область контента → content_*
           contentBgColor, contentBgAlpha, contentBlur,
           contentBorderColor:  contentBorderColor  || null,
@@ -222,6 +274,7 @@ function EditProfile() {
           postCardBorderRadius: cardsBorderRadius,
           postCardTextColor:    cardsTextColor    || null,
           postCardAccentColor:  cardsAccentColor  || null,
+          postCardFontWeight:   cardsFontWeight,
           // Устаревшие поля (tabs/postForm) — передаём значения карточек для совместимости
           tabsBgColor: cardsBgColor, tabsBgAlpha: cardsBgAlpha, tabsBlur: cardsBlur,
           postFormBgColor: cardsBgColor, postFormBgAlpha: cardsBgAlpha, postFormBlur: cardsBlur,
@@ -286,7 +339,7 @@ function EditProfile() {
             {coverUrl && (
               <div className="edit-profile__image-controls">
                 {/* Превью */}
-                <div className="edit-profile__preview-cover" style={{ background: coverFillColor || undefined }}>
+                <div className="edit-profile__preview-cover" style={{ background: coverFillColor || undefined, aspectRatio: `${coverAspectW}/${coverAspectH}` }}>
                   <div style={{
                     position: 'absolute', inset: 0,
                     backgroundImage:    `url(${coverUrl})`,
@@ -295,18 +348,24 @@ function EditProfile() {
                     backgroundRepeat:   'no-repeat',
                     transform:          rotStyle(coverRotation),
                     filter:             filterStyle(coverBlur),
-                    ...edgeMask(coverEdge),
+                    ...edgeMask(coverEdgeH, coverEdgeV),
                   }} />
                 </div>
 
                 {/* Слайдеры */}
                 <div className="edit-profile__sliders">
-                  <SliderField label="Влево / Вправо"  value={coverPosX}     onChange={setCoverPosX}     min={0}  max={100} unit="%" onReset={() => setCoverPosX(COVER_DEFAULTS.posX)} />
-                  <SliderField label="Вверх / Вниз"    value={coverPosY}     onChange={setCoverPosY}     min={0}  max={100} unit="%" onReset={() => setCoverPosY(COVER_DEFAULTS.posY)} />
-                  <SliderField label="Масштаб"          value={coverScale}    onChange={setCoverScale}    min={20} max={200} unit="%" onReset={() => setCoverScale(COVER_DEFAULTS.scale)} />
-                  <SliderField label="Поворот"          value={coverRotation} onChange={setCoverRotation} min={0}  max={359} unit="°" onReset={() => setCoverRotation(COVER_DEFAULTS.rotation)} />
-                  <SliderField label="Размытие"         value={coverBlur}     onChange={setCoverBlur}     min={0}  max={20}  unit="px" onReset={() => setCoverBlur(COVER_DEFAULTS.blur)} />
-                  <SliderField label="Плавность краёв" value={coverEdge}     onChange={setCoverEdge}     min={0}  max={100} unit=""   onReset={() => setCoverEdge(COVER_DEFAULTS.edge)} />
+                  <SliderField label="Влево / Вправо"       value={coverPosX}           onChange={setCoverPosX}           min={0}  max={100} unit="%" onReset={() => setCoverPosX(COVER_DEFAULTS.posX)} />
+                  <SliderField label="Вверх / Вниз"         value={coverPosY}           onChange={setCoverPosY}           min={0}  max={100} unit="%" onReset={() => setCoverPosY(COVER_DEFAULTS.posY)} />
+                  <SliderField label="Масштаб"               value={coverScale}          onChange={setCoverScale}          min={20} max={200} unit="%" onReset={() => setCoverScale(COVER_DEFAULTS.scale)} />
+                  <SliderField label="Поворот"               value={coverRotation}       onChange={setCoverRotation}       min={0}  max={359} unit="°" onReset={() => setCoverRotation(COVER_DEFAULTS.rotation)} />
+                  <SliderField label="Размытие"              value={coverBlur}           onChange={setCoverBlur}           min={0}  max={20}  unit="px" onReset={() => setCoverBlur(COVER_DEFAULTS.blur)} />
+                  <SliderField label="Горизонтальная плавность" value={coverEdgeH} onChange={setCoverEdgeH} min={0} max={100} unit="" onReset={() => setCoverEdgeH(COVER_DEFAULTS.edgeH)} />
+                  <SliderField label="Вертикальная плавность"   value={coverEdgeV} onChange={setCoverEdgeV} min={0} max={100} unit="" onReset={() => setCoverEdgeV(COVER_DEFAULTS.edgeV)} />
+                  <AspectRatioField
+                    w={coverAspectW} h={coverAspectH}
+                    onW={setCoverAspectW} onH={setCoverAspectH}
+                    onReset={() => { setCoverAspectW(COVER_DEFAULTS.aspectW); setCoverAspectH(COVER_DEFAULTS.aspectH); }}
+                  />
                 </div>
               </div>
             )}
@@ -361,18 +420,19 @@ function EditProfile() {
                     backgroundRepeat:   'no-repeat',
                     transform:          rotStyle(bgRotation),
                     filter:             filterStyle(bgBlur),
-                    ...edgeMask(bgEdge),
+                    ...edgeMask(bgEdgeH, bgEdgeV),
                   }} />
                 </div>
 
                 {/* Слайдеры */}
                 <div className="edit-profile__sliders">
-                  <SliderField label="Влево / Вправо"  value={bgPosX}     onChange={setBgPosX}     min={0}  max={100} unit="%" onReset={() => setBgPosX(BG_DEFAULTS.posX)} />
-                  <SliderField label="Вверх / Вниз"    value={bgPosY}     onChange={setBgPosY}     min={0}  max={100} unit="%" onReset={() => setBgPosY(BG_DEFAULTS.posY)} />
-                  <SliderField label="Масштаб"          value={bgScale}    onChange={setBgScale}    min={20} max={200} unit="%" onReset={() => setBgScale(BG_DEFAULTS.scale)} />
-                  <SliderField label="Поворот"          value={bgRotation} onChange={setBgRotation} min={0}  max={359} unit="°" onReset={() => setBgRotation(BG_DEFAULTS.rotation)} />
-                  <SliderField label="Размытие"         value={bgBlur}     onChange={setBgBlur}     min={0}  max={20}  unit="px" onReset={() => setBgBlur(BG_DEFAULTS.blur)} />
-                  <SliderField label="Плавность краёв" value={bgEdge}     onChange={setBgEdge}     min={0}  max={100} unit=""   onReset={() => setBgEdge(BG_DEFAULTS.edge)} />
+                  <SliderField label="Влево / Вправо"           value={bgPosX}     onChange={setBgPosX}     min={0}  max={100} unit="%" onReset={() => setBgPosX(BG_DEFAULTS.posX)} />
+                  <SliderField label="Вверх / Вниз"             value={bgPosY}     onChange={setBgPosY}     min={0}  max={100} unit="%" onReset={() => setBgPosY(BG_DEFAULTS.posY)} />
+                  <SliderField label="Масштаб"                   value={bgScale}    onChange={setBgScale}    min={20} max={200} unit="%" onReset={() => setBgScale(BG_DEFAULTS.scale)} />
+                  <SliderField label="Поворот"                   value={bgRotation} onChange={setBgRotation} min={0}  max={359} unit="°" onReset={() => setBgRotation(BG_DEFAULTS.rotation)} />
+                  <SliderField label="Размытие"                  value={bgBlur}     onChange={setBgBlur}     min={0}  max={20}  unit="px" onReset={() => setBgBlur(BG_DEFAULTS.blur)} />
+                  <SliderField label="Горизонтальная плавность" value={bgEdgeH}    onChange={setBgEdgeH}    min={0}  max={100} unit=""   onReset={() => setBgEdgeH(BG_DEFAULTS.edgeH)} />
+                  <SliderField label="Вертикальная плавность"   value={bgEdgeV}    onChange={setBgEdgeV}    min={0}  max={100} unit=""   onReset={() => setBgEdgeV(BG_DEFAULTS.edgeV)} />
                 </div>
               </div>
             )}
@@ -382,7 +442,7 @@ function EditProfile() {
           <div className="edit-profile__field">
             <label className="edit-profile__label">
               Статус
-              <span className="edit-profile__label-hint">Короткий статус — отображается под именем на странице профиля</span>
+              <span className="edit-profile__label-hint">Отображается под именем на странице профиля</span>
             </label>
             <input
               type="text"
@@ -396,6 +456,20 @@ function EditProfile() {
             <span className={`edit-profile__char-count ${bio.length >= STATUS_MAX_LENGTH ? 'edit-profile__char-count--limit' : ''}`}>
               {bio.length} / {STATUS_MAX_LENGTH}
             </span>
+
+            {/* Стиль статуса */}
+            <div className="edit-profile__sliders">
+              <ColorAlphaField
+                label="Цвет текста статуса"
+                value={bioColor}
+                onChange={setBioColor}
+                onReset={() => setBioColor('')}
+                defaultHex="#cccccc"
+                disabled={saving}
+              />
+              <SliderField label="Размер шрифта" value={bioFontSize}   onChange={setBioFontSize}   min={10} max={32} unit="px" onReset={() => setBioFontSize(BIO_STYLE_DEFAULTS.fontSize)} />
+              <SliderField label="Жирность"       value={bioFontWeight} onChange={setBioFontWeight} min={100} max={900} step={100} unit="" onReset={() => setBioFontWeight(BIO_STYLE_DEFAULTS.fontWeight)} />
+            </div>
           </div>
 
           {/* ======== UI-ГРУППЫ ======== */}
@@ -416,6 +490,7 @@ function EditProfile() {
               borderRadius={headerBorderRadius} onBorderRadius={setHeaderBorderRadius}
               textColor={headerTextColor}       onTextColor={setHeaderTextColor}
               accentColor={headerAccentColor}   onAccentColor={setHeaderAccentColor}
+              fontWeight={headerFontWeight}     onFontWeight={setHeaderFontWeight}
               defaults={HEADER_DEFAULTS}
               disabled={saving}
             />
@@ -444,6 +519,7 @@ function EditProfile() {
               borderRadius={cardsBorderRadius} onBorderRadius={setCardsBorderRadius}
               textColor={cardsTextColor}       onTextColor={setCardsTextColor}
               accentColor={cardsAccentColor}   onAccentColor={setCardsAccentColor}
+              fontWeight={cardsFontWeight}     onFontWeight={setCardsFontWeight}
               defaults={CARDS_DEFAULTS}
               disabled={saving}
             />
@@ -495,6 +571,7 @@ function UiGroupField({
   borderColor, onBorderColor, borderWidth, onBorderWidth, borderRadius, onBorderRadius,
   textColor, onTextColor,
   accentColor, onAccentColor,
+  fontWeight, onFontWeight,
 }) {
   const [open, setOpen] = useState(false);
 
@@ -507,6 +584,7 @@ function UiGroupField({
     onBorderRadius(defaults.borderRadius ?? 12);
     if (onTextColor) onTextColor(defaults.textColor ?? '');
     if (onAccentColor) onAccentColor(defaults.accentColor ?? '');
+    if (onFontWeight) onFontWeight(defaults.fontWeight ?? 400);
   };
 
   return (
@@ -535,9 +613,9 @@ function UiGroupField({
                 value={color} onChange={(e) => onColor(e.target.value)} disabled={disabled} />
             </div>
             <div className="edit-profile__slider-group">
-              <label className="edit-profile__sublabel">Непрозрачность: {alpha}%</label>
-              <input type="range" className="edit-profile__range" min={0} max={100} value={alpha}
-                onChange={(e) => onAlpha(Number(e.target.value))} disabled={disabled} />
+              <label className="edit-profile__sublabel">Прозрачность: {100 - alpha}%</label>
+              <input type="range" className="edit-profile__range" min={0} max={100} value={100 - alpha}
+                onChange={(e) => onAlpha(100 - Number(e.target.value))} disabled={disabled} />
             </div>
             <div className="edit-profile__slider-group">
               <label className="edit-profile__sublabel">Размытие: {blur}px</label>
@@ -550,16 +628,14 @@ function UiGroupField({
           {/* — Рамка — */}
           <p className="edit-profile__ui-section-label">Рамка</p>
           <div className="edit-profile__card-bg-row">
-            <div className="edit-profile__color-pick">
-              <label className="edit-profile__sublabel">Цвет рамки</label>
-              <input type="color" className="edit-profile__color-input"
-                value={borderColor || '#2a2a3a'}
-                onChange={(e) => onBorderColor(e.target.value)} disabled={disabled} />
-              {borderColor && (
-                <button type="button" className="edit-profile__reset-btn"
-                  onClick={() => onBorderColor('')} disabled={disabled} title="Убрать цвет">✕</button>
-              )}
-            </div>
+            <ColorAlphaField
+              label="Цвет рамки"
+              value={borderColor}
+              onChange={onBorderColor}
+              onReset={() => onBorderColor('')}
+              defaultHex="#2a2a3a"
+              disabled={disabled}
+            />
             <div className="edit-profile__slider-group">
               <label className="edit-profile__sublabel">Ширина: {borderWidth}px</label>
               <input type="range" className="edit-profile__range" min={0} max={10} value={borderWidth}
@@ -573,34 +649,36 @@ function UiGroupField({
           </div>
 
           {/* — Текст и кнопки — */}
-          {(onTextColor !== undefined || onAccentColor !== undefined) && (
+          {(onTextColor !== undefined || onAccentColor !== undefined || onFontWeight !== undefined) && (
             <>
               <p className="edit-profile__ui-section-label">Текст и кнопки</p>
               <div className="edit-profile__card-bg-row">
                 {onTextColor !== undefined && (
-                  <div className="edit-profile__color-pick">
-                    <label className="edit-profile__sublabel">Цвет текста</label>
-                    <input type="color" className="edit-profile__color-input"
-                      value={textColor || '#cccccc'}
-                      onChange={(e) => onTextColor(e.target.value)} disabled={disabled} />
-                    {textColor && (
-                      <button type="button" className="edit-profile__reset-btn"
-                        onClick={() => onTextColor('')} disabled={disabled} title="По умолчанию">✕</button>
-                    )}
-                    {!textColor && <span className="edit-profile__sublabel" style={{ marginTop: 2 }}>по умолч.</span>}
-                  </div>
+                  <ColorAlphaField
+                    label="Цвет текста"
+                    value={textColor}
+                    onChange={onTextColor}
+                    onReset={() => onTextColor('')}
+                    defaultHex="#cccccc"
+                    disabled={disabled}
+                  />
                 )}
                 {onAccentColor !== undefined && (
-                  <div className="edit-profile__color-pick">
-                    <label className="edit-profile__sublabel">Цвет акцента</label>
-                    <input type="color" className="edit-profile__color-input"
-                      value={accentColor || '#4aff9e'}
-                      onChange={(e) => onAccentColor(e.target.value)} disabled={disabled} />
-                    {accentColor && (
-                      <button type="button" className="edit-profile__reset-btn"
-                        onClick={() => onAccentColor('')} disabled={disabled} title="По умолчанию">✕</button>
-                    )}
-                    {!accentColor && <span className="edit-profile__sublabel" style={{ marginTop: 2 }}>по умолч.</span>}
+                  <ColorAlphaField
+                    label="Цвет акцента"
+                    value={accentColor}
+                    onChange={onAccentColor}
+                    onReset={() => onAccentColor('')}
+                    defaultHex="#4aff9e"
+                    disabled={disabled}
+                  />
+                )}
+                {onFontWeight !== undefined && (
+                  <div className="edit-profile__slider-group">
+                    <label className="edit-profile__sublabel">Жирность: {fontWeight}</label>
+                    <input type="range" className="edit-profile__range" min={100} max={900} step={100}
+                      value={fontWeight}
+                      onChange={(e) => onFontWeight(Number(e.target.value))} disabled={disabled} />
                   </div>
                 )}
                 <button
@@ -616,7 +694,7 @@ function UiGroupField({
             </>
           )}
           {/* Кнопка сброса для групп без цвета текста */}
-          {onTextColor === undefined && onAccentColor === undefined && (
+          {onTextColor === undefined && onAccentColor === undefined && onFontWeight === undefined && (
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button
                 type="button"
@@ -638,7 +716,7 @@ function UiGroupField({
 // ---------------------------------------------------------------------------
 // SliderField — ползунок + значение + кнопка сброса.
 // ---------------------------------------------------------------------------
-function SliderField({ label, value, onChange, min, max, unit, onReset }) {
+function SliderField({ label, value, onChange, min, max, step, unit, onReset }) {
   return (
     <div className="edit-profile__slider-row">
       <span className="edit-profile__slider-label">{label}</span>
@@ -647,6 +725,7 @@ function SliderField({ label, value, onChange, min, max, unit, onReset }) {
         className="edit-profile__slider"
         min={min}
         max={max}
+        step={step || 1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
       />
@@ -657,22 +736,86 @@ function SliderField({ label, value, onChange, min, max, unit, onReset }) {
 }
 
 // ---------------------------------------------------------------------------
-// ColorField — цветовой пикер + кнопка сброса.
+// ColorField — цветовой пикер + alpha + кнопка сброса (для строки слайдера).
 // ---------------------------------------------------------------------------
 function ColorField({ label, value, onChange, onReset }) {
+  const { hex, alpha } = parseColorVal(value || '');
+  const effectiveHex = value ? hex : '#222222';
   return (
-    <div className="edit-profile__slider-row">
+    <div className="edit-profile__slider-row edit-profile__slider-row--color">
       <span className="edit-profile__slider-label">{label}</span>
       <div className="edit-profile__color-picker">
         <input
           type="color"
           className="edit-profile__color-input"
-          value={value || '#222222'}
-          onChange={(e) => onChange(e.target.value)}
+          value={effectiveHex}
+          onChange={(e) => onChange(buildColorVal(e.target.value, alpha))}
         />
         <span className="edit-profile__color-value">{value || 'нет'}</span>
       </div>
-      <span /> {/* пустая ячейка-значение */}
+      <div className="edit-profile__color-alpha-inline">
+        <span className="edit-profile__sublabel">Прозрачность: {100 - alpha}%</span>
+        <input type="range" className="edit-profile__range" min={0} max={100} value={alpha}
+          onChange={(e) => onChange(buildColorVal(effectiveHex, Number(e.target.value)))} />
+      </div>
+      <button type="button" className="edit-profile__reset-btn" onClick={onReset} title="Сбросить">↺</button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ColorAlphaField — компактный пикер цвета + alpha для UI-групп.
+// ---------------------------------------------------------------------------
+function ColorAlphaField({ label, value, onChange, onReset, disabled, defaultHex = '#888888' }) {
+  const { hex, alpha } = parseColorVal(value || '');
+  const effectiveHex = value ? hex : defaultHex;
+  return (
+    <div className="edit-profile__color-pick">
+      <label className="edit-profile__sublabel">{label}</label>
+      <div className="edit-profile__color-alpha-row">
+        <input type="color" className="edit-profile__color-input"
+          value={effectiveHex}
+          onChange={(e) => onChange(buildColorVal(e.target.value, alpha))}
+          disabled={disabled} />
+        {value ? (
+          <button type="button" className="edit-profile__reset-btn"
+            onClick={onReset} disabled={disabled} title="Убрать">✕</button>
+        ) : (
+          <span className="edit-profile__sublabel" style={{ marginTop: 2 }}>по умолч.</span>
+        )}
+      </div>
+      <div className="edit-profile__slider-group" style={{ marginTop: 4 }}>
+        <label className="edit-profile__sublabel">α: {alpha}%</label>
+        <input type="range" className="edit-profile__range" min={0} max={100} value={alpha}
+          onChange={(e) => onChange(buildColorVal(effectiveHex, Number(e.target.value)))}
+          disabled={disabled} />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AspectRatioField — два числовых поля «W : H» для соотношения сторон.
+// ---------------------------------------------------------------------------
+function AspectRatioField({ w, h, onW, onH, onReset }) {
+  const handleW = (e) => {
+    const v = Math.max(1, Math.min(32, parseInt(e.target.value) || 1));
+    onW(v);
+  };
+  const handleH = (e) => {
+    const v = Math.max(1, Math.min(32, parseInt(e.target.value) || 1));
+    onH(v);
+  };
+  return (
+    <div className="edit-profile__slider-row">
+      <span className="edit-profile__slider-label">Соотношение сторон</span>
+      <div className="edit-profile__aspect-row">
+        <input type="number" className="edit-profile__aspect-input" min={1} max={32} value={w} onChange={handleW} />
+        <span className="edit-profile__aspect-sep">:</span>
+        <input type="number" className="edit-profile__aspect-input" min={1} max={32} value={h} onChange={handleH} />
+        <span className="edit-profile__aspect-preview">({(w/h).toFixed(2)}:1)</span>
+      </div>
+      <span />
       <button type="button" className="edit-profile__reset-btn" onClick={onReset} title="Сбросить">↺</button>
     </div>
   );

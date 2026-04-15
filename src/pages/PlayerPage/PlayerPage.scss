@@ -40,14 +40,17 @@
   // цвет «просачивается» по 1px через скруглённые углы сверху поверх обложки.
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   color: var(--header-text-color, inherit);
+  // Ширина шапки: по умолчанию 100%, может быть уменьшена настройкой профиля
+  max-width: var(--cover-container-width, 100%);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Обложка */
 .player-page__cover {
-  // aspect-ratio вместо фиксированной высоты — тогда превью в EditProfile
-  // с тем же aspect-ratio показывает ровно ту же часть изображения.
-  // 4:1 ≈ 300px высоты при ширине 1160px (container max).
-  aspect-ratio: 4 / 1;
+  // aspect-ratio задаётся CSS-переменными, которые задаёт пользователь в настройках.
+  // По умолчанию 4:1 (широкий баннер ≈ 300px при ширине 1160px).
+  aspect-ratio: var(--cover-aspect-w, 4) / var(--cover-aspect-h, 1);
   min-height: 120px; // не слишком мало на мобильных
   background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
   position: relative;
@@ -77,6 +80,7 @@
   background: var(--content-wrapper-bg-computed, var(--card-bg-computed, #1a1a1a));
   -webkit-backdrop-filter: var(--content-wrapper-blur, var(--card-bg-blur, none));
   backdrop-filter: var(--content-wrapper-blur, var(--card-bg-blur, none));
+  font-weight: var(--header-font-weight, inherit);
 }
 
 /* Ряд с аватаркой и информацией */
@@ -121,7 +125,7 @@
 
   h1 {
     font-size: 2rem;
-    font-weight: 700;
+    font-weight: var(--header-font-weight, 700);
     color: var(--header-text-color, white);
     margin: 0;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
@@ -193,14 +197,15 @@
 
   &-value {
     color: var(--header-text-color, white);
-    font-weight: 500;
+    font-weight: var(--header-font-weight, 500);
   }
 }
 
 /* Описание игрока (bio) */
 .player-page__bio {
-  font-size: 0.95rem;
-  color: var(--header-text-muted, #ccc);
+  font-size: var(--bio-font-size, 0.95rem);
+  font-weight: var(--bio-font-weight, 400);
+  color: var(--bio-color, var(--header-text-muted, #ccc));
   line-height: 1.6;
   margin: 4px 0 10px;
   max-width: 600px;
@@ -297,6 +302,7 @@
   -webkit-backdrop-filter: var(--content-blur, none);
   backdrop-filter: var(--content-blur, none);
   color: var(--content-text-color, inherit);
+  font-weight: var(--cards-font-weight, inherit);
 }
 
 // Центрированный внутренний контейнер (680px) — для постов и комментариев
@@ -1173,5 +1179,122 @@
       border-color: #ff4a4a;
       color: #ff4a4a;
     }
+  }
+}
+
+// =============================================================================
+// Адаптивность
+// =============================================================================
+
+@media (max-width: 768px) {
+  .player-page {
+    padding: 0 10px;
+  }
+
+  .player-page__cover {
+    aspect-ratio: 3 / 1;
+    min-height: 100px;
+  }
+
+  .player-page__content-wrapper {
+    padding: 0 12px 16px;
+  }
+
+  .player-page__info-row {
+    gap: 12px;
+    margin-top: -30px;
+  }
+
+  .player-page__avatar {
+    width: 80px;
+    height: 80px;
+    margin-top: -40px;
+  }
+
+  .player-page__name-row h1 {
+    font-size: 1.5rem;
+  }
+
+  .player-page__top-actions {
+    top: 10px;
+    right: 10px;
+    gap: 6px;
+  }
+
+  .player-page__edit-btn,
+  .player-page__msg-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .player-page__tabs {
+    padding: 6px 4px 4px;
+    gap: 2px;
+  }
+
+  .player-page__tab {
+    padding: 8px 10px;
+    font-size: 0.85rem;
+  }
+
+  .player-page__content-inner {
+    padding: 8px 0 0;
+  }
+
+  .player-page__comments-card {
+    padding: 12px;
+  }
+
+  .player-page__photos,
+  .player-page__albums,
+  .player-page__album-detail {
+    padding: 8px 8px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .player-page {
+    padding: 0;
+  }
+
+  .player-page__cover {
+    aspect-ratio: 2.5 / 1;
+  }
+
+  .player-page__info-row {
+    gap: 8px;
+  }
+
+  .player-page__avatar {
+    width: 68px;
+    height: 68px;
+    margin-top: -34px;
+  }
+
+  .player-page__name-row h1 {
+    font-size: 1.25rem;
+  }
+
+  .player-page__tab {
+    padding: 7px 8px;
+    font-size: 0.78rem;
+  }
+
+  .player-page__tab-count {
+    display: none;
+  }
+
+  .player-page__photo-grid,
+  .player-page__album-grid,
+  .player-page__album-images-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .player-page__delete-menu {
+    min-width: 260px;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
   }
 }

@@ -45,7 +45,7 @@ function App() {
 
           {/* Основной лэйаут: сайдбар слева + контент */}
           <div className="app-layout">
-            <Sidebar />
+            <Sidebar serverIp={headerProps.serverIp} borderColor={headerColor} />
 
             {/* Основной контент */}
             <div className="app__main">

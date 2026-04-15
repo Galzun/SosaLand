@@ -283,3 +283,19 @@
     margin-top: 16px;
   }
 }
+
+@media (max-width: 768px) {
+  .event-create {
+    padding: 16px 12px 40px;
+
+    &__title { font-size: 1.25rem; }
+    &__header-actions { flex-wrap: wrap; }
+    &__preview-area { padding: 20px 16px; }
+  }
+}
+
+@media (max-width: 480px) {
+  .event-create {
+    padding: 12px 8px 30px;
+  }
+}

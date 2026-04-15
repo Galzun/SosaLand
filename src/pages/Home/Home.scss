@@ -47,3 +47,35 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+@media (max-width: 768px) {
+  .home {
+    padding: 16px;
+
+    &__grid {
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .home {
+    padding: 12px 10px;
+
+    &__grid {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+  }
+}
+
+@media (max-width: 380px) {
+  .home {
+    padding: 8px;
+
+    &__grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+  }
+}

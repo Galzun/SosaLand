@@ -76,3 +76,17 @@
     color: var(--cards-text-dim, #555);
   }
 }
+
+@media (max-width: 480px) {
+  .news-card {
+    border-radius: 10px;
+
+    &__content {
+      padding: 10px 12px 12px;
+    }
+
+    &__title {
+      font-size: 0.88rem;
+    }
+  }
+}

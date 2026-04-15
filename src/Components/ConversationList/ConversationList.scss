@@ -162,3 +162,11 @@
     text-align: center;
   }
 }
+
+@media (max-width: 768px) {
+  .conv-list {
+    width: 100%;
+    min-width: 0;
+    border-right: none;
+  }
+}

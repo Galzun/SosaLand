@@ -13,11 +13,9 @@ $sidebar-width: 260px;
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border-right: 1px solid #1e1e30;
-  // На десктопе — sticky: остаётся видимым под шапкой при скролле
   position: sticky;
   top: var(--header-h);
   max-height: calc(100vh - var(--header-h));
-  // z-index нужен чтобы сайдбар не уходил под player-page (z-index: 0)
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -25,10 +23,53 @@ $sidebar-width: 260px;
   overflow-x: hidden;
   transition: transform 0.25s ease;
 
-  // Тонкий скроллбар
   &::-webkit-scrollbar { width: 3px; }
   &::-webkit-scrollbar-track { background: transparent; }
   &::-webkit-scrollbar-thumb { background: #2a2a40; border-radius: 2px; }
+}
+
+// ---------------------------------------------------------------------------
+// Мобильный логотип — скрыт на десктопе, показан внутри sidebar на мобилке
+// ---------------------------------------------------------------------------
+.sidebar__mobile-logo {
+  display: none;
+  padding: 16px 12px 12px;
+  border-bottom: 1px solid #1e1e30;
+}
+
+.sidebar__mobile-logo-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.sidebar__mobile-logo-icon {
+  display: flex;
+  gap: 4px;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.sidebar__mobile-logo-block {
+  display: inline-block;
+  animation: float 3s ease-in-out infinite;
+  &:nth-child(1) { animation-delay: 0s; }
+  &:nth-child(2) { animation-delay: 0.2s; }
+  &:nth-child(3) { animation-delay: 0.4s; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-3px); }
+}
+
+.sidebar__mobile-logo-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 0 10px #4aff9e;
+  letter-spacing: 1px;
 }
 
 // ---------------------------------------------------------------------------
@@ -48,9 +89,7 @@ $sidebar-width: 260px;
   text-decoration: none;
   transition: background 0.18s;
 
-  &:hover {
-    background: rgba(255, 255, 255, 0.05);
-  }
+  &:hover { background: rgba(255, 255, 255, 0.05); }
 }
 
 .sidebar__profile-avatar {
@@ -64,12 +103,7 @@ $sidebar-width: 260px;
   align-items: center;
   justify-content: center;
 
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
+  img { width: 100%; height: 100%; object-fit: cover; display: block; }
 }
 
 .sidebar__profile-avatar-placeholder {
@@ -96,9 +130,14 @@ $sidebar-width: 260px;
 .sidebar__profile-role {
   font-size: 11px;
   color: #555;
+
+  &--creator { color: #ffd700; }
+  &--admin   { color: #4aff9e; }
+  &--editor  { color: #7eb8f7; }
+  &--user    { color: #555; }
 }
 
-// Кнопка «Войти» (не авторизован)
+// Кнопка «Войти»
 .sidebar__login {
   display: flex;
   align-items: center;
@@ -110,10 +149,7 @@ $sidebar-width: 260px;
   font-size: 14px;
   transition: background 0.18s, color 0.18s;
 
-  &:hover {
-    background: rgba(74, 255, 158, 0.07);
-    color: #4aff9e;
-  }
+  &:hover { background: rgba(74, 255, 158, 0.07); color: #4aff9e; }
 }
 
 .sidebar__login-icon {
@@ -152,18 +188,18 @@ $sidebar-width: 260px;
   transition: background 0.15s, color 0.15s;
   cursor: pointer;
 
-  &:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #ddd;
-  }
+  &:hover { background: rgba(255, 255, 255, 0.05); color: #ddd; }
 
   &--active {
     background: rgba(74, 255, 158, 0.1);
     color: #4aff9e;
 
-    .sidebar__item-icon {
-      filter: drop-shadow(0 0 6px rgba(74, 255, 158, 0.5));
-    }
+    .sidebar__item-icon { filter: drop-shadow(0 0 6px rgba(74, 255, 158, 0.5)); }
+  }
+
+  &--pending {
+    border: 1px solid rgba(255, 107, 107, 0.6);
+    color: #ff6b6b;
   }
 }
 
@@ -181,38 +217,174 @@ $sidebar-width: 260px;
   text-overflow: ellipsis;
 }
 
-// ---------------------------------------------------------------------------
-// Кнопка закрытия (мобилка)
-// ---------------------------------------------------------------------------
-.sidebar__close {
-  display: none;
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: none;
-  border: none;
-  color: #666;
-  font-size: 16px;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
-  line-height: 1;
-  transition: color 0.15s, background 0.15s;
-
-  &:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.07);
-  }
+.sidebar__item-badge {
+  margin-left: auto;
+  background: #ff4a4a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
 }
 
 // ---------------------------------------------------------------------------
-// Гамбургер (мобилка)
+// Мобильные бейджи (инфо из header) — скрыты на десктопе
+// ---------------------------------------------------------------------------
+.sidebar__mobile-info {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 12px 8px;
+  border-top: 1px solid #1e1e30;
+}
+
+.sidebar__mobile-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(26, 26, 46, 0.8);
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: default;
+  transition: border-color 0.2s;
+
+  &--link {
+    cursor: pointer;
+    text-decoration: none;
+    color: white;
+    &:hover { border-color: #4aff9e55; }
+  }
+
+  &--ip {
+    cursor: pointer;
+    &:hover { border-color: #4aff9e55; }
+  }
+
+  &--copied {
+    background: rgba(74, 255, 158, 0.1);
+    border-color: #4aff9e40;
+  }
+
+  &--login {
+    cursor: pointer;
+    text-decoration: none;
+    color: white;
+    &:hover { background: rgba(74, 255, 158, 0.1); border-color: #4aff9e; }
+  }
+}
+
+.sidebar__mobile-badge-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #4aff9e;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.2); }
+}
+
+// Мобильный блок пользователя (dropdown в нижней части sidebar)
+.sidebar__mobile-user {
+  position: relative;
+}
+
+.sidebar__mobile-user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(26, 26, 46, 0.8);
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+
+  &:hover { border-color: #4aff9e55; background: rgba(74, 255, 158, 0.05); }
+}
+
+.sidebar__mobile-user-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.sidebar__mobile-user-arrow {
+  margin-left: auto;
+  color: #888;
+  font-size: 12px;
+  transition: transform 0.2s;
+  line-height: 1;
+
+  &--open { transform: rotate(180deg); }
+}
+
+.sidebar__mobile-dropdown {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #1a1a2e;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+  animation: dropdown-up 0.12s ease;
+}
+
+@keyframes dropdown-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.sidebar__mobile-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-decoration: none;
+
+  &:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
+
+  &--danger {
+    color: #ff6b6b;
+    &:hover { background: rgba(255, 107, 107, 0.1); color: #ff6b6b; }
+  }
+}
+
+// Кнопка закрытия (удалена — бургер сам становится крестиком)
+.sidebar__close { display: none !important; }
+
+// ---------------------------------------------------------------------------
+// Гамбургер — только на мобилке, справа
 // ---------------------------------------------------------------------------
 .sidebar__burger {
   display: none;
   position: fixed;
   top: 14px;
-  left: 14px;
+  right: 14px;
   z-index: 1001;
   background: rgba(22, 22, 34, 0.95);
   border: 1px solid #2a2a40;
@@ -224,12 +396,26 @@ $sidebar-width: 260px;
   cursor: pointer;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  line-height: 1;
 
   &:hover {
     background: rgba(74, 255, 158, 0.08);
     border-color: rgba(74, 255, 158, 0.25);
     color: #4aff9e;
+  }
+
+  // Когда меню открыто — кнопка становится красноватым ✕
+  &--open {
+    color: #ff6b6b;
+    border-color: rgba(255, 107, 107, 0.35);
+    background: rgba(255, 107, 107, 0.08);
+
+    &:hover {
+      background: rgba(255, 107, 107, 0.15);
+      border-color: rgba(255, 107, 107, 0.6);
+      color: #ff4a4a;
+    }
   }
 }
 
@@ -246,58 +432,30 @@ $sidebar-width: 260px;
 }
 
 // ---------------------------------------------------------------------------
-// Адаптивность
+// Адаптивность — мобилка/планшет
 // ---------------------------------------------------------------------------
 @media (max-width: 1024px) {
-  // На мобилке — возвращаем fixed, скрываем за пределами экрана
   .sidebar {
     position: fixed;
-    left: 0;
+    // Слайд с правой стороны
+    right: 0;
+    left: auto;
     top: 0;
     bottom: 0;
     height: auto;
+    max-height: 100vh;
     z-index: 999;
-    transform: translateX(-$sidebar-width);
-    background: rgba(22, 22, 34, 0.95);
+    transform: translateX($sidebar-width);
+    background: rgba(22, 22, 34, 0.97);
 
-    &--open {
-      transform: translateX(0);
-    }
+    &--open { transform: translateX(0); }
   }
 
-  .sidebar__close  { display: block; }
   .sidebar__burger { display: flex; }
-}
 
-.sidebar__item--pending {
-  border: 1px solid rgba(255, 107, 107, 0.6);
-  color: #ff6b6b;
-}
-
-// Бейдж с числом непрочитанных сообщений
-.sidebar__item-badge {
-  margin-left: auto;
-  background: #ff4a4a;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 10px;
-  min-width: 18px;
-  text-align: center;
-}
-
-// ---------------------------------------------------------------------------
-// Цвета роли под именем пользователя
-// ---------------------------------------------------------------------------
-.sidebar__profile-role {
-  font-size: 11px;
-  color: #555;
-
-  &--creator { color: #ffd700; }
-  &--admin   { color: #4aff9e; }
-  &--editor  { color: #7eb8f7; }
-  &--user    { color: #555; }
+  // Показываем мобильный логотип и инфо-секцию
+  .sidebar__mobile-logo { display: block; }
+  .sidebar__mobile-info { display: flex; }
 }
 
 // ---------------------------------------------------------------------------
@@ -313,13 +471,8 @@ $sidebar-width: 260px;
   font-size: 11px;
 }
 
-.sidebar__footer-by {
-  color: #444;
-}
-
-.sidebar__footer-sep {
-  color: #444;
-}
+.sidebar__footer-by  { color: #444; }
+.sidebar__footer-sep { color: #444; }
 
 .sidebar__footer-author {
   text-decoration: none;
@@ -328,7 +481,7 @@ $sidebar-width: 260px;
   transition: color 0.15s;
   cursor: default;
 
-  &--galzun:hover  { color: #fff; }
+  &--galzun:hover   { color: #fff; }
   &--deepseek:hover { color: #1e8cf7; }
-  &--claude:hover  { color: #e8793a; }
+  &--claude:hover   { color: #e8793a; }
 }

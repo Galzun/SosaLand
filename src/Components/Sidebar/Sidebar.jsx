@@ -1,18 +1,19 @@
 // Components/Sidebar/Sidebar.jsx
-// Боковая панель навигации в стиле VK:
+// Боковая панель навигации:
 //   — блок пользователя наверху (аватар + имя, или кнопка «Войти»)
 //   — навигационные пункты списком ниже
-//   — на мобилке (<1024px) скрыта, открывается кнопкой ☰
+//   — на мобилке (<1024px) скрыта, открывается кнопкой ☰ справа
+//   — когда открыта: header скрывается, логотип и инфо-бейджи показываются внутри
 
-import { useState, useEffect } from 'react';
-import { NavLink, Link, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import { usePlayer } from '../../context/PlayerContext';
 import './Sidebar.scss';
 
-const UNREAD_POLL_INTERVAL = 15_000; // проверяем непрочитанные каждые 15 секунд
+const UNREAD_POLL_INTERVAL = 15_000;
 
-// Метка роли для отображения в сайдбаре
 function roleLabel(role) {
   switch (role) {
     case 'creator': return 'Создатель';
@@ -22,30 +23,52 @@ function roleLabel(role) {
   }
 }
 
-// Уровень роли (чем выше — тем больше прав)
 function roleLevel(role) {
   return { creator: 4, admin: 3, editor: 2, user: 1 }[role] ?? 1;
 }
 
-function Sidebar() {
+function Sidebar({ serverIp, borderColor }) {
   const [isOpen,       setIsOpen]       = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
-  const [unreadCount,  setUnreadCount]  = useState(0); // непрочитанные сообщения
+  const [unreadCount,  setUnreadCount]  = useState(0);
+  const [copied,       setCopied]       = useState(false);
+
   const location = useLocation();
-  const { user, token } = useAuth();
+  const navigate  = useNavigate();
+  const { user, token, logout } = useAuth();
+  const { onlineCount } = usePlayer();
+  const dropdownRef = useRef(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Закрываем при смене маршрута (мобилка)
   useEffect(() => {
     setIsOpen(false);
   }, [location.pathname]);
 
-  // Блокируем скролл body когда меню открыто на мобилке
+  // Блокируем скролл body при открытом меню
   useEffect(() => {
-    document.body.style.overflow = isOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen]);
 
-  // Загружаем количество pending-тикетов для бейджа (только для админов и выше).
+  // Закрываем дропдаун при клике вне
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Загружаем pending-тикеты (только для admin+)
   useEffect(() => {
     if (!user || roleLevel(user.role) < roleLevel('admin') || !token) { setPendingCount(0); return; }
     const fetch = async () => {
@@ -59,10 +82,9 @@ function Sidebar() {
     return () => clearInterval(id);
   }, [user, token]);
 
-  // Загружаем количество непрочитанных сообщений (для авторизованных)
+  // Загружаем непрочитанные сообщения
   useEffect(() => {
     if (!user || !token) { setUnreadCount(0); return; }
-
     const fetchUnread = async () => {
       try {
         const r = await axios.get('/api/conversations/unread-count', {
@@ -71,42 +93,58 @@ function Sidebar() {
         setUnreadCount(r.data.count ?? 0);
       } catch {}
     };
-
     fetchUnread();
     const id = setInterval(fetchUnread, UNREAD_POLL_INTERVAL);
     return () => clearInterval(id);
   }, [user, token]);
 
-  // Сбрасываем счётчик при открытии страницы сообщений
+  // Сбрасываем счётчик при открытии сообщений
   useEffect(() => {
-    if (location.pathname === '/messages') {
-      setUnreadCount(0);
-    }
+    if (location.pathname === '/messages') setUnreadCount(0);
   }, [location.pathname]);
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(serverIp);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+
+  const handleLogout = () => {
+    setDropdownOpen(false);
+    setIsOpen(false);
+    logout();
+    navigate('/');
+  };
 
   const avatarUrl = user?.minecraftUuid
     ? `https://crafatar.icehost.xyz/avatars/${user.minecraftUuid}?size=64&overlay`
     : null;
 
+  const getAvatarUrl32 = (uuid) =>
+    uuid ? `https://crafatar.icehost.xyz/avatars/${uuid}?size=32&overlay` : null;
+
   const navItems = [
-    { to: '/feed',     icon: '🏠', label: 'Лента' },
-    { to: '/news',     icon: '📰', label: 'Новости' },
-    { to: '/gallery',  icon: '📸', label: 'Галерея' },
-    { to: '/events',   icon: '📅', label: 'События' },
-    { to: '/messages', icon: '💬', label: 'Сообщения', requireAuth: true },
+    { to: '/',        icon: '🏠', label: 'Главная', exact: true },
+    { to: '/feed',    icon: '📋', label: 'Лента' },
+    { to: '/news',    icon: '📰', label: 'Новости' },
+    { to: '/gallery', icon: '📸', label: 'Галерея' },
+    { to: '/events',  icon: '📅', label: 'События' },
+    { to: '/messages',icon: '💬', label: 'Сообщения', requireAuth: true },
   ];
 
   const isAdmin = user && roleLevel(user.role) >= roleLevel('admin');
 
   return (
     <>
-      {/* Кнопка-гамбургер: только на мобилке/планшете */}
+      {/* Кнопка-гамбургер: только на мобилке/планшете, справа */}
       <button
-        className="sidebar__burger"
-        onClick={() => setIsOpen(true)}
-        aria-label="Открыть меню"
+        className={`sidebar__burger${isOpen ? ' sidebar__burger--open' : ''}`}
+        onClick={() => setIsOpen(prev => !prev)}
+        aria-label={isOpen ? 'Закрыть меню' : 'Открыть меню'}
       >
-        ☰
+        {isOpen ? '✕' : '☰'}
       </button>
 
       {/* Затемнение под сайдбаром */}
@@ -116,14 +154,17 @@ function Sidebar() {
 
       <nav className={`sidebar${isOpen ? ' sidebar--open' : ''}`}>
 
-        {/* Кнопка закрытия (только мобилка) */}
-        <button
-          className="sidebar__close"
-          onClick={() => setIsOpen(false)}
-          aria-label="Закрыть"
-        >
-          ✕
-        </button>
+        {/* ── Мобильный логотип (только на мобилке, в самом верху) ── */}
+        <div className="sidebar__mobile-logo">
+          <Link to="/" className="sidebar__mobile-logo-link" onClick={() => setIsOpen(false)}>
+            <div className="sidebar__mobile-logo-icon">
+              <span className="sidebar__mobile-logo-block">⬜</span>
+              <span className="sidebar__mobile-logo-block">🟫</span>
+              <span className="sidebar__mobile-logo-block">🟩</span>
+            </div>
+            <span className="sidebar__mobile-logo-title">Sosaland</span>
+          </Link>
+        </div>
 
         {/* ── Блок пользователя ── */}
         <div className="sidebar__profile">
@@ -156,10 +197,8 @@ function Sidebar() {
         {/* ── Навигация ── */}
         <div className="sidebar__nav">
           {navItems
-            // Если пункт требует авторизации — показываем только авторизованным
             .filter(item => !item.requireAuth || user)
-            .map(({ to, icon, label }) => {
-              // Показываем бейдж с числом непрочитанных на пункте «Сообщения»
+            .map(({ to, icon, label, exact }) => {
               const isMessages = to === '/messages';
               const showBadge  = isMessages && unreadCount > 0;
 
@@ -167,18 +206,22 @@ function Sidebar() {
                 <NavLink
                   key={to}
                   to={to}
+                  end={exact}
                   className={({ isActive }) =>
                     `sidebar__item${isActive ? ' sidebar__item--active' : ''}${showBadge ? ' sidebar__item--pending' : ''}`
                   }
                 >
                   <span className="sidebar__item-icon">{icon}</span>
                   <span className="sidebar__item-label">{label}</span>
+                  {showBadge && (
+                    <span className="sidebar__item-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                  )}
                 </NavLink>
               );
             })
           }
 
-          {/* Заявки — только администраторам и выше */}
+          {/* Заявки — только admin+ */}
           {isAdmin && (
             <NavLink
               to="/dashboard/tickets"
@@ -191,7 +234,7 @@ function Sidebar() {
             </NavLink>
           )}
 
-          {/* Логи — только администраторам и выше */}
+          {/* Логи — только admin+ */}
           {isAdmin && (
             <NavLink
               to="/dashboard/logs"
@@ -205,26 +248,86 @@ function Sidebar() {
           )}
         </div>
 
+        {/* ── Мобильная шапка (бейджи из header) — прижата к низу ── */}
+        <div className="sidebar__mobile-info">
+          {/* Онлайн */}
+          <div className="sidebar__mobile-badge">
+            <span className="sidebar__mobile-badge-dot" style={{ backgroundColor: borderColor || '#4aff9e' }}></span>
+            <span>Онлайн: {onlineCount}</span>
+          </div>
+
+          {/* Wiki */}
+          <a
+            href="https://sosaland.gitbook.io/sosaland"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="sidebar__mobile-badge sidebar__mobile-badge--link"
+          >
+            <span>📑</span>
+            <span>Wiki</span>
+          </a>
+
+          {/* IP сервера */}
+          <div
+            className={`sidebar__mobile-badge sidebar__mobile-badge--ip${copied ? ' sidebar__mobile-badge--copied' : ''}`}
+            onClick={copyToClipboard}
+            title="Нажмите, чтобы скопировать IP"
+          >
+            <span>🌐</span>
+            <span>{copied ? 'IP Скопирован!' : serverIp}</span>
+          </div>
+
+          {/* Пользователь (авторизован) — ссылки профиль/редактировать/выйти */}
+          {user && (
+            <div className="sidebar__mobile-user" ref={dropdownRef}>
+              <button
+                className="sidebar__mobile-user-trigger"
+                onClick={() => setDropdownOpen(p => !p)}
+              >
+                {getAvatarUrl32(user.minecraftUuid) && (
+                  <img
+                    src={getAvatarUrl32(user.minecraftUuid)}
+                    alt={user.username}
+                    className="sidebar__mobile-user-avatar"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                )}
+                <span>{user.username}</span>
+                <span className={`sidebar__mobile-user-arrow${dropdownOpen ? ' sidebar__mobile-user-arrow--open' : ''}`}>▾</span>
+              </button>
+              {dropdownOpen && (
+                <div className="sidebar__mobile-dropdown">
+                  <Link to={`/player/${user.username}`} className="sidebar__mobile-dropdown-item" onClick={() => { setDropdownOpen(false); setIsOpen(false); }}>
+                    <span>👤</span> Профиль
+                  </Link>
+                  <Link to="/dashboard/profile" className="sidebar__mobile-dropdown-item" onClick={() => { setDropdownOpen(false); setIsOpen(false); }}>
+                    <span>✏️</span> Редактировать профиль
+                  </Link>
+                  <button className="sidebar__mobile-dropdown-item sidebar__mobile-dropdown-item--danger" onClick={handleLogout}>
+                    <span>↩</span> Выйти
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Кнопка войти (не авторизован) */}
+          {!user && (
+            <Link to="/auth" className="sidebar__mobile-badge sidebar__mobile-badge--login" onClick={() => setIsOpen(false)}>
+              <span>👤</span>
+              <span>Войти</span>
+            </Link>
+          )}
+        </div>
+
         {/* ── Футер с авторами ── */}
         <div className="sidebar__footer">
           <span className="sidebar__footer-by">by</span>
-          <a
-            href="#"
-            className="sidebar__footer-author sidebar__footer-author--galzun"
-            onClick={(e) => e.preventDefault()}
-          >Galzun</a>
+          <a href="#" className="sidebar__footer-author sidebar__footer-author--galzun" onClick={(e) => e.preventDefault()}>Galzun</a>
           <span className="sidebar__footer-sep">,</span>
-          <a
-            href="#"
-            className="sidebar__footer-author sidebar__footer-author--deepseek"
-            onClick={(e) => e.preventDefault()}
-          >DeepSeek</a>
+          <a href="#" className="sidebar__footer-author sidebar__footer-author--deepseek" onClick={(e) => e.preventDefault()}>DeepSeek</a>
           <span className="sidebar__footer-sep">,</span>
-          <a
-            href="#"
-            className="sidebar__footer-author sidebar__footer-author--claude"
-            onClick={(e) => e.preventDefault()}
-          >ClaudeCode</a>
+          <a href="#" className="sidebar__footer-author sidebar__footer-author--claude" onClick={(e) => e.preventDefault()}>ClaudeCode</a>
         </div>
 
       </nav>

@@ -302,3 +302,21 @@
     clear: both;
   }
 }
+
+@media (max-width: 768px) {
+  .news-detail {
+    padding: 16px 14px 0;
+
+    &__title { font-size: 1.5rem; }
+    &__preview { max-height: 240px; border-radius: 8px; }
+  }
+}
+
+@media (max-width: 480px) {
+  .news-detail {
+    padding: 12px 10px 0;
+
+    &__title { font-size: 1.25rem; }
+    &__byline { flex-direction: column; align-items: flex-start; gap: 4px; }
+  }
+}

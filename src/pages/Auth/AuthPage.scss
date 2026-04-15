@@ -39,3 +39,15 @@
     border-bottom: 2px solid #4aff9e;
   }
 }
+
+@media (max-width: 480px) {
+  .auth-page {
+    padding: 20px 12px;
+    align-items: flex-start;
+    min-height: calc(100vh - var(--header-h));
+  }
+
+  .auth-page__container {
+    border-radius: 14px;
+  }
+}

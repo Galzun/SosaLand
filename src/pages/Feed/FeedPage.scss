@@ -99,3 +99,13 @@
     padding: 20px 12px;
   }
 }
+
+@media (max-width: 480px) {
+  .feed-page {
+    padding: 14px 8px;
+
+    &__title {
+      font-size: 1.3rem;
+    }
+  }
+}

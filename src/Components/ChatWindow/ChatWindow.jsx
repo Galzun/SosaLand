@@ -50,6 +50,7 @@ function ChatWindow({
   onSend,
   onDelete,
   onLoadOlder,
+  onBack,           // мобильная кнопка «Назад»
 }) {
   const { user } = useAuth();
   const messagesEndRef   = useRef(null);  // для автоскролла вниз
@@ -191,6 +192,11 @@ function ChatWindow({
     <div className="chat-window">
       {/* Шапка: аватарка + имя собеседника */}
       <div className="chat-window__header">
+        {onBack && (
+          <button className="chat-window__back-btn" onClick={onBack} aria-label="Назад">
+            ←
+          </button>
+        )}
         <div className="chat-window__header-avatar">
           {partnerAvatar ? (
             <img src={partnerAvatar} alt={partner.username} />

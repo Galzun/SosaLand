@@ -273,3 +273,14 @@
   font-size: 0.88rem;
   color: var(--cards-text-dim, #666);
 }
+
+@media (max-width: 480px) {
+  .post-attachments__media-grid {
+    margin: 0 -10px;
+    width: calc(100% + 20px);
+  }
+
+  .post-attachments__more-overlay {
+    font-size: 1.3rem;
+  }
+}

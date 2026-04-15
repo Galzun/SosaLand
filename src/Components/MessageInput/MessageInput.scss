@@ -208,3 +208,9 @@
     &:disabled { cursor: not-allowed; }
   }
 }
+
+@media (max-width: 480px) {
+  .msg-input {
+    padding: 8px 10px;
+  }
+}

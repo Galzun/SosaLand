@@ -128,3 +128,33 @@
     }
   }
 }
+
+@media (max-width: 480px) {
+  .sosa-dialog-overlay {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .sosa-dialog-box {
+    padding: 22px 18px 18px;
+    border-radius: 14px 14px 0 0;
+    min-width: 0;
+    animation: sosa-dialog-slide-up 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @keyframes sosa-dialog-slide-up {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  .sosa-dialog-actions {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+
+  .sosa-dialog-btn {
+    width: 100%;
+    text-align: center;
+    padding: 12px;
+  }
+}

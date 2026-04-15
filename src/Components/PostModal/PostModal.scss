@@ -218,6 +218,25 @@
   }
 }
 
+.post-modal__close-btn {
+  background: none;
+  border: none;
+  color: var(--cards-text-dim, #555);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: color 0.2s, background 0.2s;
+  margin-left: 2px;
+
+  &:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
 // Форма редактирования внутри модального окна
 .post-modal__edit-form {
   padding: 12px 20px 0;
@@ -418,5 +437,48 @@
     padding: 12px 0 20px;
     margin: 8px 0 0;
     border-top: 1px solid var(--cards-border-color, #222);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Адаптивность
+// ---------------------------------------------------------------------------
+@media (max-width: 768px) {
+  .post-modal__box {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .post-modal__resize-handle {
+    display: none;
+  }
+
+  .post-modal__author-block {
+    padding: 12px 14px 10px;
+  }
+
+  .post-modal__content {
+    padding: 12px 14px;
+  }
+
+  .post-modal__stats {
+    padding: 8px 14px 10px;
+  }
+
+  .post-modal__comments-section {
+    padding: 10px 14px 0;
+  }
+
+  .post-modal__attachments {
+    .post-attachments__audio-list,
+    .post-attachments__doc-list,
+    .post-attachments__pagination {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+  }
+
+  .post-modal__poll {
+    padding: 0 14px;
   }
 }

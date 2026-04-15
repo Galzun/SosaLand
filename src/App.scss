@@ -24,9 +24,20 @@
   flex-direction: column;
 }
 
-// На планшете/мобилке — сайдбар скрыт, убираем горизонтальный padding
+// На планшете/мобилке — header скрыт, сайдбар fixed (не в потоке)
 @media (max-width: 1024px) {
+  :root {
+    --header-h: 0px;
+  }
+
   .app-layout {
+    padding: 0;
+    min-height: 100vh;
+  }
+}
+
+@media (max-width: 768px) {
+  .app__main {
     padding: 0;
   }
 }

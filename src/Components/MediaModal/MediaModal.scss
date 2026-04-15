@@ -244,3 +244,24 @@
     height: 44px;
   }
 }
+
+@media (max-width: 480px) {
+  .media-modal__content {
+    max-width: calc(100% - 80px);
+  }
+
+  .media-modal__nav-btn {
+    width: 36px;
+    font-size: 1.4rem;
+  }
+
+  .media-modal__thumb {
+    width: 38px;
+    height: 38px;
+  }
+
+  .media-modal__strip {
+    padding: 4px 8px 8px;
+    gap: 3px;
+  }
+}

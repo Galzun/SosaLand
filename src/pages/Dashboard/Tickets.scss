@@ -182,3 +182,12 @@
     }
   }
 }
+
+@media (max-width: 480px) {
+  .tickets {
+    padding: 16px 10px 40px;
+
+    &__title { font-size: 1.3rem; }
+    &__card { padding: 14px; }
+  }
+}
