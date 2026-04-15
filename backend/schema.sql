@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS users (
   bio              TEXT,
   bio_color        TEXT,
   bio_font_size    INTEGER DEFAULT 14,
-  bio_font_weight  INTEGER DEFAULT 400,
+  bio_font_weight  INTEGER DEFAULT 700,
   created_at       INTEGER DEFAULT (unix_now()),
   updated_at       INTEGER,
 

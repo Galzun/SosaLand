@@ -8,6 +8,7 @@ const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
 const db      = require('./db');
+const { runMigrations } = require('./scripts/run-migration');
 
 // Импортируем роутер аутентификации.
 // Все маршруты внутри будут доступны по префиксу /api/auth.
@@ -90,10 +91,12 @@ app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 // Без этого браузер заблокирует запросы с фронтенда к бэкенду.
 app.use(cors());
 
-// Раздача статических файлов из папки uploads/.
-// Загруженные изображения будут доступны по URL: /uploads/<filename>
-// Например: http://localhost:3001/uploads/1234567890_42.png
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Раздача статических файлов из папки uploads/ — только для локальной разработки.
+// В продакшне (S3 настроен) файлы раздаются напрямую из S3, этот middleware не используется.
+const { USE_S3 } = require('./utils/storage');
+if (!USE_S3) {
+  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+}
 
 
 // --- Эндпоинты ---
@@ -175,14 +178,22 @@ if (fs.existsSync(distPath)) {
 }
 
 // --- Запуск сервера ---
-app.listen(PORT, () => {
-  console.log(`Сервер запущен: http://localhost:${PORT}`);
-  console.log(`Проверь работу: http://localhost:${PORT}/api/health`);
-  console.log(`Авторизация:    http://localhost:${PORT}/api/auth/...`);
-  console.log(`Тикеты:         http://localhost:${PORT}/api/tickets`);
-  console.log(`Профили:        http://localhost:${PORT}/api/users/...`);
-  console.log(`Загрузки:       http://localhost:${PORT}/api/upload`);
-  console.log(`Статика:        http://localhost:${PORT}/uploads/...`);
-  console.log(`Посты:          http://localhost:${PORT}/api/posts`);
-  console.log(`Галерея:        http://localhost:${PORT}/api/images`);
-});
+// Сначала применяем миграции (безопасно при IF NOT EXISTS), затем стартуем.
+runMigrations(db.pool)
+  .catch(err => {
+    console.error('Не удалось применить миграции, сервер не запустится:', err.message);
+    process.exit(1);
+  })
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Сервер запущен: http://localhost:${PORT}`);
+      console.log(`Проверь работу: http://localhost:${PORT}/api/health`);
+      console.log(`Авторизация:    http://localhost:${PORT}/api/auth/...`);
+      console.log(`Тикеты:         http://localhost:${PORT}/api/tickets`);
+      console.log(`Профили:        http://localhost:${PORT}/api/users/...`);
+      console.log(`Загрузки:       http://localhost:${PORT}/api/upload`);
+      console.log(`Статика:        http://localhost:${PORT}/uploads/...`);
+      console.log(`Посты:          http://localhost:${PORT}/api/posts`);
+      console.log(`Галерея:        http://localhost:${PORT}/api/images`);
+    });
+  });

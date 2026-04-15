@@ -11,26 +11,16 @@
 // DELETE /api/albums/:id/images/:imageId — удалить медиа из альбома И из images + с диска
 
 const express = require('express');
-const path    = require('path');
-const fs      = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { logActivity, markFileDeletedInLogs } = require('../utils/logActivity');
+const { deleteFileAsync } = require('../utils/storage');
 
 const router = express.Router();
 
-const UPLOADS_DIR = path.join(__dirname, '../uploads');
-
 function deleteFileFromDisk(fileUrl) {
-  if (!fileUrl || !fileUrl.startsWith('/uploads/')) return;
-  const filename = fileUrl.split('/uploads/')[1];
-  if (!filename) return;
-  fs.unlink(path.join(UPLOADS_DIR, filename), (err) => {
-    if (err && err.code !== 'ENOENT') {
-      console.error('Ошибка удаления файла:', filename, err.message);
-    }
-  });
+  deleteFileAsync(fileUrl);
 }
 
 function dbAll(sql, p) { return new Promise((r, e) => db.all(sql, p, (err, rows) => err ? e(err) : r(rows))); }

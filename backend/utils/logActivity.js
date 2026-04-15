@@ -76,7 +76,7 @@ async function logActivity({
  * @param {string} fileUrl — путь вида /uploads/filename.ext
  */
 async function markFileDeletedInLogs(fileUrl) {
-  if (!fileUrl || !fileUrl.startsWith('/uploads/')) return;
+  if (!fileUrl) return;
   try {
     await db.run(
       `UPDATE activity_logs SET target_id = NULL, file_size = NULL WHERE target_id = ?`,

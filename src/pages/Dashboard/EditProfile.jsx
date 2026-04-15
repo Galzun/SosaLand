@@ -36,7 +36,7 @@ function buildColorVal(hex, alpha) {
 
 // Дефолтные значения параметров изображения — используются при сбросе.
 const COVER_DEFAULTS = { posX: 50, posY: 50, scale: 100, rotation: 0, fillColor: '', blur: 0, edge: 0, edgeH: 0, edgeV: 0, containerWidth: 100, aspectW: 4, aspectH: 1 };
-const BIO_STYLE_DEFAULTS = { color: '', fontSize: 14, fontWeight: 400 };
+const BIO_STYLE_DEFAULTS = { color: '', fontSize: 14, fontWeight: 700 };
 const BG_DEFAULTS    = { posX: 50, posY: 50, scale: 100, rotation: 0, fillColor: '', blur: 0, edge: 0, edgeH: 0, edgeV: 0 };
 const CARD_BG_DEFAULTS          = { color: '#1a1a1a', alpha: 95, blur: 0 };
 const HEADER_DEFAULTS  = {
@@ -755,8 +755,8 @@ function ColorField({ label, value, onChange, onReset }) {
       </div>
       <div className="edit-profile__color-alpha-inline">
         <span className="edit-profile__sublabel">Прозрачность: {100 - alpha}%</span>
-        <input type="range" className="edit-profile__range" min={0} max={100} value={alpha}
-          onChange={(e) => onChange(buildColorVal(effectiveHex, Number(e.target.value)))} />
+        <input type="range" className="edit-profile__range" min={0} max={100} value={100 - alpha}
+          onChange={(e) => onChange(buildColorVal(effectiveHex, 100 - Number(e.target.value)))} />
       </div>
       <button type="button" className="edit-profile__reset-btn" onClick={onReset} title="Сбросить">↺</button>
     </div>
@@ -785,9 +785,9 @@ function ColorAlphaField({ label, value, onChange, onReset, disabled, defaultHex
         )}
       </div>
       <div className="edit-profile__slider-group" style={{ marginTop: 4 }}>
-        <label className="edit-profile__sublabel">α: {alpha}%</label>
-        <input type="range" className="edit-profile__range" min={0} max={100} value={alpha}
-          onChange={(e) => onChange(buildColorVal(effectiveHex, Number(e.target.value)))}
+        <label className="edit-profile__sublabel">Прозрачность: {100 - alpha}%</label>
+        <input type="range" className="edit-profile__range" min={0} max={100} value={100 - alpha}
+          onChange={(e) => onChange(buildColorVal(effectiveHex, 100 - Number(e.target.value)))}
           disabled={disabled} />
       </div>
     </div>

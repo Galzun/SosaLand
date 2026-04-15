@@ -3,7 +3,7 @@
 
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { usePlayerByName } from '../../context/PlayerContext';
+import { usePlayerByName, usePlayerByUUID } from '../../context/PlayerContext';
 import { useAuth } from '../../context/AuthContext';
 import { timeAgo } from '../../utils/timeFormatter';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -36,7 +36,7 @@ const PHOTOS_LIMIT = 30;
 function PlayerPage() {
   const { username } = useParams();
 
-  const player = usePlayerByName(username);
+  const playerByName = usePlayerByName(username);
   const { user, token } = useAuth();
 
   const [profile,        setProfile]        = useState(null);
@@ -181,6 +181,33 @@ function PlayerPage() {
     // Не загружаем пока профиль грузится, и не грузим глобальную ленту если аккаунта нет
     disabled: profileLoading || !profile,
   });
+
+  // Поиск по UUID — работает когда logин аккаунта ≠ нику Minecraft
+  const playerByUUID = usePlayerByUUID(profile?.minecraftUuid);
+
+  // Синтетический фоллбэк: если игрок не в контексте, но аккаунт есть
+  const syntheticPlayer = useMemo(() => {
+    if (!profile) return null;
+    const uuid = profile.minecraftUuid;
+    const displayUuid = uuid?.startsWith('offline:') ? null : uuid;
+    return {
+      name:              username,
+      uuid:              displayUuid,
+      rawUuid:           uuid,
+      avatarUrl:         displayUuid
+        ? `https://crafatar.icehost.xyz/avatars/${displayUuid}?overlay`
+        : `https://api.dicebear.com/9.x/initials/svg?scale=80&backgroundColor[]&fontWeight=600&seed=${username}`,
+      avatarFallbackUrl: `https://api.dicebear.com/9.x/initials/svg?scale=80&backgroundColor[]&fontWeight=600&seed=${username}`,
+      isOnline:          false,
+      lastSeen:          null,
+      isBanned:          profile.isBanned,
+      banReason:         profile.banReason,
+      profileUrl:        `/player/${username}`,
+      statusText:        '⚫ Был(а) недавно',
+    };
+  }, [profile, username]);
+
+  const player = playerByName ?? playerByUUID ?? syntheticPlayer;
 
   const navigate = useNavigate();
   const isOwner = user && profile && user.id === profile.id;
@@ -702,9 +729,11 @@ function PlayerPage() {
   const albumModalRanges = [{ startIndex: 0, items: sortedAlbumImages }];
 
   // ---------------------------------------------------------------------------
-  // Render: игрок не найден
+  // Render: игрок не найден / ещё загружается
   // ---------------------------------------------------------------------------
   if (!player) {
+    // Профиль ещё грузится — могут быть расхождения логин ≠ minecraft-ник
+    if (profileLoading) return null;
     return (
       <main className="player-page" style={cssVars}>
         <div className="player-page__header">
@@ -744,7 +773,7 @@ function PlayerPage() {
     return uuid;
   };
 
-  const lastSeenText = player.isOnline ? 'В игре' : timeAgo(player.lastSeen);
+  const lastSeenText = player.isOnline ? 'В игре' : (player.lastSeen ? timeAgo(player.lastSeen) : 'Нет данных');
 
   const edgeMask = (edgeH, edgeV) => {
     if (!edgeH && !edgeV) return {};
@@ -861,18 +890,22 @@ function PlayerPage() {
                   <span className={`player-page__status-dot ${player.isOnline ? 'player-page__status-dot--online' : 'player-page__status-dot--offline'}`} />
                   <span>{lastSeenText}</span>
                 </div>
-                <div className="player-page__meta-item">
-                  <span className="player-page__meta-item-icon">📅</span>
-                  <span className="player-page__meta-item-value">
-                    {new Date(player.lastSeen).toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="player-page__meta-item">
-                  <span className="player-page__meta-item-icon">🕐</span>
-                  <span className="player-page__meta-item-value">
-                    {new Date(player.lastSeen).toLocaleTimeString()}
-                  </span>
-                </div>
+                {player.lastSeen && (
+                  <>
+                    <div className="player-page__meta-item">
+                      <span className="player-page__meta-item-icon">📅</span>
+                      <span className="player-page__meta-item-value">
+                        {new Date(player.lastSeen).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="player-page__meta-item">
+                      <span className="player-page__meta-item-icon">🕐</span>
+                      <span className="player-page__meta-item-value">
+                        {new Date(player.lastSeen).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div

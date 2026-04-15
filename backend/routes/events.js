@@ -13,9 +13,8 @@
 
 const express = require('express');
 const multer  = require('multer');
-const path    = require('path');
-const fs      = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const { uploadFile, generateFilename } = require('../utils/storage');
 const db      = require('../db');
 const { requireAuth, isAdmin, isEditor } = require('../middleware/auth');
 const { eventCommentsRouter } = require('./comments');
@@ -70,24 +69,11 @@ async function uniqueSlug(base, excludeId = null) {
 }
 
 // ---------------------------------------------------------------------------
-// Multer для загрузки изображений в редактор
+// Multer для загрузки изображений в редактор (memoryStorage → S3/диск)
 // ---------------------------------------------------------------------------
-const UPLOADS_DIR = path.join(__dirname, '../uploads');
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-    cb(null, UPLOADS_DIR);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.jpg';
-    cb(null, `${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`);
-  },
-});
-
 const uploadMiddleware = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1024 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
       return cb(new Error('Только изображения и видео'));
@@ -371,12 +357,17 @@ router.delete('/:slug', requireAuth, isAdmin, async (req, res) => {
 // POST /api/events/upload-image — загрузить изображение для редактора (editor и выше)
 // ---------------------------------------------------------------------------
 router.post('/upload-image', requireAuth, isEditor, (req, res) => {
-  uploadMiddleware(req, res, (err) => {
+  uploadMiddleware(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
-
-    const url = `/uploads/${req.file.filename}`;
-    res.json({ url, fileType: req.file.mimetype });
+    try {
+      const filename = generateFilename(req.file.originalname);
+      const url = await uploadFile(req.file.buffer, filename, req.file.mimetype);
+      res.json({ url, fileType: req.file.mimetype });
+    } catch (uploadErr) {
+      console.error('[events/upload-image]', uploadErr.message);
+      res.status(500).json({ error: 'Ошибка при сохранении файла' });
+    }
   });
 });
 

@@ -10,26 +10,13 @@
 
 const express = require('express');
 const jwt     = require('jsonwebtoken');
-const path    = require('path');
-const fs      = require('fs');
 const db = require('../db');
 const { requireAuth, ROLE_LEVEL } = require('../middleware/auth');
+const { deleteFileAsync } = require('../utils/storage');
 
-const UPLOADS_DIR = path.join(__dirname, '../uploads');
-
-// Неблокирующее удаление файлов с диска по массиву URL вида "/uploads/filename.ext"
+// Неблокирующее удаление файлов из хранилища (S3 или диск)
 function deleteFilesFromDisk(urls) {
-  urls.forEach(url => {
-    if (!url || !url.startsWith('/uploads/')) return;
-    const fileName = url.replace(/^\/uploads\//, '');
-    if (fileName.includes('/') || fileName.includes('\\')) return;
-    const filePath = path.join(UPLOADS_DIR, fileName);
-    fs.unlink(filePath, (err) => {
-      if (err && err.code !== 'ENOENT') {
-        console.warn('Не удалось удалить файл:', filePath, err.message);
-      }
-    });
-  });
+  urls.forEach(url => deleteFileAsync(url));
 }
 const { fetchPosts, optionalAuth } = require('./posts');
 const { getAlbums } = require('./images');
@@ -83,7 +70,7 @@ function formatUser(row) {
     bio:            row.bio              || null,
     bioColor:       row.bio_color        || null,
     bioFontSize:    row.bio_font_size    ?? 14,
-    bioFontWeight:  row.bio_font_weight  ?? 400,
+    bioFontWeight:  row.bio_font_weight  ?? 700,
     createdAt:      row.created_at,
     updatedAt:      row.updated_at       || null,
     // Позиционирование обложки
@@ -158,7 +145,8 @@ router.get('/by-minecraft/:minecraftName', async (req, res) => {
   const { minecraftName } = req.params;
 
   try {
-    const user = await new Promise((resolve, reject) => {
+    // 1. Ищем по нику Minecraft-игрока (основной путь)
+    let user = await new Promise((resolve, reject) => {
       db.get(
         `SELECT ${profileCols('u.')}
          FROM users u
@@ -168,6 +156,17 @@ router.get('/by-minecraft/:minecraftName', async (req, res) => {
         (err, row) => (err ? reject(err) : resolve(row))
       );
     });
+
+    // 2. Фоллбэк: ищем по логину аккаунта (когда ник Minecraft ≠ логину)
+    if (!user) {
+      user = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT ${profileCols('u.')} FROM users u WHERE LOWER(u.username) = LOWER(?)`,
+          [minecraftName],
+          (err, row) => (err ? reject(err) : resolve(row))
+        );
+      });
+    }
 
     if (!user) return res.status(404).json({ error: 'Аккаунт не найден' });
 
@@ -685,7 +684,7 @@ router.post('/:id/clear-data', requireAuth, async (req, res) => {
       db.run(
         `UPDATE users SET
           cover_url = NULL, background_url = NULL, bio = NULL,
-          bio_color = NULL, bio_font_size = 14, bio_font_weight = 400,
+          bio_color = NULL, bio_font_size = 14, bio_font_weight = 700,
           cover_pos_x = 50, cover_pos_y = 50, cover_scale = 100,
           cover_rotation = 0, cover_fill_color = NULL, cover_blur = 0, cover_edge = 0,
           cover_edge_h = 0, cover_edge_v = 0, cover_container_width = 100,

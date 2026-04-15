@@ -10,18 +10,14 @@
 
 const express = require('express');
 const jwt     = require('jsonwebtoken');
-const path    = require('path');
-const fs      = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const db      = require('../db');
 const { requireAuth, ROLE_LEVEL } = require('../middleware/auth');
 const { postCommentsRouter } = require('./comments');
 const { logActivity, markFileDeletedInLogs } = require('../utils/logActivity');
+const { deleteFileAsync } = require('../utils/storage');
 
 const router = express.Router();
-
-// Папка с загруженными файлами — нужна для физического удаления при удалении поста
-const UPLOADS_DIR = path.join(__dirname, '../uploads');
 
 // ---------------------------------------------------------------------------
 // optionalAuth — middleware для опциональной авторизации.
@@ -90,26 +86,10 @@ async function insertAttachments(postId, attachments) {
 }
 
 // ---------------------------------------------------------------------------
-// deleteFilesFromDisk — физически удаляет файлы из backend/uploads/.
-// Вызывается после удаления поста из БД (неблокирующий).
-//
-// urls — массив строк вида "/uploads/filename.ext"
+// deleteFilesFromDisk — удаляет файлы из хранилища (S3 или диск).
 // ---------------------------------------------------------------------------
 function deleteFilesFromDisk(urls) {
-  urls.forEach(url => {
-    if (!url || !url.startsWith('/uploads/')) return;
-
-    const fileName = url.replace(/^\/uploads\//, '');
-    // Защита от path traversal — имя файла не должно содержать слеши
-    if (fileName.includes('/') || fileName.includes('\\')) return;
-
-    const filePath = path.join(UPLOADS_DIR, fileName);
-    fs.unlink(filePath, (err) => {
-      if (err && err.code !== 'ENOENT') {
-        console.warn('Не удалось удалить файл:', filePath, err.message);
-      }
-    });
-  });
+  urls.forEach(url => deleteFileAsync(url));
 }
 
 // ---------------------------------------------------------------------------

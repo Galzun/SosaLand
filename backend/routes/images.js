@@ -11,31 +11,21 @@
 // DELETE /api/images/album/:groupId    — скрыть пак из галереи (is_gallery=0, файлы остаются)
 
 const express = require('express');
-const path    = require('path');
-const fs      = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { imageCommentsRouter } = require('./comments');
 const { logActivity, markFileDeletedInLogs } = require('../utils/logActivity');
+const { deleteFileAsync } = require('../utils/storage');
 
 const router = express.Router();
-
-const UPLOADS_DIR = path.join(__dirname, '../uploads');
 
 // ---------------------------------------------------------------------------
 // Вспомогательные функции
 // ---------------------------------------------------------------------------
 
 function deleteFileFromDisk(fileUrl) {
-  if (!fileUrl || !fileUrl.startsWith('/uploads/')) return;
-  const filename = fileUrl.split('/uploads/')[1];
-  if (!filename) return;
-  fs.unlink(path.join(UPLOADS_DIR, filename), (err) => {
-    if (err && err.code !== 'ENOENT') {
-      console.error('Ошибка удаления файла:', filename, err.message);
-    }
-  });
+  deleteFileAsync(fileUrl);
 }
 
 function dbAll(sql, params) {
