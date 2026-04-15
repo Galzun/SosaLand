@@ -111,35 +111,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
-// POST /api/setup-creator — ВРЕМЕННЫЙ эндпоинт для создания первого creator.
-// Работает только если в таблице users нет ни одного пользователя.
-// УДАЛИ ЭТОТ БЛОК после первого использования!
-app.post('/api/setup-creator', async (req, res) => {
-  const bcrypt = require('bcryptjs');
-  const { v4: uuidv4 } = require('uuid');
-  const { username, password, secret, action } = req.body;
-  if (secret !== 'sosaland-setup-2026') return res.status(403).json({ error: 'Неверный секрет' });
-  try {
-    if (action === 'list') {
-      const users = await db.all('SELECT id, username, role, created_at FROM users ORDER BY created_at ASC', []);
-      return res.json({ users });
-    }
-    if (action === 'delete') {
-      const { userId } = req.body;
-      if (!userId) return res.status(400).json({ error: 'Нужен userId' });
-      await db.run('UPDATE tickets SET approved_by = NULL WHERE approved_by = ?', [userId]);
-      await db.run('DELETE FROM users WHERE id = ?', [userId]);
-      return res.json({ ok: true });
-    }
-    if (!username || !password) return res.status(400).json({ error: 'Нужны username и password' });
-    const hash = await bcrypt.hash(password, 10);
-    await db.run('INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)', [uuidv4(), username, hash, 'creator']);
-    res.json({ ok: true, message: 'Creator создан. Удали этот эндпоинт из server.js!' });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // Подключаем роутер аутентификации.
 // app.use(prefix, router) — все маршруты роутера будут иметь этот префикс.
 // /register → /api/auth/register
