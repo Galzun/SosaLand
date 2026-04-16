@@ -117,6 +117,41 @@
   }
 }
 
+// Постраничная навигация
+.comment-section__pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 4px 0;
+}
+
+.comment-section__page-btn {
+  background: none;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: var(--cards-text-muted, #888);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 5px 12px;
+  transition: border-color 0.2s, color 0.2s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--cards-accent-color, #4aff9e);
+    color: var(--cards-accent-color, #4aff9e);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.comment-section__page-info {
+  font-size: 0.82rem;
+  color: var(--cards-text-dim, #555);
+}
+
 // Один комментарий
 .comment-section__item {
   display: flex;

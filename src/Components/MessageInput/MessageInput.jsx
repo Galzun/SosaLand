@@ -1,9 +1,9 @@
 // Components/MessageInput/MessageInput.jsx
-// Форма ввода сообщения с поддержкой файловых вложений.
+// Форма ввода сообщения с поддержкой множественных файловых вложений.
 //
 // Enter       — отправить сообщение
 // Shift+Enter — новая строка
-// Кнопка 📎   — выбрать файл для прикрепления
+// Кнопка 📎   — выбрать файлы (multiple) для прикрепления
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import axios from 'axios';
@@ -14,15 +14,25 @@ import './MessageInput.scss';
 
 function MessageInput({ onSend, disabled }) {
   const { token } = useAuth();
-  const [text,         setText]         = useState('');
-  const [fileData,     setFileData]     = useState(null);  // { fileUrl, fileType, fileName }
-  const [uploading,    setUploading]    = useState(false);
-  const [uploadError,  setUploadError]  = useState(null);
-  const [showEmoji,    setShowEmoji]    = useState(false);
+  const [text,        setText]        = useState('');
+  const [pendingFiles, setPendingFiles] = useState([]); // { file, previewUrl } — до загрузки
+  const [uploadError, setUploadError]  = useState(null);
+  const [uploading,   setUploading]    = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0); // 0-100
+  const [showEmoji,   setShowEmoji]    = useState(false);
 
   const fileInputRef  = useRef(null);
   const textareaRef   = useRef(null);
   const emojiWrapRef  = useRef(null);
+
+  // Освобождаем blob-URL при размонтировании
+  useEffect(() => {
+    return () => {
+      pendingFiles.forEach(f => {
+        if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+      });
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Закрываем emoji-пикер при клике вне него
   useEffect(() => {
@@ -36,59 +46,90 @@ function MessageInput({ onSend, disabled }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [showEmoji]);
 
-  // Обработка вставки файла через кнопку
-  const handleFileSelect = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Обработка выбора файлов
+  const handleFileSelect = (e) => {
+    const selected = Array.from(e.target.files || []);
+    if (!selected.length) return;
 
+    const newItems = selected.map(file => ({
+      file,
+      previewUrl: file.type.startsWith('image/') || file.type.startsWith('video/')
+        ? URL.createObjectURL(file)
+        : null,
+    }));
+
+    setPendingFiles(prev => [...prev, ...newItems]);
     setUploadError(null);
-    setUploading(true);
 
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      // Загружаем файл через /api/upload (который теперь принимает любые файлы)
-      const { data } = await axios.post('/api/upload', formData, {
-        headers: {
-          Authorization:  `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      setFileData({
-        fileUrl:  data.fileUrl,
-        fileType: data.fileType,
-        fileName: data.fileName,
-      });
-    } catch (err) {
-      setUploadError(err.response?.data?.error || 'Ошибка загрузки файла');
-    } finally {
-      setUploading(false);
-      // Сбрасываем input, чтобы можно было повторно выбрать тот же файл
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Убрать прикреплённый файл
-  const removeFile = () => {
-    setFileData(null);
-    setUploadError(null);
+  // Удалить файл из очереди
+  const removeFile = (index) => {
+    setPendingFiles(prev => {
+      if (prev[index]?.previewUrl) URL.revokeObjectURL(prev[index].previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   // Отправка сообщения
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmed = text.trim();
-    if (!trimmed && !fileData) return;
+    if (!trimmed && pendingFiles.length === 0) return;
     if (uploading) return;
 
-    onSend(trimmed, fileData);
-    setText('');
-    setFileData(null);
+    let uploadedFiles = [];
 
-    // Возвращаем фокус на textarea
+    if (pendingFiles.length > 0) {
+      setUploading(true);
+      setUploadProgress(0);
+      setUploadError(null);
+
+      try {
+        if (pendingFiles.length === 1) {
+          // Одиночный файл через поле file
+          const formData = new FormData();
+          formData.append('file', pendingFiles[0].file);
+          const { data } = await axios.post('/api/upload', formData, {
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (e) => {
+              if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+            },
+          });
+          uploadedFiles = [{ fileUrl: data.fileUrl, fileType: data.fileType, fileName: data.fileName }];
+        } else {
+          // Несколько файлов через поле files[]
+          const formData = new FormData();
+          pendingFiles.forEach(f => formData.append('files[]', f.file));
+          const { data } = await axios.post('/api/upload', formData, {
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (e) => {
+              if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+            },
+          });
+          uploadedFiles = (data.files || []).map(f => ({
+            fileUrl: f.fileUrl, fileType: f.fileType, fileName: f.fileName,
+          }));
+        }
+      } catch (err) {
+        setUploadError(err.response?.data?.error || 'Ошибка загрузки файлов');
+        setUploading(false);
+        setUploadProgress(0);
+        return;
+      }
+    }
+
+    // Очищаем blob-URL
+    pendingFiles.forEach(f => { if (f.previewUrl) URL.revokeObjectURL(f.previewUrl); });
+
+    onSend(trimmed, uploadedFiles);
+    setText('');
+    setPendingFiles([]);
+    setUploading(false);
+    setUploadProgress(0);
+
     setTimeout(() => textareaRef.current?.focus(), 0);
-  }, [text, fileData, uploading, onSend]);
+  }, [text, pendingFiles, uploading, onSend, token]);
 
   // Enter — отправить, Shift+Enter — новая строка
   const handleKeyDown = (e) => {
@@ -112,34 +153,40 @@ function MessageInput({ onSend, disabled }) {
     setTimeout(() => textareaRef.current?.focus(), 0);
   };
 
-  const canSend   = (text.trim() || fileData) && !uploading && !disabled;
+  const canSend   = (text.trim() || pendingFiles.length > 0) && !uploading && !disabled;
   const charsLeft = 5000 - text.length;
 
   return (
     <div className="msg-input">
-      {/* Прикреплённый файл */}
-      {fileData && (
-        <div className="msg-input__attachment">
-          {fileData.fileType?.startsWith('image/') ? (
-            <img
-              className="msg-input__attachment-preview"
-              src={fileData.fileUrl}
-              alt={fileData.fileName}
-            />
-          ) : (
-            <div className="msg-input__attachment-file">
-              <FileIcon fileType={fileData.fileType} size={24} />
-              <span className="msg-input__attachment-name">{fileData.fileName}</span>
+      {/* Превью прикреплённых файлов */}
+      {pendingFiles.length > 0 && (
+        <div className="msg-input__previews">
+          {pendingFiles.map((item, i) => (
+            <div key={i} className="msg-input__preview-item">
+              {item.previewUrl && item.file.type.startsWith('image/') ? (
+                <img className="msg-input__preview-thumb" src={item.previewUrl} alt={item.file.name} />
+              ) : item.previewUrl && item.file.type.startsWith('video/') ? (
+                <video className="msg-input__preview-thumb" src={item.previewUrl} muted />
+              ) : (
+                <div className="msg-input__preview-file">
+                  <FileIcon fileType={item.file.type} size={22} />
+                  <div className="msg-input__preview-meta">
+                    <span className="msg-input__preview-name">{item.file.name}</span>
+                    <span className="msg-input__preview-size">{formatBytes(item.file.size)}</span>
+                  </div>
+                </div>
+              )}
+              <button
+                className="msg-input__preview-remove"
+                onClick={() => removeFile(i)}
+                title="Убрать файл"
+                type="button"
+                disabled={uploading}
+              >
+                ✕
+              </button>
             </div>
-          )}
-          <button
-            className="msg-input__attachment-remove"
-            onClick={removeFile}
-            title="Убрать файл"
-            type="button"
-          >
-            ✕
-          </button>
+          ))}
         </div>
       )}
 
@@ -151,17 +198,21 @@ function MessageInput({ onSend, disabled }) {
       {/* Индикатор загрузки */}
       {uploading && (
         <div className="msg-input__uploading">
-          <span className="msg-input__spinner" />
-          Загрузка файла...
+          <div className="msg-input__progress-bar">
+            <div className="msg-input__progress-fill" style={{ width: `${uploadProgress}%` }} />
+          </div>
+          <span>Загрузка {uploadProgress}%...</span>
         </div>
       )}
 
-      {/* Скрытый input для выбора файла */}
+      {/* Скрытый input для выбора файлов */}
       <input
         ref={fileInputRef}
         type="file"
+        multiple
         style={{ display: 'none' }}
         onChange={handleFileSelect}
+        disabled={disabled}
       />
 
       {/* Textarea + нижняя панель внутри единого визуального блока */}
@@ -182,13 +233,16 @@ function MessageInput({ onSend, disabled }) {
         <div className="msg-input__bar">
           <div className="msg-input__bar-left">
             <button
-              className="msg-input__icon-btn"
+              className={`msg-input__icon-btn${pendingFiles.length > 0 ? ' msg-input__icon-btn--has-files' : ''}`}
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || disabled}
-              title="Прикрепить файл"
+              title="Прикрепить файлы"
               type="button"
             >
               📎
+              {pendingFiles.length > 0 && (
+                <span className="msg-input__file-badge">{pendingFiles.length}</span>
+              )}
             </button>
             <div ref={emojiWrapRef} className="msg-input__emoji-wrap">
               <button
@@ -224,6 +278,13 @@ function MessageInput({ onSend, disabled }) {
       </div>  {/* msg-input__box */}
     </div>
   );
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024)        return `${bytes} Б`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} КБ`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
 }
 
 export default MessageInput;

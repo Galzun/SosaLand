@@ -15,6 +15,7 @@ const jwt     = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const db      = require('../db');
 const { requireAuth, isAdmin } = require('../middleware/auth');
+const { logActivity } = require('../utils/logActivity');
 
 const router = express.Router();
 
@@ -98,6 +99,18 @@ router.post('/', async (req, res) => {
     });
 
     res.status(201).json({ success: true, ticketId });
+
+    // Логируем создание тикета — вместо userId хранится IP
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+    logActivity({
+      userId:     null,
+      username:   minecraftName,
+      action:     'ticket_create',
+      targetType: 'ticket',
+      targetId:   ticketId,
+      ip:         clientIp,
+      details:    { requestedUsername: username.trim(), contact: contact?.trim() || null },
+    });
 
   } catch (err) {
     console.error('Ошибка при создании тикета:', err.message);

@@ -145,7 +145,7 @@ function Tickets() {
                   {/* Аватарка игрока через Crafatar */}
                   <div className="tickets__card-avatar">
                     <img
-                      src={`https://crafatar.icehost.xyz/avatars/${ticket.minecraftUuid}?size=64&overlay`}
+                      src={`https://crafatar.icehost.xyz/avatars/${ticket.minecraftUuid}?overlay`}
                       alt={ticket.minecraftName}
                       // Если аватарка не загрузилась — скрываем элемент
                       onError={(e) => { e.target.style.display = 'none'; }}

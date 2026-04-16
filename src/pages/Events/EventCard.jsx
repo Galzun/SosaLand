@@ -93,7 +93,7 @@ function EventCard({ event }) {
       <div className="event-card__content">
         <h3 className="event-card__title">{title}</h3>
         <div className="event-card__meta">
-          <span className="event-card__date">📅 {formatEventDate(startTime)}</span>
+          <span className="event-card__date">📅 {formatEventDate(startTime)} · {timeAgo(startTime * 1000)}</span>
           {commentsCount > 0 && (
             <span className="event-card__comments">💬 {commentsCount}</span>
           )}

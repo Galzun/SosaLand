@@ -730,23 +730,23 @@
 /* Адаптивность */
 @media (max-width: 768px) {
   .player-page__info-row {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
+    flex-direction: row;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .player-page__avatar {
+    width: 80px;
+    height: 80px;
     margin-top: -40px;
   }
-  
-  .player-page__avatar {
-    width: 100px;
-    height: 100px;
-  }
-  
+
   .player-page__name-row {
-    justify-content: center;
+    justify-content: flex-start;
   }
-  
+
   .player-page__meta {
-    justify-content: center;
+    justify-content: flex-start;
   }
 }
 

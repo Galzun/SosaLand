@@ -33,7 +33,7 @@ $sidebar-width: 260px;
 // ---------------------------------------------------------------------------
 .sidebar__mobile-logo {
   display: none;
-  padding: 16px 12px 12px;
+  padding: 16px 60px 12px 12px; // правый отступ 60px — место для кнопки-бургера (38px + 14px*gap)
   border-bottom: 1px solid #1e1e30;
 }
 

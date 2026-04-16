@@ -38,6 +38,7 @@ function MessagesPage() {
     loadOlderMessages,
     sendMessage,
     deleteMessage,
+    deleteConversation,
     fetchUnreadCount,
     setMessages,
   } = useMessages();
@@ -138,17 +139,29 @@ function MessagesPage() {
     navigate('/messages', { replace: true });
   }, [navigate]);
 
-  // Отправка сообщения
-  const handleSend = useCallback(async (content, fileData) => {
+  // Отправка сообщения (files — массив [{fileUrl, fileType, fileName}])
+  const handleSend = useCallback(async (content, files) => {
     if (!activePartner) return;
     try {
-      await sendMessage(activePartner.id, content, fileData);
+      await sendMessage(activePartner.id, content, files);
       // После отправки обновляем список диалогов
       fetchConversations();
     } catch (err) {
       console.error('Ошибка отправки:', err.message);
     }
   }, [activePartner, sendMessage, fetchConversations]);
+
+  // Удаление всего диалога
+  const handleDeleteConversation = useCallback(async (conversationId) => {
+    if (!(await showConfirm('Удалить переписку? Все сообщения и файлы будут удалены для обоих участников.', { confirmText: 'Удалить', danger: true }))) return;
+    try {
+      await deleteConversation(conversationId);
+      // Если удалённый чат был активным — закрываем его
+      setActivePartner(prev => (prev?.id && conversations.find(c => c.id === conversationId)?.partner?.id === prev.id ? null : prev));
+    } catch {
+      await showAlert('Не удалось удалить переписку');
+    }
+  }, [deleteConversation, conversations]);
 
   // Удаление сообщения
   const handleDelete = useCallback(async (messageId) => {
@@ -175,6 +188,7 @@ function MessagesPage() {
         conversations={conversations}
         activePartnerId={activePartner?.id}
         onSelect={handleSelectConversation}
+        onDelete={handleDeleteConversation}
         loading={loadingConversations}
       />
 

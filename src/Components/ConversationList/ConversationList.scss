@@ -56,25 +56,60 @@
 
   // ── Элемент диалога ──
   &__item {
+    position: relative;
     display: flex;
-    gap: 12px;
-    padding: 12px 16px;
-    cursor: pointer;
-    transition: background 0.15s;
-    border: none;
-    background: none;
-    width: 100%;
-    text-align: left;
+    align-items: center;
     border-bottom: 1px solid #1a1a1a;
+    transition: background 0.15s;
 
     &:hover {
       background: #1a1a1a;
+
+      .conv-list__delete-btn {
+        opacity: 1;
+      }
     }
 
     &--active {
       background: #4aff9e12;
       border-left: 3px solid #4aff9e;
-      padding-left: 13px; // компенсируем border-left
+
+      .conv-list__item-btn {
+        padding-left: 13px; // компенсируем border-left
+      }
+    }
+  }
+
+  // Основная кнопка (аватар + текст)
+  &__item-btn {
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  // Кнопка удаления диалога
+  &__delete-btn {
+    opacity: 0;
+    flex-shrink: 0;
+    padding: 8px 10px;
+    background: none;
+    border: none;
+    color: #555;
+    font-size: 13px;
+    cursor: pointer;
+    transition: color 0.15s, opacity 0.15s;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+
+    &:hover {
+      color: #ff4a4a;
     }
   }
 

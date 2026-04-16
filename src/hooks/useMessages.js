@@ -10,8 +10,9 @@
 //   hasMoreMessages      — есть ли ещё старые сообщения (скролл вверх)
 //   fetchConversations   — загрузить/обновить список диалогов
 //   fetchMessages        — загрузить историю с конкретным пользователем
-//   sendMessage          — отправить сообщение
+//   sendMessage          — отправить сообщение (content, files=[])
 //   deleteMessage        — удалить (отозвать) своё сообщение
+//   deleteConversation   — удалить весь диалог (оба участника, файлы с диска)
 //   fetchUnreadCount     — обновить счётчик непрочитанных
 
 import { useState, useRef, useCallback } from 'react';
@@ -127,18 +128,26 @@ function useMessages() {
   // -------------------------------------------------------------------------
   // sendMessage — отправляет сообщение пользователю.
   //
+  // files — массив [{fileUrl, fileType, fileName}] уже загруженных файлов.
+  //         Первый файл идёт в file_url/file_type/file_name (legacy),
+  //         остальные — в files (хранятся в files_json).
+  //
   // Реализует оптимистичное обновление:
   //   1. Сразу добавляет сообщение в список
   //   2. Если сервер вернул ошибку — убирает его
   // -------------------------------------------------------------------------
-  const sendMessage = useCallback(async (partnerId, content, fileData = null) => {
+  const sendMessage = useCallback(async (partnerId, content, files = []) => {
     if (!token) throw new Error('Требуется авторизация');
+
+    const firstFile  = files[0] || null;
+    const extraFiles = files.length > 1 ? files.slice(1) : null;
 
     const body = {
       content:   content || '',
-      file_url:  fileData?.fileUrl  || null,
-      file_type: fileData?.fileType || null,
-      file_name: fileData?.fileName || null,
+      file_url:  firstFile?.fileUrl  || null,
+      file_type: firstFile?.fileType || null,
+      file_name: firstFile?.fileName || null,
+      files:     extraFiles,
     };
 
     // Временный ID для оптимистичного обновления
@@ -147,9 +156,10 @@ function useMessages() {
       id:        tempId,
       senderId:  user?.id,  // сразу ставим свой ID — иначе рендерится как чужое
       content:   content || '',
-      fileUrl:   fileData?.fileUrl  || null,
-      fileType:  fileData?.fileType || null,
-      fileName:  fileData?.fileName || null,
+      fileUrl:   firstFile?.fileUrl  || null,
+      fileType:  firstFile?.fileType || null,
+      fileName:  firstFile?.fileName || null,
+      files:     extraFiles,
       isRead:    false,
       createdAt: Math.floor(Date.now() / 1000),
       _pending:  true, // флаг для UI: сообщение ещё не подтверждено
@@ -178,7 +188,7 @@ function useMessages() {
             if (c.partner.id !== partnerId) return c;
             return {
               ...c,
-              lastMessage:     data.content || data.fileName || 'Файл',
+              lastMessage:     data.content || data.fileName || (data.files?.length ? 'Файлы' : 'Файл'),
               lastMessageTime: data.createdAt,
             };
           });
@@ -217,6 +227,26 @@ function useMessages() {
   }, [token, authHeaders, fetchConversations]);
 
   // -------------------------------------------------------------------------
+  // deleteConversation — удаляет весь диалог (сообщения + файлы с диска)
+  // -------------------------------------------------------------------------
+  const deleteConversation = useCallback(async (conversationId) => {
+    if (!token) throw new Error('Требуется авторизация');
+
+    // Оптимистично убираем из списка
+    setConversations(prev => prev.filter(c => c.id !== conversationId));
+
+    try {
+      await axios.delete(`/api/conversations/${conversationId}`, authHeaders());
+    } catch (err) {
+      console.error('Ошибка удаления диалога:', err.message);
+      // Восстанавливаем список при ошибке
+      fetchConversations();
+      throw err;
+    }
+  }, [token, authHeaders, fetchConversations]);
+
+
+  // -------------------------------------------------------------------------
   // fetchUnreadCount — обновляет счётчик непрочитанных (для Sidebar)
   // -------------------------------------------------------------------------
   const fetchUnreadCount = useCallback(async () => {
@@ -241,6 +271,7 @@ function useMessages() {
     loadOlderMessages,
     sendMessage,
     deleteMessage,
+    deleteConversation,
     fetchUnreadCount,
     setMessages,
   };

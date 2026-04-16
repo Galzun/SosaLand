@@ -22,6 +22,7 @@ const ACTION_TABS = [
   { value: 'news_delete',                        label: 'Удаления новостей' },
   { value: 'event_create,event_update',          label: 'События' },
   { value: 'event_delete',                       label: 'Удаления событий' },
+  { value: 'ticket_create',                      label: 'Заявки' },
 ];
 
 function actionColor(action) {
@@ -38,6 +39,7 @@ function actionColor(action) {
     case 'event_create':   return '#81c784';
     case 'event_update':   return '#a5d6a7';
     case 'event_delete':   return '#ffb74d';
+    case 'ticket_create':  return '#ffa94d';
     default:               return '#555';
   }
 }
@@ -431,28 +433,42 @@ export default function LogsPage() {
                   <tr key={log.id} className="logs-page__row">
                     <td className="logs-page__cell-user">
                       <div className="logs-page__user">
-                        {log.avatarUrl && (
-                          <img
-                            className="logs-page__avatar"
-                            src={log.avatarUrl}
-                            alt={log.username}
-                            onError={e => { e.target.style.display = 'none'; }}
-                          />
+                        {log.action === 'ticket_create' ? (
+                          // Для заявок показываем IP вместо ника
+                          <>
+                            <span className="logs-page__username logs-page__username--ip" title="IP-адрес заявителя">
+                              🌐 {log.ip || '—'}
+                            </span>
+                            <span className="logs-page__username" style={{ color: '#888', fontSize: '11px' }}>
+                              ({log.username})
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            {log.avatarUrl && (
+                              <img
+                                className="logs-page__avatar"
+                                src={log.avatarUrl}
+                                alt={log.username}
+                                onError={e => { e.target.style.display = 'none'; }}
+                              />
+                            )}
+                            <button
+                              className="logs-page__username"
+                              onClick={() => filterByUser(log.username)}
+                              title="Фильтровать по этому игроку"
+                            >
+                              {log.username}
+                            </button>
+                            <Link
+                              to={`/player/${log.username}`}
+                              className="logs-page__profile-link"
+                              title="Открыть профиль"
+                            >
+                              ↗
+                            </Link>
+                          </>
                         )}
-                        <button
-                          className="logs-page__username"
-                          onClick={() => filterByUser(log.username)}
-                          title="Фильтровать по этому игроку"
-                        >
-                          {log.username}
-                        </button>
-                        <Link
-                          to={`/player/${log.username}`}
-                          className="logs-page__profile-link"
-                          title="Открыть профиль"
-                        >
-                          ↗
-                        </Link>
                       </div>
                     </td>
 
@@ -469,8 +485,13 @@ export default function LogsPage() {
                     </td>
 
                     <td className="logs-page__cell-file">
-                      {log.fileName ? (
-                        log.targetId?.startsWith('/uploads/') ? (
+                      {log.action === 'ticket_create' ? (
+                        <span className="logs-page__preview">
+                          Логин: <strong>{log.details?.requestedUsername || '—'}</strong>
+                          {log.details?.contact ? ` · ${log.details.contact}` : ''}
+                        </span>
+                      ) : log.fileName ? (
+                        log.targetId ? (
                           <a
                             className="logs-page__filename logs-page__filename--link"
                             href={log.targetId}
@@ -547,7 +568,7 @@ export default function LogsPage() {
 
                     <td className="logs-page__cell-date">{fmtDate(log.createdAt)}</td>
                     <td className="logs-page__cell-actions">
-                      {log.action === 'file_upload' && log.targetId?.startsWith('/uploads/') && (
+                      {log.action === 'file_upload' && log.targetId && (
                         <button
                           className="logs-page__delete-btn"
                           onClick={() => handleDeleteFile(log)}

@@ -119,11 +119,11 @@ function Sidebar({ serverIp, borderColor }) {
   };
 
   const avatarUrl = user?.minecraftUuid
-    ? `https://crafatar.icehost.xyz/avatars/${user.minecraftUuid}?size=64&overlay`
+    ? `https://crafatar.icehost.xyz/avatars/${user.minecraftUuid}?overlay`
     : null;
 
   const getAvatarUrl32 = (uuid) =>
-    uuid ? `https://crafatar.icehost.xyz/avatars/${uuid}?size=32&overlay` : null;
+    uuid ? `https://crafatar.icehost.xyz/avatars/${uuid}?overlay` : null;
 
   const navItems = [
     { to: '/',        icon: '🏠', label: 'Главная', exact: true },

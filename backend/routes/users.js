@@ -625,6 +625,11 @@ router.post('/:id/clear-data', requireAuth, async (req, res) => {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 
+  // sections — список разделов для очистки; если не передан, чистим всё (обратная совместимость)
+  const DEFAULT_SECTIONS = ['posts', 'images', 'profile', 'chats'];
+  const sections = Array.isArray(req.body?.sections) ? req.body.sections : DEFAULT_SECTIONS;
+  const doSection = (s) => sections.includes(s);
+
   try {
     const target = await new Promise((resolve, reject) => {
       db.get('SELECT id, role FROM users WHERE id = ?', [id], (err, row) => (err ? reject(err) : resolve(row)));
@@ -638,79 +643,117 @@ router.post('/:id/clear-data', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Нельзя управлять аккаунтом с равными или высшими правами' });
     }
 
-    // 1. Собираем все файловые URL перед удалением из БД
-    const postFiles = await new Promise((resolve, reject) => {
-      db.all(
-        `SELECT p.image_url, pa.file_url
-         FROM posts p
-         LEFT JOIN post_attachments pa ON pa.post_id = p.id
-         WHERE p.user_id = ?`,
-        [id],
-        (err, rows) => (err ? reject(err) : resolve(rows))
-      );
-    });
-
-    const imageFiles = await new Promise((resolve, reject) => {
-      db.all('SELECT image_url FROM images WHERE user_id = ?', [id], (err, rows) => (err ? reject(err) : resolve(rows)));
-    });
-
-    const profileRow = await new Promise((resolve, reject) => {
-      db.get('SELECT cover_url, background_url FROM users WHERE id = ?', [id], (err, row) => (err ? reject(err) : resolve(row)));
-    });
-
-    // Собираем все URL файлов
     const fileUrls = [];
-    postFiles.forEach(r => {
-      if (r.image_url) fileUrls.push(r.image_url);
-      if (r.file_url)  fileUrls.push(r.file_url);
-    });
-    imageFiles.forEach(r => { if (r.image_url) fileUrls.push(r.image_url); });
-    if (profileRow?.cover_url)      fileUrls.push(profileRow.cover_url);
-    if (profileRow?.background_url) fileUrls.push(profileRow.background_url);
 
-    // 2. Удаляем посты, изображения, альбомы из БД (CASCADE чистит post_attachments, album_images)
-    await new Promise((resolve, reject) => {
-      db.run('DELETE FROM posts WHERE user_id = ?', [id], (err) => (err ? reject(err) : resolve()));
-    });
-    await new Promise((resolve, reject) => {
-      db.run('DELETE FROM images WHERE user_id = ?', [id], (err) => (err ? reject(err) : resolve()));
-    });
-    await new Promise((resolve, reject) => {
-      db.run('DELETE FROM albums WHERE user_id = ?', [id], (err) => (err ? reject(err) : resolve()));
-    });
+    if (doSection('posts')) {
+      // Собираем файлы постов
+      const postFiles = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT p.image_url, pa.file_url
+           FROM posts p
+           LEFT JOIN post_attachments pa ON pa.post_id = p.id
+           WHERE p.user_id = ?`,
+          [id],
+          (err, rows) => (err ? reject(err) : resolve(rows))
+        );
+      });
+      postFiles.forEach(r => {
+        if (r.image_url) fileUrls.push(r.image_url);
+        if (r.file_url)  fileUrls.push(r.file_url);
+      });
+      await new Promise((resolve, reject) => {
+        db.run('DELETE FROM posts WHERE user_id = ?', [id], (err) => (err ? reject(err) : resolve()));
+      });
+    }
 
-    // 3. Сбрасываем все поля профиля в дефолт
-    await new Promise((resolve, reject) => {
-      db.run(
-        `UPDATE users SET
-          cover_url = NULL, background_url = NULL, bio = NULL,
-          bio_color = NULL, bio_font_size = 14, bio_font_weight = 700,
-          cover_pos_x = 50, cover_pos_y = 50, cover_scale = 100,
-          cover_rotation = 0, cover_fill_color = NULL, cover_blur = 0, cover_edge = 0,
-          cover_edge_h = 0, cover_edge_v = 0, cover_container_width = 100,
-          cover_aspect_w = 4, cover_aspect_h = 1,
-          bg_pos_x = 50, bg_pos_y = 50, bg_scale = 100,
-          bg_rotation = 0, bg_fill_color = NULL, bg_blur = 0, bg_edge = 0,
-          bg_edge_h = 0, bg_edge_v = 0,
-          card_bg_color = '#1a1a1a', card_bg_alpha = 95, card_bg_blur = 0,
-          post_card_bg_color = '#1a1a1a', post_card_bg_alpha = 95, post_card_blur = 0,
-          tabs_bg_color = '#1a1a1a', tabs_bg_alpha = 85, tabs_blur = 0,
-          post_form_bg_color = '#141420', post_form_bg_alpha = 100, post_form_blur = 0,
-          content_bg_color = '#0a0a1a', content_bg_alpha = 0, content_blur = 0,
-          content_wrapper_bg_color = '#1a1a1a', content_wrapper_bg_alpha = 95, content_wrapper_blur = 0,
-          content_wrapper_border_color = NULL, content_wrapper_border_width = 0, content_wrapper_border_radius = 12,
-          content_wrapper_text_color = NULL, content_wrapper_accent_color = NULL, content_wrapper_font_weight = 400,
-          content_border_color = NULL, content_border_width = 0, content_border_radius = 10, content_text_color = NULL,
-          post_card_border_color = NULL, post_card_border_width = 1, post_card_border_radius = 12,
-          post_card_text_color = NULL, post_card_accent_color = NULL, post_card_font_weight = 400,
-          updated_at = ?
-         WHERE id = ?`,
-        [Math.floor(Date.now() / 1000), id],
-        (err) => (err ? reject(err) : resolve())
-      );
-    });
+    if (doSection('images')) {
+      // Собираем файлы изображений
+      const imageFiles = await new Promise((resolve, reject) => {
+        db.all('SELECT image_url FROM images WHERE user_id = ?', [id], (err, rows) => (err ? reject(err) : resolve(rows)));
+      });
+      imageFiles.forEach(r => { if (r.image_url) fileUrls.push(r.image_url); });
+      await new Promise((resolve, reject) => {
+        db.run('DELETE FROM images WHERE user_id = ?', [id], (err) => (err ? reject(err) : resolve()));
+      });
+      await new Promise((resolve, reject) => {
+        db.run('DELETE FROM albums WHERE user_id = ?', [id], (err) => (err ? reject(err) : resolve()));
+      });
+    }
 
-    // 4. Удаляем файлы с диска (неблокирующий)
+    if (doSection('profile')) {
+      // Файлы обложки и фона
+      const profileRow = await new Promise((resolve, reject) => {
+        db.get('SELECT cover_url, background_url FROM users WHERE id = ?', [id], (err, row) => (err ? reject(err) : resolve(row)));
+      });
+      if (profileRow?.cover_url)      fileUrls.push(profileRow.cover_url);
+      if (profileRow?.background_url) fileUrls.push(profileRow.background_url);
+
+      // Сбрасываем все поля профиля в дефолт
+      await new Promise((resolve, reject) => {
+        db.run(
+          `UPDATE users SET
+            cover_url = NULL, background_url = NULL, bio = NULL,
+            bio_color = NULL, bio_font_size = 14, bio_font_weight = 700,
+            cover_pos_x = 50, cover_pos_y = 50, cover_scale = 100,
+            cover_rotation = 0, cover_fill_color = NULL, cover_blur = 0, cover_edge = 0,
+            cover_edge_h = 0, cover_edge_v = 0, cover_container_width = 100,
+            cover_aspect_w = 4, cover_aspect_h = 1,
+            bg_pos_x = 50, bg_pos_y = 50, bg_scale = 100,
+            bg_rotation = 0, bg_fill_color = NULL, bg_blur = 0, bg_edge = 0,
+            bg_edge_h = 0, bg_edge_v = 0,
+            card_bg_color = '#1a1a1a', card_bg_alpha = 95, card_bg_blur = 0,
+            post_card_bg_color = '#1a1a1a', post_card_bg_alpha = 95, post_card_blur = 0,
+            tabs_bg_color = '#1a1a1a', tabs_bg_alpha = 85, tabs_blur = 0,
+            post_form_bg_color = '#141420', post_form_bg_alpha = 100, post_form_blur = 0,
+            content_bg_color = '#0a0a1a', content_bg_alpha = 0, content_blur = 0,
+            content_wrapper_bg_color = '#1a1a1a', content_wrapper_bg_alpha = 95, content_wrapper_blur = 0,
+            content_wrapper_border_color = NULL, content_wrapper_border_width = 0, content_wrapper_border_radius = 12,
+            content_wrapper_text_color = NULL, content_wrapper_accent_color = NULL, content_wrapper_font_weight = 400,
+            content_border_color = NULL, content_border_width = 0, content_border_radius = 10, content_text_color = NULL,
+            post_card_border_color = NULL, post_card_border_width = 1, post_card_border_radius = 12,
+            post_card_text_color = NULL, post_card_accent_color = NULL, post_card_font_weight = 400,
+            updated_at = ?
+           WHERE id = ?`,
+          [Math.floor(Date.now() / 1000), id],
+          (err) => (err ? reject(err) : resolve())
+        );
+      });
+    }
+
+    if (doSection('chats')) {
+      // Собираем файлы из сообщений
+      const msgFiles = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT m.file_url, m.files_json
+           FROM messages m
+           JOIN conversations c ON m.conversation_id = c.id
+           WHERE (c.participant1 = ? OR c.participant2 = ?)
+             AND (m.file_url IS NOT NULL OR m.files_json IS NOT NULL)`,
+          [id, id],
+          (err, rows) => (err ? reject(err) : resolve(rows))
+        );
+      });
+      msgFiles.forEach(m => {
+        if (m.file_url) fileUrls.push(m.file_url);
+        if (m.files_json) {
+          try {
+            const extra = JSON.parse(m.files_json);
+            if (Array.isArray(extra)) extra.forEach(f => f.fileUrl && fileUrls.push(f.fileUrl));
+          } catch {}
+        }
+      });
+
+      // Удаляем все диалоги (CASCADE удаляет сообщения)
+      await new Promise((resolve, reject) => {
+        db.run(
+          `DELETE FROM conversations WHERE participant1 = ? OR participant2 = ?`,
+          [id, id],
+          (err) => (err ? reject(err) : resolve())
+        );
+      });
+    }
+
+    // Удаляем файлы с хранилища (неблокирующий)
     deleteFilesFromDisk(fileUrls);
 
     res.json({ success: true });

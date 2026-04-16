@@ -237,6 +237,8 @@ profileCommentsRouter.get('/', async (req, res) => {
   const { userId } = req.params;
   const limit  = Math.min(parseInt(req.query.limit)  || LIMIT, 50);
   const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+  // paged=1 — вернуть { comments, total } вместо массива
+  const paged  = req.query.paged === '1';
 
   try {
     const user = await new Promise((resolve, reject) => {
@@ -246,8 +248,18 @@ profileCommentsRouter.get('/', async (req, res) => {
     });
     if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
 
-    const comments = await fetchComments('profile_user_id', userId, limit, offset);
-    res.json(comments);
+    const [comments, countRow] = await Promise.all([
+      fetchComments('profile_user_id', userId, limit, offset),
+      paged
+        ? db.get(`SELECT COUNT(*) AS cnt FROM comments WHERE profile_user_id = ?`, [userId])
+        : Promise.resolve(null),
+    ]);
+
+    if (paged) {
+      res.json({ comments, total: Number(countRow?.cnt) || 0 });
+    } else {
+      res.json(comments);
+    }
   } catch (err) {
     console.error('Ошибка получения комментариев к профилю:', err.message);
     res.status(500).json({ error: 'Ошибка при получении комментариев' });

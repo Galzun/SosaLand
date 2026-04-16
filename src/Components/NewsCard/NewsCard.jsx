@@ -27,7 +27,11 @@ function NewsCard({ news }) {
       <div className="news-card__content">
         <h3 className="news-card__title">{title}</h3>
         <div className="news-card__meta">
-          <span className="news-card__date">{timeAgo(publishedAt * 1000)}</span>
+          <span className="news-card__date">
+            {new Date(publishedAt * 1000).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
+            {' · '}
+            {timeAgo(publishedAt * 1000)}
+          </span>
           {views > 0 && (
             <span className="news-card__views">👁 {views}</span>
           )}

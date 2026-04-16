@@ -91,6 +91,59 @@ function ChatWindow({
     }
   }, [hasMore, loading, onLoadOlder]);
 
+  // Рендер одного вложения (используется для msg.files)
+  const renderAttachment = (att, key) => {
+    if (att.fileType?.startsWith('image/')) {
+      return (
+        <img
+          key={key}
+          className="chat__msg-image"
+          src={att.fileUrl}
+          alt={att.fileName || 'Изображение'}
+          onClick={() => setLightboxUrl(att.fileUrl)}
+          loading="lazy"
+        />
+      );
+    }
+    if (att.fileType?.startsWith('video/')) {
+      return (
+        <video
+          key={key}
+          className="chat__msg-video"
+          src={att.fileUrl}
+          controls
+          playsInline
+          style={{ colorScheme: 'dark' }}
+        />
+      );
+    }
+    if (att.fileType?.startsWith('audio/')) {
+      return (
+        <audio
+          key={key}
+          className="chat__msg-audio"
+          src={att.fileUrl}
+          controls
+          style={{ colorScheme: 'dark' }}
+        />
+      );
+    }
+    return (
+      <a
+        key={key}
+        className="chat__msg-file"
+        href={att.fileUrl}
+        download={att.fileName}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <FileIcon fileType={att.fileType} size={28} />
+        <span className="chat__msg-file-name">{att.fileName || 'Файл'}</span>
+        <span className="chat__msg-file-download">⬇</span>
+      </a>
+    );
+  };
+
   // Рендер одного сообщения
   const renderMessage = (msg, prevMsg) => {
     const isOwn    = msg.senderId === user?.id || msg.sender?.id === user?.id;
@@ -127,31 +180,11 @@ function ChatWindow({
           <div className="chat__msg-body">
             {/* Контент сообщения: изображение, файл или текст */}
             <div className="chat__msg-bubble">
-              {/* Изображение */}
-              {msg.fileUrl && msg.fileType?.startsWith('image/') && (
-                <img
-                  className="chat__msg-image"
-                  src={msg.fileUrl}
-                  alt={msg.fileName || 'Изображение'}
-                  onClick={() => setLightboxUrl(msg.fileUrl)}
-                  loading="lazy"
-                />
-              )}
+              {/* Первый файл (legacy поле) */}
+              {msg.fileUrl && renderAttachment({ fileUrl: msg.fileUrl, fileType: msg.fileType, fileName: msg.fileName }, 'f0')}
 
-              {/* Не-изображение файл */}
-              {msg.fileUrl && !msg.fileType?.startsWith('image/') && (
-                <a
-                  className="chat__msg-file"
-                  href={msg.fileUrl}
-                  download={msg.fileName}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <FileIcon fileType={msg.fileType} size={28} />
-                  <span className="chat__msg-file-name">{msg.fileName || 'Файл'}</span>
-                  <span className="chat__msg-file-download">⬇</span>
-                </a>
-              )}
+              {/* Дополнительные файлы (files_json) */}
+              {msg.files?.map((att, i) => renderAttachment(att, `f${i + 1}`))}
 
               {/* Текст сообщения */}
               {msg.content && (

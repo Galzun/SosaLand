@@ -20,18 +20,22 @@ import './CommentSection.scss';
 const TRUNCATE_LIMIT = 250; // символов до кнопки «Ещё»
 
 // onCommentAdded — вызывается после успешной отправки (для обновления счётчика в родителе)
-function CommentSection({ type, id, autoLoad = false, stickyForm = false, stickyBottom = false, onCommentAdded }) {
+// paged — режим постраничной навигации (для профиля: max 10 per page)
+function CommentSection({ type, id, autoLoad = false, stickyForm = false, stickyBottom = false, onCommentAdded, paged = false }) {
   const { user, token } = useAuth();
   const {
     comments,
     loading,
     hasMore,
     loaded,
+    page,
+    totalPages,
     fetchComments,
     loadMore,
+    fetchPage,
     addComment,
     deleteComment,
-  } = useComments({ type, id });
+  } = useComments({ type, id, paged, pageSize: paged ? 10 : undefined });
 
   const [text,        setText]        = useState('');
   const [imageUrl,    setImageUrl]    = useState('');
@@ -56,7 +60,11 @@ function CommentSection({ type, id, autoLoad = false, stickyForm = false, sticky
 
   useEffect(() => {
     if (autoLoad && id) {
-      fetchComments(true);
+      if (paged) {
+        fetchPage(0);
+      } else {
+        fetchComments(true);
+      }
     }
   }, [autoLoad, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -107,7 +115,10 @@ function CommentSection({ type, id, autoLoad = false, stickyForm = false, sticky
   const listContent = (
     <>
       {!loaded && !loading && (
-        <button className="comment-section__toggle" onClick={() => fetchComments(true)}>
+        <button
+          className="comment-section__toggle"
+          onClick={() => paged ? fetchPage(0) : fetchComments(true)}
+        >
           Показать комментарии
         </button>
       )}
@@ -130,10 +141,35 @@ function CommentSection({ type, id, autoLoad = false, stickyForm = false, sticky
             />
           ))}
           {loading && <div className="comment-section__loading">Загрузка...</div>}
-          {hasMore && !loading && (
+
+          {/* Режим «load more» */}
+          {!paged && hasMore && !loading && (
             <button className="comment-section__more" onClick={loadMore}>
               Загрузить ещё
             </button>
+          )}
+
+          {/* Режим постраничной навигации */}
+          {paged && totalPages > 1 && (
+            <div className="comment-section__pagination">
+              <button
+                className="comment-section__page-btn"
+                onClick={() => fetchPage(page - 1)}
+                disabled={page === 0 || loading}
+              >
+                ← Назад
+              </button>
+              <span className="comment-section__page-info">
+                {page + 1} / {totalPages}
+              </span>
+              <button
+                className="comment-section__page-btn"
+                onClick={() => fetchPage(page + 1)}
+                disabled={page >= totalPages - 1 || loading}
+              >
+                Далее →
+              </button>
+            </div>
           )}
         </>
       )}

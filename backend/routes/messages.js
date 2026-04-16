@@ -14,6 +14,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { deleteFileAsync } = require('../utils/storage');
 
 const router = express.Router();
 
@@ -266,6 +267,7 @@ router.get('/:userId/messages', requireAuth, async (req, res) => {
              m.file_url,
              m.file_type,
              m.file_name,
+             m.files_json,
              m.is_read,
              m.read_at,
              m.created_at,
@@ -283,23 +285,30 @@ router.get('/:userId/messages', requireAuth, async (req, res) => {
               return res.status(500).json({ error: 'Ошибка сервера' });
             }
 
-            const messages = rows.map(m => ({
-              id:             m.id,
-              conversationId: m.conversation_id,
-              senderId:       m.sender_id,
-              content:        m.content,
-              fileUrl:        m.file_url,
-              fileType:       m.file_type,
-              fileName:       m.file_name,
-              isRead:         m.is_read === 1,
-              readAt:         m.read_at,
-              createdAt:      m.created_at,
-              sender: {
-                id:            m.sender_id,
-                username:      m.sender_username,
-                minecraftUuid: m.sender_minecraft_uuid,
-              },
-            }));
+            const messages = rows.map(m => {
+              let extraFiles = null;
+              if (m.files_json) {
+                try { extraFiles = JSON.parse(m.files_json); } catch {}
+              }
+              return {
+                id:             m.id,
+                conversationId: m.conversation_id,
+                senderId:       m.sender_id,
+                content:        m.content,
+                fileUrl:        m.file_url,
+                fileType:       m.file_type,
+                fileName:       m.file_name,
+                files:          extraFiles,
+                isRead:         m.is_read === 1,
+                readAt:         m.read_at,
+                createdAt:      m.created_at,
+                sender: {
+                  id:            m.sender_id,
+                  username:      m.sender_username,
+                  minecraftUuid: m.sender_minecraft_uuid,
+                },
+              };
+            });
 
             res.json({ messages, conversationId: conversation.id });
           }
@@ -322,16 +331,19 @@ router.get('/:userId/messages', requireAuth, async (req, res) => {
 router.post('/:userId/messages', requireAuth, async (req, res) => {
   const myId      = req.user.id;
   const partnerId = req.params.userId;
-  const { content, file_url, file_type, file_name } = req.body;
+  const { content, file_url, file_type, file_name, files } = req.body;
 
   // Валидация
   if (myId === partnerId) {
     return res.status(400).json({ error: 'Нельзя отправить сообщение самому себе' });
   }
 
+  // files — массив дополнительных вложений [{fileUrl, fileType, fileName}]
+  const extraFiles = Array.isArray(files) && files.length > 0 ? files : null;
+
   // Контент обязателен, если нет файла; файл может идти без текста
   const trimmedContent = (content || '').trim();
-  if (!trimmedContent && !file_url) {
+  if (!trimmedContent && !file_url && !extraFiles) {
     return res.status(400).json({ error: 'Сообщение не может быть пустым' });
   }
 
@@ -355,8 +367,8 @@ router.post('/:userId/messages', requireAuth, async (req, res) => {
       await new Promise((resolve, reject) => {
         db.run(
           `INSERT INTO messages
-             (id, conversation_id, sender_id, content, file_url, file_type, file_name, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+             (id, conversation_id, sender_id, content, file_url, file_type, file_name, files_json, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             msgId,
             conversation.id,
@@ -365,6 +377,7 @@ router.post('/:userId/messages', requireAuth, async (req, res) => {
             file_url  || null,
             file_type || null,
             file_name || null,
+            extraFiles ? JSON.stringify(extraFiles) : null,
             now,
           ],
           function (err2) {
@@ -381,7 +394,7 @@ router.post('/:userId/messages', requireAuth, async (req, res) => {
       db.get(
         `SELECT
            m.id, m.conversation_id, m.sender_id, m.content,
-           m.file_url, m.file_type, m.file_name,
+           m.file_url, m.file_type, m.file_name, m.files_json,
            m.is_read, m.read_at, m.created_at,
            u.username AS sender_username,
            u.minecraft_uuid AS sender_minecraft_uuid
@@ -392,6 +405,11 @@ router.post('/:userId/messages', requireAuth, async (req, res) => {
         (err3, row) => {
           if (err3) return res.status(500).json({ error: 'Ошибка сервера' });
 
+          let parsedFiles = null;
+          if (row.files_json) {
+            try { parsedFiles = JSON.parse(row.files_json); } catch {}
+          }
+
           res.status(201).json({
             id:             row.id,
             conversationId: row.conversation_id,
@@ -400,6 +418,7 @@ router.post('/:userId/messages', requireAuth, async (req, res) => {
             fileUrl:        row.file_url,
             fileType:       row.file_type,
             fileName:       row.file_name,
+            files:          parsedFiles,
             isRead:         false,
             readAt:         null,
             createdAt:      row.created_at,
@@ -461,6 +480,51 @@ messagesDeleteRouter.delete('/:id', requireAuth, (req, res) => {
       });
     }
   );
+});
+
+
+// ---------------------------------------------------------------------------
+// DELETE /api/conversations/:id — удалить диалог (оба участника могут)
+//
+// Удаляет диалог и все его сообщения (CASCADE), а также файлы из хранилища.
+// Доступно любому участнику диалога.
+// ---------------------------------------------------------------------------
+router.delete('/:id', requireAuth, async (req, res) => {
+  const myId   = req.user.id;
+  const convId = req.params.id;
+
+  try {
+    const conv = await db.get(
+      `SELECT id FROM conversations WHERE id = ? AND (participant1 = ? OR participant2 = ?)`,
+      [convId, myId, myId]
+    );
+    if (!conv) return res.status(404).json({ error: 'Диалог не найден' });
+
+    // Собираем URL файлов из сообщений перед удалением
+    const msgFiles = await db.all(
+      `SELECT file_url, files_json FROM messages WHERE conversation_id = ? AND (file_url IS NOT NULL OR files_json IS NOT NULL)`,
+      [convId]
+    );
+
+    // Удаляем диалог (CASCADE удаляет все сообщения)
+    await db.run(`DELETE FROM conversations WHERE id = ?`, [convId]);
+
+    // Удаляем файлы асинхронно
+    msgFiles.forEach(m => {
+      if (m.file_url) deleteFileAsync(m.file_url);
+      if (m.files_json) {
+        try {
+          const extra = JSON.parse(m.files_json);
+          if (Array.isArray(extra)) extra.forEach(f => f.fileUrl && deleteFileAsync(f.fileUrl));
+        } catch {}
+      }
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Ошибка удаления диалога:', err.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
 });
 
 

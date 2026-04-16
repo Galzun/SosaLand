@@ -172,10 +172,10 @@ PlayerPage (/player/:username)
 | POST | `/api/events/upload-image` | editor+ | Загрузить изображение/видео в редактор события |
 | GET | `/api/events/:eventId/comments` | все | Комментарии к событию |
 | POST | `/api/events/:eventId/comments` | JWT | Добавить комментарий к событию |
-| POST | `/api/polls` | admin/автор поста | Создать опрос; тело: `{ news_id?, post_id?, question, options[], is_anonymous, allow_multiple, allow_add_options, allow_change_vote, shuffle_options, ends_at? }` |
+| POST | `/api/polls` | admin+/creator/автор поста | Создать опрос; тело: `{ news_id?, post_id?, question, options[], is_anonymous, allow_multiple, allow_add_options, allow_change_vote, shuffle_options, ends_at? }` |
 | GET | `/api/polls/:id` | все (JWT для userVotedIds) | Получить опрос с вариантами и статусом голосования |
-| PUT | `/api/polls/:id` | admin/автор поста | Обновить настройки опроса; тело может содержать `options: [{id?, text}]` — обновить/добавить/удалить варианты (удаляются только варианты с 0 голосов) |
-| DELETE | `/api/polls/:id` | admin/автор поста | Удалить опрос |
+| PUT | `/api/polls/:id` | admin+/creator/автор поста | Обновить настройки опроса; тело может содержать `options: [{id?, text}]` — обновить/добавить/удалить варианты (удаляются только варианты с 0 голосов) |
+| DELETE | `/api/polls/:id` | admin+/creator/автор поста | Удалить опрос |
 | POST | `/api/polls/:id/vote` | JWT | Проголосовать; тело: `{ option_ids[] }` |
 | GET | `/api/polls/:id/voters` | все | Список проголосовавших (или только счётчики если анонимный) |
 | POST | `/api/polls/:id/options` | JWT (если allow_add_options) | Добавить свой вариант ответа |
@@ -472,17 +472,18 @@ S3_PUBLIC_URL=https://<bucket>.s3.timeweb.cloud  # опционально
 - API возвращает `commentsCount`, `attachments[]`, `pollId`, `editCount` и `updatedAt` в каждом посте
 
 ### PostForm
-- Нижняя панель: **слева** — 📎 «Добавить медиа» + 😊 «Смайлики» + 📊 «Добавить опрос»; **справа** — счётчик символов + кнопка «Опубликовать»
+- Нижняя панель: **слева** — 📎 «Добавить медиа» + 😊 «Смайлики» + 🔗 «Добавить ссылку» + 📊 «Добавить опрос»; **справа** — счётчик символов + кнопка «Опубликовать»
 - Бейдж с количеством выбранных файлов поверх иконки скрепки
 - Ограничений по размеру на стороне фронта **нет** (убраны); ограничение на бэкенде — 1 ГБ/ч на пользователя
 - Превью выбранных файлов **до загрузки**: изображения/видео — миниатюра (blob URL) без рамок, аудио/документы — FileIcon + имя + **размер файла** (маленький текст `9px` под именем)
 - Загрузка файлов происходит **при отправке поста** (не при выборе) — один за одним с прогрессом "Загрузка 2 / 5..."
 - Object URL освобождаются при удалении файла из очереди и при размонтировании
 - **Пост-опрос**: текст поста необязателен, если прикреплён опрос (`pendingPoll`); кнопка «Опубликовать» активна при наличии хотя бы одного из двух
-- Props: `onSubmit(content, attachments)` — обязательный; `onPollLinked(postId, pollId)` — опциональный; `initialPost` — объект поста для режима редактирования; `onCancel()` — кнопка ��Отмена» в режиме редактирования
-- Режим редактирования (`initialPost` задан): кнопка «Опубликовать» → «Сохранить��, placeholder изменён, кнопка опроса скрыта; существующие вложения показываются как `ExistingAttachmentPreview` (можно удалить из поста); новые файлы добавляются как обычно; итоговые вложения = оставшиеся старые + новые загруженные
+- Props: `onSubmit(content, attachments)` — обязательный; `onPollLinked(postId, pollId)` — опциональный; `initialPost` — объект поста для режима редактирования; `onCancel()` — кнопка «Отмена» в режиме редактирования
+- Режим редактирования (`initialPost` задан): кнопка «Опубликовать» → «Сохранить», placeholder изменён, кнопка опроса скрыта; существующие вложения показываются как `ExistingAttachmentPreview` (можно удалить из поста); новые файлы добавляются как обычно; итоговые вложения = оставшиеся старые + новые загруженные
 - Стиль `.post-form--editing` — без фона, рамки и отступов (модалка задаёт контекст)
 - **Оверлей PollBuilder** не закрывается по клику вне окна — только через кнопку ✕
+- **Редактор (`contentEditable` div)**: вместо `<textarea>` используется `<div contentEditable>` — поддерживает гиперссылки. Кнопка 🔗: выделить текст → `showPrompt` с URL → `execCommand('createLink')` → все `<a>` получают `target="_blank" rel="noopener noreferrer"`; если URL без схемы — добавляется `https://`. Вставка из буфера — только plain text (`execCommand('insertText')`). Символы считаются по `textContent.length` (без HTML-тегов). `content` в `onSubmit` — HTML-строка (может содержать `<a>`, `<br>`, `<div>`). В режиме редактирования начальный HTML устанавливается через `useEffect` → `innerHTML`. CSS-плейсхолдер через `[data-placeholder]:empty::before`
 
 ### PostCard
 - Вложения отображаются через `PostAttachments` (новый формат) или legacy `imageUrl`
@@ -491,6 +492,7 @@ S3_PUBLIC_URL=https://<bucket>.s3.timeweb.cloud  # опционально
 - Кнопка 🔗 «Скопировать ссылку» (`.post-card__share`) — всегда видна, копирует `/post/${post.id}` через `navigator.clipboard`; opacity 0.5 по умолчанию, акцентный цвет при наведении
 - Props: добавлены `onCommentAdded` (callback при добавлении комментария) и `autoOpenModal` (если true — PostModal открыт сразу при монтировании)
 - Если `post.pollId` задан — рендерит `<PollViewer pollId={post.pollId} cssVars={cssVars} />` над текстом поста
+- **Рендеринг контента**: функция `renderPostHtml(html)` — безопасно парсит HTML через `DOMParser`; допускает только `<a>` (цвет акцента, `target="_blank"`), `<br>`; блочные теги (`<div>`, `<p>`) конвертируются в `<br>`; обычные URL в тексте автоматически превращаются в ссылки. Клик по ссылке не открывает PostModal (`stopPropagation`). Обрезание (`CONTENT_TRUNCATE = 300`) по длине `textContent` (без HTML-тегов) — свёрнутый вид показывает plain text, раскрытый — полный HTML
 
 ### PostModal
 - Вложения отображаются через `PostAttachments` в полном размере (`compact={false}`, `disableScrollLock={true}`)
@@ -498,6 +500,7 @@ S3_PUBLIC_URL=https://<bucket>.s3.timeweb.cloud  # опционально
 - `.post-modal__attachments` — медиа-сетка переопределена (`margin:0; width:100%; border-radius:0`), аудио/документы/пагинация получают `padding: 0 20px`; двойных отрицательных отступов нет
 - Закрытие: клик на оверлей или Escape (крестика закрытия нет; кнопка ✕ удаления поста — только для автора)
 - Если `post.pollId` задан — рендерит `<PollViewer pollId={post.pollId} cssVars={cssVars} />` над текстом поста (аналогично PostCard)
+- **Рендеринг контента**: та же функция `renderPostHtml(html)` что в PostCard — безопасный парсинг, ссылки цветом акцента. В PostModal `stopPropagation` на ссылках не нужен (нет родительского onClick)
 - `overflow-x: hidden` на `.post-modal__box` — никаких горизонтальных полос прокрутки
 - **Изменение ширины**: ручка `.post-modal__resize-handle` — дочерний элемент `.post-modal` (оверлея), не `.post-modal__box`. Позиционируется через `position: absolute; left: calc(50% - modalWidth/2)` — всегда на левом краю модала и не скроллируется с контентом. Ширина 16px, акцентная линия + 6 точек-грипперов цветом `--cards-accent-color`. Drag: `onMouseDown` → `mousemove/mouseup` на `document`; дельта умножается на 2 (модал центрирован → левый край точно следует за курсором). Диапазон: 400–1280px, дефолт 680px. Сохраняется в `localStorage` по ключу `sosaland:postModalWidth`.
 
@@ -723,7 +726,7 @@ await markFileDeletedInLogs(fileUrl)
 - В тулбар RichTextEditor добавлена кнопка **📊**. Доступна при наличии prop `onCreatePoll`. Открывает PollBuilder через portal.
 - После создания опроса в редактор вставляется блок `div.rte-poll-marker[data-poll-id]` — видимая плашка «📊 Опрос: вопрос».
 - `NewsDetailPage` рендерит контент через `NewsContent` — разбивает HTML на части, заменяя маркеры (`[POLL:...]`, `[SLIDER:...]`, `[PLAYERLIST:...]`, `[IMAGEROW:...]`) на соответствующие компоненты. После рендера `useEffect` обходит все `<a>` и проставляет `target="_blank" rel="noopener noreferrer"`. Event delegation обрабатывает клики по `<img>` → открывает `ImageModal` (`showSidebar=false`).
-- При создании новой новости опросы создаются без `news_id` (admin разрешено) и хранятся в `pendingPollIdsRef`; после сохранения новости все pending-опросы патчатся через `PUT /api/polls/:id` с `news_id`.
+- При создании новой новости опросы создаются без `news_id` (admin и creator разрешено) и хранятся в `pendingPollIdsRef`; после сохранения новости все pending-опросы патчатся через `PUT /api/polls/:id` с `news_id`.
 - При редактировании новости удаление маркера опроса из редактора вызывает `deleteOrphanedPolls()` в `PUT /api/news/:slug` — опросы, которых нет в новом контенте, удаляются из БД (вместе с голосами через CASCADE).
 
 ### Интеграция в посты
@@ -980,6 +983,6 @@ await markFileDeletedInLogs(fileUrl)
 - **Кастомные диалоги** (вместо `window.confirm` / `window.prompt` / `alert`): `src/Components/Dialog/` — три файла: `dialogManager.js` (синглтон), `Dialog.jsx` (`DialogRenderer` монтируется в `App.jsx` один раз), `Dialog.scss`. API: `showConfirm(msg, opts?)` → `Promise<boolean>`, `showPrompt(msg, opts?)` → `Promise<string|null>` (`null` = отмена, `""` = подтверждено без текста), `showAlert(msg, opts?)` → `Promise<void>`. Поведение при клике вне: `confirm` — закрывается, `prompt` и `alert` — только кнопками/Escape. **Все** `window.confirm` / `window.prompt` / `alert` в проекте заменены на эти функции.
 - `FileIcon` (`src/Components/FileIcon/FileIcon.jsx`) — универсальная иконка файла по MIME-типу; используется в `PostCard`, `PostModal`, `PostForm`, `PostAttachments`, `ChatWindow`
 - `EmojiPicker` (`src/Components/EmojiPicker/EmojiPicker.jsx`) — простой пикер смайликов (50 эмодзи). Props: `onSelect(emoji)`. Позиция: `position:absolute; bottom:calc(100%+6px); left:0` — открывается вверх. Родитель должен иметь `position:relative` и управлять `showEmoji` + закрытием по клику вне через `mousedown` + `useRef`. Используется в `PostForm`, `CommentSection`, `MessageInput`
-- Все формы ввода (PostForm, CommentSection, MessageInput) имеют нижнюю панель: **слева** — 📎 + 😊; **справа** — счётчик символов + кнопка отправки. Стиль иконок — `background:none; border:none; color:--cards-text-dim`, hover → `--cards-accent-color`
+- Нижняя панель PostForm: **слева** — 📎 + 😊 + 🔗 + 📊; **справа** — счётчик символов + кнопка «Опубликовать/Сохранить». CommentSection и MessageInput: **слева** — 📎 + 😊; **справа** — счётчик + отправить. Стиль иконок — `background:none; border:none; color:--cards-text-dim`, hover → `--cards-accent-color`
 - Загрузка файлов использует поле **`file`** (одиночный) или **`files[]`** (множественный) — принимают любые типы. Поле **`image`** — только для галереи и обложек профиля.
 - Определение типа вложения: `fileType.startsWith('image/')` → изображение, `video/` → видео, `audio/` → аудио, иначе → документ. Хелперы `isImage/isVideo/isAudio/isMedia` экспортируются из `PostAttachments.jsx`

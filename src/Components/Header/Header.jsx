@@ -74,11 +74,11 @@ function Header({ serverIp, borderColor }) {
         </Link>
 
         <div className="header__info">
-          {/* Онлайн-счётчик */}
-          <div className="header__badge">
+          {/* Онлайн-счётчик — ссылка на главную */}
+          <Link to="/" className="header__badge header__badge--online">
             <span className="header__badge-dot" style={{ backgroundColor: borderColor }}></span>
             <span className="header__badge-text">Онлайн: {onlineCount}</span>
-          </div>
+          </Link>
 
           {/* Ссылка на Wiki */}
           <a

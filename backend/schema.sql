@@ -312,6 +312,7 @@ CREATE TABLE IF NOT EXISTS messages (
   file_url        TEXT,
   file_type       TEXT,
   file_name       TEXT,
+  files_json      TEXT,
   is_read         INTEGER DEFAULT 0,
   read_at         INTEGER,
   created_at      INTEGER DEFAULT (unix_now())
@@ -319,6 +320,9 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id       ON messages(sender_id);
+
+-- Добавить files_json если таблица уже существует (безопасно)
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS files_json TEXT;
 
 
 -- ===========================================================================

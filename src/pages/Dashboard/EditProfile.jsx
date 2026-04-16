@@ -52,7 +52,7 @@ const CONTENT_DEFAULTS = {
 const CARDS_DEFAULTS   = {
   color: '#1a1a1a', alpha: 95,  blur: 0,
   borderColor: '',  borderWidth: 1,  borderRadius: 12,
-  textColor: '',    accentColor: '',  fontWeight: 700,
+  textColor: '',    accentColor: '',  fontWeight: 400,
 };
 
 function EditProfile() {

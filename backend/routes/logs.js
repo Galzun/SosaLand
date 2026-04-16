@@ -39,6 +39,7 @@ const ACTION_LABEL = {
   event_create:   'Создание события',
   event_update:   'Изменение события',
   event_delete:   'Удаление события',
+  ticket_create:  'Заявка на регистрацию',
 };
 
 // ---------------------------------------------------------------------------
@@ -79,15 +80,19 @@ router.get('/users', requireAuth, isAdmin, async (req, res) => {
 // ---------------------------------------------------------------------------
 router.get('/stats', requireAuth, isAdmin, async (req, res) => {
   try {
+    // Топ только для пользователей с file_size IS NOT NULL (файл не удалён)
+    // и только там, где user_id IS NOT NULL (пользователь не удалён)
     const rows = await db.all(`
       SELECT
         user_id,
         username,
-        SUM(CASE WHEN action = 'file_upload' THEN 1 ELSE 0 END)                       AS total_files,
-        SUM(CASE WHEN action = 'file_upload' THEN COALESCE(file_size, 0) ELSE 0 END)  AS total_size,
-        MAX(created_at)                                                                 AS last_action_at
+        SUM(CASE WHEN action = 'file_upload' AND file_size IS NOT NULL THEN 1 ELSE 0 END)                       AS total_files,
+        SUM(CASE WHEN action = 'file_upload' AND file_size IS NOT NULL THEN COALESCE(file_size, 0) ELSE 0 END)  AS total_size,
+        MAX(created_at)                                                                                          AS last_action_at
       FROM activity_logs
       WHERE action = 'file_upload'
+        AND user_id IS NOT NULL
+        AND file_size IS NOT NULL
       GROUP BY user_id, username
       ORDER BY total_size DESC
       LIMIT 50
@@ -95,9 +100,9 @@ router.get('/stats', requireAuth, isAdmin, async (req, res) => {
 
     const totals = await db.get(`
       SELECT
-        COUNT(*)                                                                       AS total_actions,
-        SUM(CASE WHEN action = 'file_upload' THEN 1 ELSE 0 END)                      AS total_files,
-        SUM(CASE WHEN action = 'file_upload' THEN COALESCE(file_size, 0) ELSE 0 END) AS total_size
+        COUNT(*)                                                                                        AS total_actions,
+        SUM(CASE WHEN action = 'file_upload' AND file_size IS NOT NULL THEN 1 ELSE 0 END)             AS total_files,
+        SUM(CASE WHEN action = 'file_upload' AND file_size IS NOT NULL THEN COALESCE(file_size, 0) ELSE 0 END) AS total_size
       FROM activity_logs
     `, []);
 

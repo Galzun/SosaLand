@@ -320,6 +320,24 @@
   }
 }
 
+// Видео в сообщении
+.chat__msg-video {
+  max-width: 320px;
+  max-height: 240px;
+  width: 100%;
+  border-radius: 8px;
+  display: block;
+  background: #000;
+}
+
+// Аудио в сообщении
+.chat__msg-audio {
+  display: block;
+  width: 280px;
+  max-width: 100%;
+  accent-color: #4aff9e;
+}
+
 // Файл-вложение (не изображение)
 .chat__msg-file {
   display: flex;

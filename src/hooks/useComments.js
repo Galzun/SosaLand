@@ -2,18 +2,24 @@
 // Хук для работы с комментариями: загрузка, добавление, удаление.
 //
 // Параметры:
-//   type — тип объекта: 'post' | 'image' | 'profile' | 'news' | 'event'
-//   id   — ID объекта (поста, фото, пользователя или новости)
+//   type     — тип объекта: 'post' | 'image' | 'profile' | 'news' | 'event'
+//   id       — ID объекта (поста, фото, пользователя или новости)
+//   pageSize — размер страницы (default 20; для type='profile' используется 10)
+//   paged    — если true, использует постраничную навигацию (не "ещё")
 //
 // Возвращает:
 //   comments      — массив комментариев
 //   loading       — идёт ли загрузка
-//   hasMore       — есть ли ещё комментарии (для пагинации)
+//   hasMore       — есть ли ещё комментарии (для режима "load more")
 //   loaded        — загружались ли комментарии хотя бы раз
 //   fetchComments — загрузить (reset=true — с начала)
-//   loadMore      — загрузить следующую страницу
+//   loadMore      — загрузить следующую страницу (режим "load more")
 //   addComment    — добавить комментарий (content: string)
 //   deleteComment — удалить комментарий по ID
+//   -- только для paged режима:
+//   page          — текущая страница (0-based)
+//   totalPages    — всего страниц
+//   fetchPage     — загрузить страницу N
 
 import { useState, useRef, useCallback } from 'react';
 import axios from 'axios';
@@ -21,11 +27,15 @@ import { useAuth } from '../context/AuthContext';
 
 const LIMIT = 20;
 
-function useComments({ type, id }) {
-  const [comments, setComments] = useState([]);
-  const [loading,  setLoading]  = useState(false);
-  const [hasMore,  setHasMore]  = useState(true);
-  const [loaded,   setLoaded]   = useState(false);
+function useComments({ type, id, pageSize, paged = false }) {
+  const limit = pageSize || (paged ? 10 : LIMIT);
+
+  const [comments,    setComments]    = useState([]);
+  const [loading,     setLoading]     = useState(false);
+  const [hasMore,     setHasMore]     = useState(true);
+  const [loaded,      setLoaded]      = useState(false);
+  const [page,        setPage]        = useState(0);   // только для paged
+  const [totalPages,  setTotalPages]  = useState(0);  // только для paged
 
   // Ref для offset — не вызывает пересоздание callback'ов при подгрузке
   const offsetRef  = useRef(0);
@@ -57,7 +67,7 @@ function useComments({ type, id }) {
 
     try {
       const { data } = await axios.get(url, {
-        params: { limit: LIMIT, offset },
+        params: { limit, offset },
       });
 
       if (reset) {
@@ -68,7 +78,7 @@ function useComments({ type, id }) {
         offsetRef.current = offset + data.length;
       }
 
-      setHasMore(data.length === LIMIT);
+      setHasMore(data.length === limit);
       setLoaded(true);
     } catch (err) {
       console.error('Ошибка загрузки комментариев:', err.message);
@@ -76,14 +86,41 @@ function useComments({ type, id }) {
       loadingRef.current = false;
       setLoading(false);
     }
-  }, [id, getUrl]);
+  }, [id, limit, getUrl]);
 
-  // Загружает следующую страницу
+  // Загружает следующую страницу (режим "load more")
   const loadMore = useCallback(() => {
     if (!loadingRef.current && hasMore) {
       fetchComments(false);
     }
   }, [hasMore, fetchComments]);
+
+  // Загружает конкретную страницу (только paged режим)
+  const fetchPage = useCallback(async (pageNum) => {
+    if (!id || loadingRef.current) return;
+    const url = getUrl();
+    if (!url) return;
+
+    loadingRef.current = true;
+    setLoading(true);
+
+    try {
+      const { data } = await axios.get(url, {
+        params: { limit, offset: pageNum * limit, paged: '1' },
+      });
+
+      setComments(data.comments || []);
+      setPage(pageNum);
+      const total = data.total || 0;
+      setTotalPages(total > 0 ? Math.ceil(total / limit) : 0);
+      setLoaded(true);
+    } catch (err) {
+      console.error('Ошибка загрузки комментариев:', err.message);
+    } finally {
+      loadingRef.current = false;
+      setLoading(false);
+    }
+  }, [id, limit, getUrl]);
 
   // Добавляет новый комментарий и помещает его в начало списка
   const addComment = useCallback(async (content, imageUrl = null) => {
@@ -117,8 +154,11 @@ function useComments({ type, id }) {
     loading,
     hasMore,
     loaded,
+    page,
+    totalPages,
     fetchComments,
     loadMore,
+    fetchPage,
     addComment,
     deleteComment,
   };

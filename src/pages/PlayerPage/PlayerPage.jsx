@@ -811,12 +811,14 @@ function PlayerPage() {
     ...edgeMask(profile.coverEdgeH ?? 0, profile.coverEdgeV ?? 0),
   } : null;
 
+  const bgScale = profile?.bgScale ?? 100;
   const bgInnerStyle = profile?.backgroundUrl ? {
     position:           'absolute',
     inset:              0,
     backgroundImage:    `url(${profile.backgroundUrl})`,
     backgroundPosition: `${profile.bgPosX ?? 50}% ${profile.bgPosY ?? 50}%`,
-    backgroundSize:     `${profile.bgScale ?? 100}%`,
+    // cover при дефолтном масштабе — изображение всегда заполняет весь экран (в т.ч. на мобилке)
+    backgroundSize:     bgScale === 100 ? 'cover' : `${bgScale}%`,
     backgroundRepeat:   'no-repeat',
     transform:          (profile.bgRotation ?? 0) !== 0 ? `rotate(${profile.bgRotation}deg)` : undefined,
     filter:             (profile.bgBlur ?? 0) > 0 ? `blur(${profile.bgBlur}px)` : undefined,
@@ -1455,6 +1457,7 @@ function PlayerPage() {
                 type="profile"
                 id={profile.id}
                 autoLoad={true}
+                paged={true}
               />
             </div>
           </div>
