@@ -28,18 +28,22 @@ const JWT_EXPIRES_IN = '7d';
 // POST /api/tickets — создать заявку на регистрацию
 // ---------------------------------------------------------------------------
 // Доступно всем, авторизация не нужна.
-// Принимает: { minecraftUuid, minecraftName, username, password }
+// Принимает: { minecraftUuid?, minecraftName, username, password } — minecraftUuid необязателен (offline-игроки)
 // Возвращает: { success: true, ticketId }
 // ---------------------------------------------------------------------------
 router.post('/', async (req, res) => {
-  const { minecraftUuid, minecraftName, username, password, contact } = req.body;
+  const { minecraftUuid: rawUuid, minecraftName, username, password, contact } = req.body;
 
   // Проверяем обязательные поля
-  if (!minecraftUuid || !minecraftName || !username || !password) {
+  if (!minecraftName || !username || !password) {
     return res.status(400).json({
-      error: 'Поля minecraftUuid, minecraftName, username и password обязательны',
+      error: 'Поля minecraftName, username и password обязательны',
     });
   }
+
+  // Нелицензионные (пиратские) игроки не имеют UUID — используем 'offline:<name>',
+  // та же схема что в players.uuid для пиратских банов.
+  const minecraftUuid = rawUuid || `offline:${minecraftName}`;
 
   if (username.trim().length < 3) {
     return res.status(400).json({ error: 'Логин должен быть не короче 3 символов' });
