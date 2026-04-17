@@ -64,6 +64,11 @@
   }
 }
 
+// Обёртка редактора — нужна для position: relative (дропдаун @упоминаний)
+.post-form__editor-wrap {
+  position: relative;
+}
+
 .post-form__editor {
   width: 100%;
   background: transparent;

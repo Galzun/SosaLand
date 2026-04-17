@@ -139,6 +139,14 @@
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
+
+  // Упоминания @username внутри текста
+  .comment-section__mention {
+    color: #4aff9e;
+    font-weight: 600;
+    text-decoration: none;
+    &:hover { opacity: 0.75; }
+  }
 }
 
 // Форма добавления

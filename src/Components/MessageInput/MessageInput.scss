@@ -142,6 +142,10 @@
     &:focus-within { border-color: #4aff9e40; }
   }
 
+  &__textarea-wrap {
+    position: relative;
+  }
+
   &__textarea {
     width: 100%;
     background: transparent;

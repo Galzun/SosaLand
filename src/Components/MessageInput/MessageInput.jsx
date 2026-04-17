@@ -8,22 +8,67 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import { usePlayer } from '../../context/PlayerContext';
+import { getMentionAtCursor } from '../../utils/mentionUtils';
 import FileIcon from '../FileIcon/FileIcon';
 import EmojiPicker from '../EmojiPicker/EmojiPicker';
+import MentionDropdown from '../MentionDropdown/MentionDropdown';
 import './MessageInput.scss';
 
 function MessageInput({ onSend, disabled }) {
   const { token } = useAuth();
+  const { allPlayers } = usePlayer();
   const [text,        setText]        = useState('');
   const [pendingFiles, setPendingFiles] = useState([]); // { file, previewUrl } — до загрузки
   const [uploadError, setUploadError]  = useState(null);
   const [uploading,   setUploading]    = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0); // 0-100
   const [showEmoji,   setShowEmoji]    = useState(false);
+  const [mentionState,  setMentionState]  = useState(null); // {query, startIndex} | null
+  const [mentionIndex,  setMentionIndex]  = useState(0);
 
   const fileInputRef  = useRef(null);
   const textareaRef   = useRef(null);
   const emojiWrapRef  = useRef(null);
+  const mentionDropRef = useRef(null);
+
+  const mentionSuggestions = mentionState
+    ? allPlayers.filter(p => p.name.toLowerCase().startsWith(mentionState.query)).slice(0, 7)
+    : [];
+
+  // Закрываем дропдаун при клике вне
+  useEffect(() => {
+    if (!mentionState) return;
+    const handler = (e) => {
+      if (
+        mentionDropRef.current && !mentionDropRef.current.contains(e.target) &&
+        textareaRef.current && !textareaRef.current.contains(e.target)
+      ) {
+        setMentionState(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [mentionState]);
+
+  const insertMentionUser = (username) => {
+    const before = text.slice(0, mentionState.startIndex);
+    const after  = text.slice(mentionState.startIndex + 1 + mentionState.query.length);
+    const newText = before + '@' + username + ' ' + after;
+    setText(newText);
+    setMentionState(null);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const ta = textareaRef.current;
+        const pos = before.length + username.length + 2;
+        ta.selectionStart = pos;
+        ta.selectionEnd   = pos;
+        ta.focus();
+        ta.style.height = 'auto';
+        ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
+      }
+    }, 0);
+  };
 
   // Освобождаем blob-URL при размонтировании
   useEffect(() => {
@@ -131,20 +176,30 @@ function MessageInput({ onSend, disabled }) {
     setTimeout(() => textareaRef.current?.focus(), 0);
   }, [text, pendingFiles, uploading, onSend, token]);
 
-  // Enter — отправить, Shift+Enter — новая строка
+  // Enter — отправить (или выбрать упоминание), Shift+Enter — новая строка
   const handleKeyDown = (e) => {
+    if (mentionState && mentionSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIndex(i => Math.min(i + 1, mentionSuggestions.length - 1)); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); setMentionIndex(i => Math.max(i - 1, 0)); return; }
+      if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); insertMentionUser(mentionSuggestions[mentionIndex].name); return; }
+      if (e.key === 'Escape')    { setMentionState(null); return; }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  // Автовысота textarea
+  // Автовысота textarea + обнаружение @упоминания
   const handleChange = (e) => {
-    setText(e.target.value);
+    const value = e.target.value;
+    setText(value);
     const ta = e.target;
     ta.style.height = 'auto';
     ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
+    const mention = getMentionAtCursor(value, ta.selectionStart);
+    setMentionState(mention);
+    setMentionIndex(0);
   };
 
   const handleEmojiSelect = (emoji) => {
@@ -217,17 +272,31 @@ function MessageInput({ onSend, disabled }) {
 
       {/* Textarea + нижняя панель внутри единого визуального блока */}
       <div className="msg-input__box">
-        <textarea
-          ref={textareaRef}
-          className="msg-input__textarea"
-          placeholder="Написать сообщение... (Enter — отправить)"
-          value={text}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          rows={1}
-          maxLength={5000}
-        />
+        <div className="msg-input__textarea-wrap">
+          <textarea
+            ref={textareaRef}
+            className="msg-input__textarea"
+            placeholder="Написать сообщение... (Enter — отправить)"
+            value={text}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onClick={(e) => {
+              const mention = getMentionAtCursor(e.target.value, e.target.selectionStart);
+              setMentionState(mention);
+              setMentionIndex(0);
+            }}
+            disabled={disabled}
+            rows={1}
+            maxLength={5000}
+          />
+          <MentionDropdown
+            players={mentionSuggestions}
+            activeIndex={mentionIndex}
+            onSelect={insertMentionUser}
+            onHover={setMentionIndex}
+            dropRef={mentionDropRef}
+          />
+        </div>
 
         {/* Нижняя панель: иконки слева + счётчик/отправить справа */}
         <div className="msg-input__bar">

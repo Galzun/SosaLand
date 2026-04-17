@@ -341,6 +341,14 @@
   word-break: break-word;
   border-bottom: 1px solid var(--cards-border-color, #1e1e1e);
 
+  // @упоминания внутри поста
+  .post-mention {
+    color: var(--cards-accent-color, #4aff9e);
+    font-weight: 600;
+    text-decoration: none;
+    &:hover { opacity: 0.75; }
+  }
+
   a {
     color: var(--cards-accent-color, #4aff9e);
     text-decoration: underline;

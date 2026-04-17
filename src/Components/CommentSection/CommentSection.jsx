@@ -11,11 +11,30 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import { usePlayer } from '../../context/PlayerContext';
 import { timeAgo } from '../../utils/timeFormatter';
+import { getMentionAtCursor } from '../../utils/mentionUtils';
 import useComments from '../../hooks/useComments';
 import EmojiPicker from '../EmojiPicker/EmojiPicker';
+import MentionDropdown from '../MentionDropdown/MentionDropdown';
 import { showConfirm } from '../Dialog/dialogManager';
 import './CommentSection.scss';
+
+// Парсит текст и превращает @username в ссылки на профили
+export function renderWithMentions(text) {
+  const parts = text.split(/(@\w+)/g);
+  return parts.map((part, i) => {
+    if (/^@\w+$/.test(part)) {
+      const username = part.slice(1);
+      return (
+        <Link key={i} to={`/player/${username}`} className="comment-section__mention">
+          {part}
+        </Link>
+      );
+    }
+    return part;
+  });
+}
 
 const TRUNCATE_LIMIT = 250; // символов до кнопки «Ещё»
 
@@ -23,6 +42,7 @@ const TRUNCATE_LIMIT = 250; // символов до кнопки «Ещё»
 // paged — режим постраничной навигации (для профиля: max 10 per page)
 function CommentSection({ type, id, autoLoad = false, stickyForm = false, stickyBottom = false, onCommentAdded, paged = false }) {
   const { user, token } = useAuth();
+  const { allPlayers } = usePlayer();
   const {
     comments,
     loading,
@@ -43,8 +63,75 @@ function CommentSection({ type, id, autoLoad = false, stickyForm = false, sticky
   const [submitting,  setSubmitting]  = useState(false);
   const [error,       setError]       = useState(null);
   const [showEmoji,   setShowEmoji]   = useState(false);
-  const fileRef      = useRef(null);
-  const emojiWrapRef = useRef(null);
+  const [mentionState,  setMentionState]  = useState(null); // {query, startIndex} | null
+  const [mentionIndex,  setMentionIndex]  = useState(0);
+  const fileRef         = useRef(null);
+  const emojiWrapRef    = useRef(null);
+  const textareaRef     = useRef(null);
+  const mentionDropRef  = useRef(null);
+
+  // Список кандидатов для дропдауна
+  const mentionSuggestions = mentionState
+    ? allPlayers
+        .filter(p => p.name.toLowerCase().startsWith(mentionState.query))
+        .slice(0, 7)
+    : [];
+
+  // Закрываем дропдаун при клике вне
+  useEffect(() => {
+    if (!mentionState) return;
+    const handler = (e) => {
+      if (
+        mentionDropRef.current && !mentionDropRef.current.contains(e.target) &&
+        textareaRef.current && !textareaRef.current.contains(e.target)
+      ) {
+        setMentionState(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [mentionState]);
+
+  const handleTextChange = (e) => {
+    const value = e.target.value;
+    setText(value);
+    const cursor = e.target.selectionStart;
+    const mention = getMentionAtCursor(value, cursor);
+    setMentionState(mention);
+    setMentionIndex(0);
+  };
+
+  const handleTextKeyDown = (e) => {
+    if (!mentionState || mentionSuggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setMentionIndex(i => Math.min(i + 1, mentionSuggestions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setMentionIndex(i => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      insertMentionUser(mentionSuggestions[mentionIndex].name);
+    } else if (e.key === 'Escape') {
+      setMentionState(null);
+    }
+  };
+
+  const insertMentionUser = (username) => {
+    const before = text.slice(0, mentionState.startIndex);
+    const after  = text.slice(mentionState.startIndex + 1 + mentionState.query.length);
+    const newText = before + '@' + username + ' ' + after;
+    setText(newText);
+    setMentionState(null);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const pos = before.length + username.length + 2;
+        textareaRef.current.selectionStart = pos;
+        textareaRef.current.selectionEnd   = pos;
+        textareaRef.current.focus();
+      }
+    }, 0);
+  };
 
   // Закрываем emoji-пикер при клике вне него
   useEffect(() => {
@@ -196,14 +283,30 @@ function CommentSection({ type, id, autoLoad = false, stickyForm = false, sticky
           </div>
         )}
 
-        <textarea
-          className="comment-section__textarea"
-          placeholder="Написать комментарий..."
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          maxLength={1000}
-          rows={2}
-        />
+        <div className="comment-section__textarea-wrap">
+          <textarea
+            ref={textareaRef}
+            className="comment-section__textarea"
+            placeholder="Написать комментарий..."
+            value={text}
+            onChange={handleTextChange}
+            onKeyDown={handleTextKeyDown}
+            onClick={(e) => {
+              const mention = getMentionAtCursor(e.target.value, e.target.selectionStart);
+              setMentionState(mention);
+              setMentionIndex(0);
+            }}
+            maxLength={1000}
+            rows={2}
+          />
+          <MentionDropdown
+            players={mentionSuggestions}
+            activeIndex={mentionIndex}
+            onSelect={insertMentionUser}
+            onHover={setMentionIndex}
+            dropRef={mentionDropRef}
+          />
+        </div>
 
         {/* Нижняя панель: иконки слева + счётчик/отправить справа */}
         <div className="comment-section__form-footer">
@@ -305,7 +408,7 @@ function CommentItem({ comment, onDelete, currentUser }) {
   const [expanded,    setExpanded]    = useState(false);
 
   const isOwner = currentUser && currentUser.id === comment.author.id;
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'creator';
 
   const handleDelete = async () => {
     if (!(await showConfirm('Удалить комментарий?'))) return;
@@ -354,7 +457,7 @@ function CommentItem({ comment, onDelete, currentUser }) {
         {/* Текст (с обрезкой) */}
         {text.length > 0 && (
           <p className="comment-section__text">
-            {displayText}
+            {renderWithMentions(displayText)}
             {isTruncatable && (
               <button
                 className="comment-section__expand"

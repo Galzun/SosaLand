@@ -20,14 +20,16 @@ import './PostModal.scss';
 
 // Безопасно рендерит HTML-контент поста: допускает <a>, <br>, блочные теги.
 // Также автоматически определяет URL в обычном тексте.
-const URL_SPLIT_REGEX = /(https?:\/\/[^\s<>"']+)/g;
+const SPLIT_REGEX = /(https?:\/\/[^\s<>"']+|@\w+)/g;
 
 function processTextNode(text, prefix) {
-  return text.split(URL_SPLIT_REGEX).map((part, i) =>
-    /^https?:\/\//.test(part)
-      ? <a key={`${prefix}-u${i}`} href={part} target="_blank" rel="noopener noreferrer">{part}</a>
-      : part
-  );
+  return text.split(SPLIT_REGEX).map((part, i) => {
+    if (/^https?:\/\//.test(part))
+      return <a key={`${prefix}-u${i}`} href={part} target="_blank" rel="noopener noreferrer">{part}</a>;
+    if (/^@\w+$/.test(part))
+      return <Link key={`${prefix}-m${i}`} to={`/player/${part.slice(1)}`} className="post-mention">{part}</Link>;
+    return part;
+  });
 }
 
 function renderPostHtml(html) {
@@ -139,7 +141,7 @@ function PostModal({ post, onClose, onLike, onDelete, onEdit, onCommentAdded, cs
   }, []);
 
   const isOwner = user && post.author && user.id === post.author.id;
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'creator';
   const timeText = timeAgo(post.createdAt * 1000);
   const avatarUrl = post.author?.avatarUrl;
 

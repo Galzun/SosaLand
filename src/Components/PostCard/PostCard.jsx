@@ -20,14 +20,16 @@ const CONTENT_TRUNCATE = 300;
 // Безопасно рендерит HTML-контент поста:
 // допускает только <a>, <br>, блочные теги (→ <br>); остальное — текст.
 // Также автоматически определяет URL в обычном тексте.
-const URL_SPLIT_REGEX = /(https?:\/\/[^\s<>"']+)/g;
+const SPLIT_REGEX = /(https?:\/\/[^\s<>"']+|@\w+)/g;
 
 function processTextNode(text, prefix) {
-  return text.split(URL_SPLIT_REGEX).map((part, i) =>
-    /^https?:\/\//.test(part)
-      ? <a key={`${prefix}-u${i}`} href={part} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>{part}</a>
-      : part
-  );
+  return text.split(SPLIT_REGEX).map((part, i) => {
+    if (/^https?:\/\//.test(part))
+      return <a key={`${prefix}-u${i}`} href={part} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>{part}</a>;
+    if (/^@\w+$/.test(part))
+      return <Link key={`${prefix}-m${i}`} to={`/player/${part.slice(1)}`} className="post-mention" onClick={e => e.stopPropagation()}>{part}</Link>;
+    return part;
+  });
 }
 
 function renderPostHtml(html, onLinkClick) {

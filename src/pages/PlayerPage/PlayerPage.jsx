@@ -84,6 +84,8 @@ function PlayerPage() {
   const [deleteCountdown,    setDeleteCountdown]    = useState(5);
   const [deleteReady,        setDeleteReady]        = useState(false);
   const [menuPos,            setMenuPos]            = useState({ top: 0, right: 0 });
+  const [showClearOptions,   setShowClearOptions]   = useState(false);
+  const [clearSections,      setClearSections]      = useState({ posts: true, images: true, profile: true, chats: true });
   const deleteMenuRef   = useRef(null);
   const deleteButtonRef = useRef(null);
 
@@ -108,6 +110,7 @@ function PlayerPage() {
     setCurrentAlbum(null);
     setAlbumImages([]);
     setShowDeleteMenu(false);
+    setShowClearOptions(false);
   }, [username]);
 
   // Обратный отсчёт при открытии меню удаления
@@ -146,7 +149,7 @@ function PlayerPage() {
     const handleClickOutside = (e) => {
       const inMenu   = deleteMenuRef.current?.contains(e.target);
       const inButton = deleteButtonRef.current?.contains(e.target);
-      if (!inMenu && !inButton) setShowDeleteMenu(false);
+      if (!inMenu && !inButton) { setShowDeleteMenu(false); setShowClearOptions(false); }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -218,18 +221,28 @@ function PlayerPage() {
   const canDeleteProfile = user && profile && !isOwner && callerLevel >= 3 && profileLevel < callerLevel;
 
   const handleClearData = async () => {
+    const selected = Object.entries(clearSections).filter(([, v]) => v).map(([k]) => k);
+    if (selected.length === 0) {
+      await showAlert('Выберите хотя бы один раздел для очистки.');
+      return;
+    }
+    const labels = { posts: 'посты', images: 'фото/альбомы', profile: 'настройки профиля', chats: 'переписку' };
+    const listStr = selected.map(s => labels[s]).join(', ');
     const ok = await showConfirm(
-      `Очистить все данные аккаунта "${profile.username}"? Посты, фото, альбомы, настройки профиля — всё будет удалено. Сам аккаунт останется.`,
+      `Очистить у "${profile.username}": ${listStr}? Сам аккаунт останется.`,
       { confirmText: 'Очистить', danger: true }
     );
     if (!ok) return;
     try {
-      await axios.post(`/api/users/${profile.id}/clear-data`, {}, {
+      await axios.post(`/api/users/${profile.id}/clear-data`, { sections: selected }, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setShowDeleteMenu(false);
+      setShowClearOptions(false);
       await showAlert('Данные аккаунта успешно очищены.');
-      setProfile(prev => prev ? { ...prev, coverUrl: null, backgroundUrl: null, bio: null } : null);
+      if (clearSections.profile) {
+        setProfile(prev => prev ? { ...prev, coverUrl: null, backgroundUrl: null, bio: null } : null);
+      }
     } catch (err) {
       await showAlert(err.response?.data?.error || 'Ошибка при очистке данных.');
     }
@@ -799,29 +812,27 @@ function PlayerPage() {
     };
   };
 
+  const coverScale = profile?.coverScale ?? 100;
+  // position/inset/background-repeat/background-size(cover) — в .player-page__cover-inner (SCSS).
+  // Здесь только динамические значения; backgroundSize задаётся только когда scale ≠ 100,
+  // иначе SCSS-дефолт 'cover' гарантирует заполнение контейнера без пустых полос.
   const coverInnerStyle = profile?.coverUrl ? {
-    position:           'absolute',
-    inset:              0,
     backgroundImage:    `url(${profile.coverUrl})`,
     backgroundPosition: `${profile.coverPosX ?? 50}% ${profile.coverPosY ?? 50}%`,
-    backgroundSize:     `${profile.coverScale ?? 100}%`,
-    backgroundRepeat:   'no-repeat',
-    transform:          (profile.coverRotation ?? 0) !== 0 ? `rotate(${profile.coverRotation}deg)` : undefined,
-    filter:             (profile.coverBlur ?? 0) > 0 ? `blur(${profile.coverBlur}px)` : undefined,
+    ...(coverScale !== 100 ? { backgroundSize: `${coverScale}%` } : {}),
+    ...(((profile.coverRotation ?? 0) !== 0) ? { transform: `rotate(${profile.coverRotation}deg)` } : {}),
+    ...((profile.coverBlur ?? 0) > 0 ? { filter: `blur(${profile.coverBlur}px)` } : {}),
     ...edgeMask(profile.coverEdgeH ?? 0, profile.coverEdgeV ?? 0),
   } : null;
 
   const bgScale = profile?.bgScale ?? 100;
+  // position/inset/background-repeat/background-size(cover) — в .player-page__bg-inner (SCSS).
   const bgInnerStyle = profile?.backgroundUrl ? {
-    position:           'absolute',
-    inset:              0,
     backgroundImage:    `url(${profile.backgroundUrl})`,
     backgroundPosition: `${profile.bgPosX ?? 50}% ${profile.bgPosY ?? 50}%`,
-    // cover при дефолтном масштабе — изображение всегда заполняет весь экран (в т.ч. на мобилке)
-    backgroundSize:     bgScale === 100 ? 'cover' : `${bgScale}%`,
-    backgroundRepeat:   'no-repeat',
-    transform:          (profile.bgRotation ?? 0) !== 0 ? `rotate(${profile.bgRotation}deg)` : undefined,
-    filter:             (profile.bgBlur ?? 0) > 0 ? `blur(${profile.bgBlur}px)` : undefined,
+    ...(bgScale !== 100 ? { backgroundSize: `${bgScale}%` } : {}),
+    ...(((profile.bgRotation ?? 0) !== 0) ? { transform: `rotate(${profile.bgRotation}deg)` } : {}),
+    ...((profile.bgBlur ?? 0) > 0 ? { filter: `blur(${profile.bgBlur}px)` } : {}),
     ...edgeMask(profile.bgEdgeH ?? 0, profile.bgEdgeV ?? 0),
   } : null;
 
@@ -835,7 +846,7 @@ function PlayerPage() {
           className={`player-page__bg-layer${profile?.backgroundUrl ? ' player-page__bg-layer--image' : ''}`}
           style={profile.bgFillColor ? { backgroundColor: profile.bgFillColor } : undefined}
         >
-          {bgInnerStyle && <div style={bgInnerStyle} />}
+          {bgInnerStyle && <div className="player-page__bg-inner" style={bgInnerStyle} />}
         </div>
       )}
 
@@ -844,7 +855,7 @@ function PlayerPage() {
           className="player-page__cover"
           style={profile?.coverFillColor ? { background: profile.coverFillColor } : undefined}
         >
-          {coverInnerStyle && <div style={coverInnerStyle} />}
+          {coverInnerStyle && <div className="player-page__cover-inner" style={coverInnerStyle} />}
         </div>
 
         <div className="player-page__content-wrapper">
@@ -1127,7 +1138,7 @@ function PlayerPage() {
                     key={album.albumId}
                     album={album}
                     onClick={(idx) => openPhotoModal(album, idx)}
-                    canDelete={isOwner || user?.role === 'admin'}
+                    canDelete={isOwner || callerLevel >= 3}
                     onDelete={() => handleAlbumDelete(album)}
                   />
                 ))}
@@ -1227,7 +1238,7 @@ function PlayerPage() {
                       <span className="player-page__album-name">{album.name}</span>
                       <span className="player-page__album-count">{album.count} медиа</span>
                     </div>
-                    {isOwner && (
+                    {(isOwner || callerLevel >= 3) && (
                       <button
                         className="player-page__album-card-delete"
                         onClick={(e) => { e.stopPropagation(); handleDeleteAlbum(album); }}
@@ -1512,15 +1523,53 @@ function PlayerPage() {
             Кнопки станут активны через {deleteCountdown} сек...
           </p>
         )}
-        <button
-          className="player-page__delete-action player-page__delete-action--clear"
-          disabled={!deleteReady}
-          onClick={handleClearData}
-          type="button"
-        >
-          Очистить данные
-          <span>Удаляет посты, фото, настройки. Аккаунт остаётся.</span>
-        </button>
+        {!showClearOptions ? (
+          <button
+            className="player-page__delete-action player-page__delete-action--clear"
+            disabled={!deleteReady}
+            onClick={() => setShowClearOptions(true)}
+            type="button"
+          >
+            Очистить данные
+            <span>Выбрать что удалить. Аккаунт остаётся.</span>
+          </button>
+        ) : (
+          <div className="player-page__clear-panel">
+            <p className="player-page__clear-panel-title">Что очистить:</p>
+            {[
+              { key: 'posts',   label: 'Посты' },
+              { key: 'images',  label: 'Фото и альбомы' },
+              { key: 'profile', label: 'Настройки профиля' },
+              { key: 'chats',   label: 'Переписку (чаты)' },
+            ].map(({ key, label }) => (
+              <label key={key} className="player-page__clear-check">
+                <input
+                  type="checkbox"
+                  checked={clearSections[key]}
+                  onChange={e => setClearSections(prev => ({ ...prev, [key]: e.target.checked }))}
+                />
+                {label}
+              </label>
+            ))}
+            <div className="player-page__clear-panel-actions">
+              <button
+                className="player-page__clear-cancel"
+                type="button"
+                onClick={() => setShowClearOptions(false)}
+              >
+                Отмена
+              </button>
+              <button
+                className="player-page__clear-confirm"
+                type="button"
+                disabled={!deleteReady}
+                onClick={handleClearData}
+              >
+                Применить
+              </button>
+            </div>
+          </div>
+        )}
         <button
           className="player-page__delete-action player-page__delete-action--delete"
           disabled={!deleteReady}

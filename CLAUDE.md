@@ -132,7 +132,7 @@ PlayerPage (/player/:username)
 | POST | `/api/users/:id/unban` | admin+ | Разбанить пользователя |
 | POST | `/api/users/:id/reset-password` | admin+ | Сбросить пароль; при следующем логине любой пароль ≥6 символов становится новым; нельзя применять к равному/высшему |
 | PUT | `/api/users/:id/username` | admin+ | Изменить логин `{ username }`; нельзя применять к равному/высшему |
-| POST | `/api/users/:id/clear-data` | admin+ | Очистить все данные аккаунта: посты + вложения, фото, альбомы, обложку/фон, bio, UI-настройки (файлы удаляются с диска); сам аккаунт остаётся; нельзя применять к равному/высшему |
+| POST | `/api/users/:id/clear-data` | admin+ | Очистить данные аккаунта; тело: `{ sections?: ['posts','images','profile','chats'] }` — по умолчанию все 4; файлы удаляются с диска; сам аккаунт остаётся; нельзя применять к равному/высшему |
 | DELETE | `/api/users/:id` | admin+ | Полностью удалить аккаунт: сначала удаляет файлы с диска, затем запись из `users` (CASCADE чистит посты, вложения, изображения, альбомы, лайки, комментарии, диалоги); нельзя удалять равного/высшего |
 | POST | `/api/upload` | JWT | Загрузить файл(ы) → `/uploads/<file>`; поля: `image`, `file`, `files[]`; возвращает `{ url, fileUrl, fileType, fileName, size }` или `{ files: [...] }` |
 | GET | `/api/posts` | все | Лента постов (limit, offset; с commentsCount, attachments[]) |
@@ -154,7 +154,8 @@ PlayerPage (/player/:username)
 | GET | `/api/conversations` | JWT | Список диалогов текущего пользователя |
 | GET | `/api/conversations/unread-count` | JWT | Число непрочитанных сообщений |
 | GET | `/api/conversations/:userId/messages` | JWT | История сообщений с пользователем (не создаёт диалог) |
-| POST | `/api/conversations/:userId/messages` | JWT | Отправить сообщение (создаёт диалог при первой отправке) |
+| POST | `/api/conversations/:userId/messages` | JWT | Отправить сообщение; первый файл → legacy `file_url/file_type/file_name`, доп. файлы → `files_json` JSON-массив |
+| DELETE | `/api/conversations/:id` | JWT (участник) | Удалить весь диалог + все его файлы с диска (async); удаляет из `conversations` — CASCADE чистит `messages` |
 | DELETE | `/api/messages/:id` | JWT (отправитель) | Удалить своё сообщение («отозвать») |
 | GET | `/api/news` | все | Список опубликованных новостей (пагинация) |
 | GET | `/api/news/:slug` | все | Одна новость (полный контент + счётчик просмотров) |
@@ -318,14 +319,15 @@ PlayerPage (/player/:username)
 - UNIQUE(participant1, participant2) — одна запись на пару; participant1 < participant2 лексикографически
 - INDEX on participant1, INDEX on participant2
 
-**messages** (migration 017):
+**messages** (migration 017 + 033):
 - `id` TEXT PK (UUID)
 - `conversation_id` TEXT NOT NULL → conversations.id ON DELETE CASCADE
 - `sender_id` TEXT NOT NULL → users.id ON DELETE CASCADE
 - `content` TEXT NOT NULL — текст сообщения (до 5000 символов, может быть пустым если есть файл)
-- `file_url` TEXT — путь к файлу (/uploads/...)
-- `file_type` TEXT — MIME-тип вложения
-- `file_name` TEXT — оригинальное имя файла
+- `file_url` TEXT — legacy: первый (или единственный) файл; путь к файлу (/uploads/...)
+- `file_type` TEXT — MIME-тип первого файла
+- `file_name` TEXT — оригинальное имя первого файла
+- `files_json` TEXT — migration 033: JSON-массив `[{fileUrl, fileType, fileName}]` для дополнительных файлов (2-й и далее); парсится на клиенте в `msg.files`
 - `is_read` INTEGER DEFAULT 0 — 0/1
 - `read_at` INTEGER — unix timestamp прочтения
 - `created_at` INTEGER DEFAULT (strftime('%s', 'now'))
@@ -369,6 +371,12 @@ S3_PUBLIC_URL=https://<bucket>.s3.timeweb.cloud  # опционально
 - `bg-layer` рендерится если задан `backgroundUrl` **или** `bgFillColor` — можно задать сплошной цвет без изображения
 - Скролл страницы не влияет на фон (он не привязан к потоку документа)
 - Позиция, масштаб, поворот, размытие, плавность краёв — CSS трансформации на inner-div
+
+## Адаптивность шапки профиля (PlayerPage)
+- **≤768px**: `player-page__info-row` остаётся `flex-direction: row`; аватарка уменьшается до 80px, `margin-top: -40px`; cover `aspect-ratio: 3/1`
+- **≤767px**: `player-page__info-row` переключается в `flex-direction: column` — аватарка сверху, имя/мета/UUID ниже; `margin-top: 0` на info-row (аватарка перекрывает обложку собственным `margin-top: -40px`); `player-page__info` получает `width: 100%`
+- **≤480px**: cover `aspect-ratio: 2.5/1`; аватарка 68px, `margin-top: -34px`
+- **Важно**: `margin-top: -30px` на `info-row` из брейкпоинта 768px применяется только в row-режиме и сбрасывается в 0 на 767px — иначе через схлопывание маржинов `content-wrapper` наезжает на обложку
 
 ## UI-кастомизация страницы профиля
 
@@ -582,14 +590,14 @@ Props: `disableScrollLock` — пробрасывается в MediaModal.
 - **Посты** — посты пользователя + PostForm для владельца; ширина 680px, центрированы; используют `--cards-*` CSS-переменные
 - **Фото** — фото пользователя (`show_in_profile = 1`), сетка 3 колонки; владелец может добавлять и удалять; форма добавления фото использует `--cards-*` переменные; при загрузке показывается прогресс `Загрузка N%...` через `onUploadProgress`
 - **Альбомы** — именные коллекции; список карточек → внутри альбома сетка + форма загрузки; при загрузке показывается прогресс `Загрузка N%...` через `onUploadProgress`; подробнее в разделе «Именные альбомы»
-- **Комментарии** — вкладка с `CommentSection type="profile"` внутри блока `.player-page__comments-card` (карточка с `--cards-*` стилями); видна только если есть привязанный аккаунт
+- **Комментарии** — вкладка с `CommentSection type="profile" paged={true} autoLoad={true}` внутри блока `.player-page__comments-card` (карточка с `--cards-*` стилями); видна только если есть привязанный аккаунт; постраничная навигация по 10 комментариев
 - Статус — поле `bio` (до 50 символов), отображается под именем прямо в шапке профиля (не во вкладке)
 - Кнопка **«💬 Написать»** — отображается на чужом профиле при наличии аккаунта (`profile !== null`), только авторизованным; перенаправляет на `/messages?user=<username>`
 - Кнопка **«Удалить»** — отображается на чужом профиле для admin/creator (только если уровень цели ниже уровня текущего пользователя); находится в `.player-page__top-actions` справа рядом с «Написать»; при клике открывается дропдаун-меню через `createPortal` в `document.body` с `position:fixed` (чтобы не обрезалось `overflow:hidden` шапки):
   - Первые **5 секунд** кнопки неактивны (обратный отсчёт «Кнопки станут активны через N сек...»)
-  - **«Очистить данные»** (жёлтая) → `POST /api/users/:id/clear-data` — удаляет контент, аккаунт остаётся
+  - **«Очистить данные»** (жёлтая) → клик раскрывает inline-панель с чекбоксами: «Посты», «Фото и альбомы», «Настройки профиля», «Переписку (чаты)» (все включены по умолчанию); кнопки «Отмена» / «Применить»; «Применить» → `POST /api/users/:id/clear-data { sections: [...] }` с выбранными разделами; аккаунт остаётся
   - **«Удалить аккаунт»** (красная) → `DELETE /api/users/:id` — полное необратимое удаление; после успеха перенаправляет на `/`
-  - Меню закрывается по клику вне (исключая кнопку и само меню) и при переходе на другой профиль
+  - Меню закрывается по клику вне (исключая кнопку и само меню) и при переходе на другой профиль; при закрытии `showClearOptions` сбрасывается
 
 ## Sidebar — навигация
 - Прозрачный (`backdrop-filter: blur`), `position: sticky`, виден всегда на десктопе (>1024px)
@@ -695,6 +703,7 @@ await markFileDeletedInLogs(fileUrl)
 | `stickyBottom={true}` | `.comment-section--sticky-bottom`: обычный поток, форма в `.comment-section__form-sticky` с `position:sticky; bottom:0` | NewsDetailPage, EventDetailPage (page-level document scroll) |
 
 - `stickyBottom` — форма прилипает к низу viewport при скролле документа через секцию комментариев; фон `rgba(10,10,26,0.97)` + `backdrop-filter:blur(8px)` чтобы перекрывать контент
+- **`paged={true}`** — режим постраничной навигации (применяется для комментариев к профилю: 10 на страницу); `useComments` при `paged=true` использует `fetchPage(pageNum)` вместо `loadMore`; endpoint получает `?paged=1` и возвращает `{ comments, total }`; кнопки «← Назад» / «Далее →» и счётчик «N / M»
 
 ## Система личных сообщений
 - Страница `/messages` — двухколоночный макет: список диалогов слева (300px) + чат справа
@@ -705,9 +714,11 @@ await markFileDeletedInLogs(fileUrl)
 - Оптимистичное обновление при отправке: сообщение сразу появляется справа с `senderId = user.id`
 - Прочтение: входящие помечаются как прочитанные при открытии чата (is_read=1, read_at=timestamp)
 - Удаление сообщения («отозвать»): только отправитель, `DELETE /api/messages/:id`
-- Вложения: изображения — превью в пузыре, клик → лайтбокс; другие файлы — иконка + скачать
+- **Удаление диалога**: кнопка 🗑 появляется при hover на диалог в `ConversationList`; `showConfirm` → `deleteConversation(id)` в `useMessages` → оптимистичное удаление из списка → `DELETE /api/conversations/:id`; бэкенд удаляет файлы async
+- **Вложения**: изображения — превью в пузыре, клик → лайтбокс; видео — `<video controls playsInline>`; аудио — `<audio controls>`; другие файлы — иконка + скачать; рендер через `renderAttachment(att, key)` в `ChatWindow`; поддерживает и legacy `msg.fileUrl` и массив `msg.files`
+- **Множественные файлы**: `MessageInput` принимает несколько файлов (`multiple` на input); превью до отправки (blob URL для изображений/видео, FileIcon + размер для остальных); загрузка при отправке с прогресс-баром через `onUploadProgress`; первый файл → `file` поле, остальные → `files[]`; бейдж с количеством файлов на кнопке 📎
 - Аватарки — квадратные с скруглёнными углами (`border-radius: 6px`), т.к. голова скина Minecraft
-- Хук `useMessages()` — состояние диалогов, сообщений, отправка, удаление, пагинация
+- Хук `useMessages()` — состояние диалогов, сообщений, отправка, удаление, пагинация; `sendMessage(partnerId, content, files=[])` — files массив `[{fileUrl, fileType, fileName}]`; `deleteConversation(conversationId)` — удаляет диалог
 - Компоненты: `ConversationList`, `ChatWindow`, `MessageInput`, `FileIcon` (в `src/Components/`)
 - Роутеры бэкенда: `conversationsRouter` → `/api/conversations`, `messagesDeleteRouter` → `/api/messages`
 
@@ -965,7 +976,7 @@ await markFileDeletedInLogs(fileUrl)
 `PlayerCard` принимает пропы: `username`, `status` (`'online'|'offline'`), `currentUser`, `token`
 
 ## Что не реализовано
-- [ ] Удаление файла с диска при удалении фото из галереи (`images`) и сообщений (`messages`) — для сообщений; для альбомного удаления — реализовано
+- [ ] Удаление файлов сообщений с диска при удалении одного сообщения `DELETE /api/messages/:id` (при удалении всего диалога файлы удаляются)
 - [ ] Уведомление игрока об одобрении/отклонении заявки
 - [ ] Редактирование комментариев и сообщений (только удаление)
 - [ ] WebSocket для real-time сообщений (сейчас polling каждые 5 сек)

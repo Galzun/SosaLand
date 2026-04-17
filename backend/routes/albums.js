@@ -13,7 +13,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, ROLE_LEVEL } = require('../middleware/auth');
 const { logActivity, markFileDeletedInLogs } = require('../utils/logActivity');
 const { deleteFileAsync } = require('../utils/storage');
 
@@ -115,7 +115,7 @@ router.put('/:id', requireAuth, async (req, res) => {
   try {
     const album = await dbGet(`SELECT id, user_id FROM albums WHERE id = ?`, [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Альбом не найден' });
-    if (album.user_id !== req.user.id && req.user.role !== 'admin') {
+    if (album.user_id !== req.user.id && ROLE_LEVEL[req.user.role] < ROLE_LEVEL.admin) {
       return res.status(403).json({ error: 'Нет прав' });
     }
     const now     = Math.floor(Date.now() / 1000);
@@ -136,7 +136,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const album = await dbGet(`SELECT id, user_id FROM albums WHERE id = ?`, [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Альбом не найден' });
-    if (album.user_id !== req.user.id && req.user.role !== 'admin') {
+    if (album.user_id !== req.user.id && ROLE_LEVEL[req.user.role] < ROLE_LEVEL.admin) {
       return res.status(403).json({ error: 'Нет прав' });
     }
 
@@ -243,7 +243,7 @@ router.post('/:id/images', requireAuth, async (req, res) => {
   try {
     const album = await dbGet(`SELECT id, user_id FROM albums WHERE id = ?`, [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Альбом не найден' });
-    if (album.user_id !== req.user.id && req.user.role !== 'admin') {
+    if (album.user_id !== req.user.id && ROLE_LEVEL[req.user.role] < ROLE_LEVEL.admin) {
       return res.status(403).json({ error: 'Нет прав' });
     }
 
@@ -272,7 +272,7 @@ router.delete('/:id/images/:imageId', requireAuth, async (req, res) => {
   try {
     const album = await dbGet(`SELECT id, user_id FROM albums WHERE id = ?`, [req.params.id]);
     if (!album) return res.status(404).json({ error: 'Альбом не найден' });
-    if (album.user_id !== req.user.id && req.user.role !== 'admin') {
+    if (album.user_id !== req.user.id && ROLE_LEVEL[req.user.role] < ROLE_LEVEL.admin) {
       return res.status(403).json({ error: 'Нет прав' });
     }
 

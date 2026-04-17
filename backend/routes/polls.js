@@ -13,7 +13,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const db      = require('../db');
-const { requireAuth, isAdmin } = require('../middleware/auth');
+const { requireAuth, isAdmin, ROLE_LEVEL } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -517,7 +517,7 @@ router.post('/:id/options', requireAuth, async (req, res) => {
     const poll = await dbGet(`SELECT * FROM polls WHERE id = ?`, [req.params.id]);
     if (!poll) return res.status(404).json({ error: 'Опрос не найден' });
 
-    if (!poll.allow_add_options && req.user.role !== 'admin') {
+    if (!poll.allow_add_options && ROLE_LEVEL[req.user.role] < ROLE_LEVEL.admin) {
       return res.status(403).json({ error: 'Добавление вариантов запрещено в этом опросе' });
     }
 

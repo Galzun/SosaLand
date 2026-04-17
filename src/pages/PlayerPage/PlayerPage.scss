@@ -46,6 +46,22 @@
   margin-right: auto;
 }
 
+/* Внутренний слой обложки (position/inset/repeat/size — статика здесь, динамика через inline) */
+.player-page__cover-inner {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-size: cover; // дефолт: заполнять без пустых полос; при scale≠100 переопределяется inline
+}
+
+/* Внутренний слой фона страницы */
+.player-page__bg-inner {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
 /* Обложка */
 .player-page__cover {
   // aspect-ratio задаётся CSS-переменными, которые задаёт пользователь в настройках.
@@ -1194,6 +1210,88 @@
   }
 }
 
+// Панель выбора секций при очистке данных
+.player-page__clear-panel {
+  background: rgba(255, 200, 0, 0.06);
+  border: 1px solid rgba(255, 200, 0, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.player-page__clear-panel-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ffd700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 2px;
+}
+
+.player-page__clear-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: #ccc;
+  cursor: pointer;
+  padding: 2px 0;
+  -webkit-user-select: none;
+  user-select: none;
+
+  input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: #ffd700;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  &:hover { color: #fff; }
+}
+
+.player-page__clear-panel-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.player-page__clear-cancel {
+  flex: 1;
+  background: none;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #888;
+  font-size: 0.82rem;
+  padding: 6px 0;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+
+  &:hover { border-color: #666; color: #ccc; }
+}
+
+.player-page__clear-confirm {
+  flex: 1;
+  background: rgba(255, 200, 0, 0.15);
+  border: 1px solid rgba(255, 200, 0, 0.5);
+  border-radius: 6px;
+  color: #ffd700;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 0;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:not(:disabled):hover {
+    background: rgba(255, 200, 0, 0.25);
+    border-color: #ffd700;
+  }
+
+  &:disabled { opacity: 0.35; cursor: not-allowed; }
+}
+
 // =============================================================================
 // Адаптивность
 // =============================================================================
@@ -1204,7 +1302,6 @@
   }
 
   .player-page__cover {
-    aspect-ratio: 3 / 1;
     min-height: 100px;
   }
 
@@ -1214,7 +1311,6 @@
 
   .player-page__info-row {
     gap: 12px;
-    margin-top: -30px;
   }
 
   .player-page__avatar {
@@ -1267,10 +1363,6 @@
 @media (max-width: 480px) {
   .player-page {
     padding: 0;
-  }
-
-  .player-page__cover {
-    aspect-ratio: 2.5 / 1;
   }
 
   .player-page__info-row {

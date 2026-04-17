@@ -218,7 +218,7 @@ function Gallery() {
   };
 
   const canDelete = (album) =>
-    user && (user.id === album.author?.id || user.role === 'admin');
+    user && (user.id === album.author?.id || user.role === 'admin' || user.role === 'creator');
 
   return (
     <main className="gallery">

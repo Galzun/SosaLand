@@ -6,30 +6,28 @@
 //   cover_aspect_w    INTEGER 4    — числитель соотношения сторон обложки
 //   cover_aspect_h    INTEGER 1    — знаменатель соотношения сторон обложки
 
-const db = require('../db');
+const { Pool } = require('pg');
+require('dotenv').config();
 
 async function up() {
-  const addInt = (col, def) => new Promise((resolve, reject) => {
-    db.run(`ALTER TABLE users ADD COLUMN ${col} INTEGER DEFAULT ${def}`, err => {
-      if (err && (err.message.includes('duplicate column') || err.message.includes('already exists'))) resolve();
-      else if (err) reject(err);
-      else resolve();
-    });
+  const DATABASE_URL = process.env.DATABASE_URL;
+  const pool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: DATABASE_URL.includes('localhost') || DATABASE_URL.includes('127.0.0.1')
+      ? false
+      : { rejectUnauthorized: false },
   });
-
-  const addText = (col) => new Promise((resolve, reject) => {
-    db.run(`ALTER TABLE users ADD COLUMN ${col} TEXT`, err => {
-      if (err && (err.message.includes('duplicate column') || err.message.includes('already exists'))) resolve();
-      else if (err) reject(err);
-      else resolve();
-    });
-  });
-
-  await addText('bio_color');
-  await addInt('bio_font_size',   14);
-  await addInt('bio_font_weight', 400);
-  await addInt('cover_aspect_w',  4);
-  await addInt('cover_aspect_h',  1);
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bio_color TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bio_font_size INTEGER DEFAULT 14`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bio_font_weight INTEGER DEFAULT 400`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_aspect_w INTEGER DEFAULT 4`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_aspect_h INTEGER DEFAULT 1`);
+  } finally {
+    client.release();
+    await pool.end();
+  }
 }
 
 module.exports = { up };

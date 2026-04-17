@@ -337,6 +337,11 @@
   &:hover { background: rgba(255, 107, 107, 0.8); }
 }
 
+// Обёртка textarea для позиционирования дропдауна
+.comment-section__textarea-wrap {
+  position: relative;
+}
+
 .comment-section__textarea {
   width: 100%;
   background: transparent;
@@ -352,6 +357,16 @@
 
   &::placeholder { color: #555; }
   &:focus { outline: none; }
+}
+
+// Упоминание @username в тексте комментария
+.comment-section__mention {
+  color: var(--cards-accent-color, #4aff9e);
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.15s;
+
+  &:hover { opacity: 0.75; }
 }
 
 // Скрытый file input

@@ -2,16 +2,24 @@
 // Добавляет поддержку множественных вложений в сообщениях:
 //   files_json TEXT — JSON-массив [{fileUrl, fileType, fileName}] дополнительных файлов
 
-const db = require('../db');
+const { Pool } = require('pg');
+require('dotenv').config();
 
 async function up() {
-  await new Promise((resolve, reject) => {
-    db.run(`ALTER TABLE messages ADD COLUMN files_json TEXT`, err => {
-      if (err && (err.message.includes('duplicate column') || err.message.includes('already exists'))) resolve();
-      else if (err) reject(err);
-      else resolve();
-    });
+  const DATABASE_URL = process.env.DATABASE_URL;
+  const pool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: DATABASE_URL.includes('localhost') || DATABASE_URL.includes('127.0.0.1')
+      ? false
+      : { rejectUnauthorized: false },
   });
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS files_json TEXT`);
+  } finally {
+    client.release();
+    await pool.end();
+  }
 }
 
 module.exports = { up };

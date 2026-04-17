@@ -14,9 +14,12 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import { usePlayer } from '../../context/PlayerContext';
+import { getMentionInEditor } from '../../utils/mentionUtils';
 import FileIcon from '../FileIcon/FileIcon';
 import EmojiPicker from '../EmojiPicker/EmojiPicker';
 import PollBuilder from '../PollBuilder/PollBuilder';
+import MentionDropdown from '../MentionDropdown/MentionDropdown';
 import { showPrompt } from '../Dialog/dialogManager';
 import './PostForm.scss';
 
@@ -170,15 +173,52 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
   const [showEmoji,      setShowEmoji]      = useState(false);
   const [showPollBuilder, setShowPollBuilder] = useState(false);
   const [pendingPoll,    setPendingPoll]    = useState(null);
+  const [mentionState,   setMentionState]   = useState(null); // { query, node, nodeOffset, len } | null
+  const [mentionIndex,   setMentionIndex]   = useState(0);
   // Длина текста (без тегов) — для счётчика символов и canSubmit
   const [textLen,        setTextLen]        = useState(
     isEditing ? htmlTextLength(initialPost?.content || '') : 0
   );
 
-  const editorRef     = useRef(null);
-  const fileInputRef  = useRef(null);
-  const emojiWrapRef  = useRef(null);
+  const editorRef      = useRef(null);
+  const fileInputRef   = useRef(null);
+  const emojiWrapRef   = useRef(null);
+  const mentionDropRef = useRef(null);
   const { token, user } = useAuth();
+  const { allPlayers }  = usePlayer();
+
+  const mentionSuggestions = mentionState
+    ? allPlayers.filter(p => p.name.toLowerCase().startsWith(mentionState.query)).slice(0, 7)
+    : [];
+
+  // Закрываем дропдаун при клике вне
+  useEffect(() => {
+    if (!mentionState) return;
+    const handler = (e) => {
+      if (
+        mentionDropRef.current && !mentionDropRef.current.contains(e.target) &&
+        editorRef.current && !editorRef.current.contains(e.target)
+      ) {
+        setMentionState(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [mentionState]);
+
+  const insertMentionUser = (username) => {
+    const { node, nodeOffset, len } = mentionState;
+    // Восстанавливаем выделение на @query в contentEditable
+    const range = document.createRange();
+    range.setStart(node, nodeOffset);
+    range.setEnd(node, nodeOffset + len);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    document.execCommand('insertText', false, '@' + username + '\u00A0');
+    setMentionState(null);
+    handleEditorInput();
+  };
 
   // Устанавливаем начальное содержимое в режиме редактирования
   useEffect(() => {
@@ -219,6 +259,17 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
     const el = editorRef.current;
     if (!el) return;
     setTextLen((el.textContent || '').length);
+    setMentionState(getMentionInEditor());
+    setMentionIndex(0);
+  };
+
+  const handleEditorKeyDown = (e) => {
+    if (mentionState && mentionSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIndex(i => Math.min(i + 1, mentionSuggestions.length - 1)); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); setMentionIndex(i => Math.max(i - 1, 0)); return; }
+      if (e.key === 'Tab' || e.key === 'Enter') { e.preventDefault(); insertMentionUser(mentionSuggestions[mentionIndex].name); return; }
+      if (e.key === 'Escape')    { setMentionState(null); return; }
+    }
   };
 
   // Вставка только plain text (без форматирования из буфера)
@@ -428,15 +479,26 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
 
         <div className="post-form__textarea-wrap">
           {/* Редактор с поддержкой ссылок */}
-          <div
-            ref={editorRef}
-            className="post-form__editor"
-            contentEditable={isBusy ? 'false' : 'true'}
-            onInput={handleEditorInput}
-            onPaste={handlePaste}
-            data-placeholder={isEditing ? 'Текст поста...' : 'Что нового на сервере?'}
-            suppressContentEditableWarning
-          />
+          <div className="post-form__editor-wrap">
+            <div
+              ref={editorRef}
+              className="post-form__editor"
+              contentEditable={isBusy ? 'false' : 'true'}
+              onInput={handleEditorInput}
+              onKeyDown={handleEditorKeyDown}
+              onPaste={handlePaste}
+              onClick={() => { setMentionState(getMentionInEditor()); setMentionIndex(0); }}
+              data-placeholder={isEditing ? 'Текст поста...' : 'Что нового на сервере?'}
+              suppressContentEditableWarning
+            />
+            <MentionDropdown
+              players={mentionSuggestions}
+              activeIndex={mentionIndex}
+              onSelect={insertMentionUser}
+              onHover={setMentionIndex}
+              dropRef={mentionDropRef}
+            />
+          </div>
 
           {/* Существующие вложения (режим редактирования) */}
           {isEditing && existingAtts.length > 0 && (

@@ -13,7 +13,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, ROLE_LEVEL } = require('../middleware/auth');
 const { imageCommentsRouter } = require('./comments');
 const { logActivity, markFileDeletedInLogs } = require('../utils/logActivity');
 const { deleteFileAsync } = require('../utils/storage');
@@ -310,7 +310,7 @@ router.delete('/group/:groupId', requireAuth, async (req, res) => {
 
     if (images.length === 0) return res.status(404).json({ error: 'Медиа не найдено' });
 
-    if (images[0].user_id !== userId && userRole !== 'admin') {
+    if (images[0].user_id !== userId && ROLE_LEVEL[userRole] < ROLE_LEVEL.admin) {
       return res.status(403).json({ error: 'Нет прав для удаления' });
     }
 
@@ -379,7 +379,7 @@ router.delete('/album/:groupId', requireAuth, async (req, res) => {
 
     if (images.length === 0) return res.status(404).json({ error: 'Альбом не найден' });
 
-    if (images[0].user_id !== userId && userRole !== 'admin') {
+    if (images[0].user_id !== userId && ROLE_LEVEL[userRole] < ROLE_LEVEL.admin) {
       return res.status(403).json({ error: 'Нет прав для удаления' });
     }
 
@@ -413,7 +413,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
     if (!image) return res.status(404).json({ error: 'Медиа не найдено' });
 
-    if (image.user_id !== userId && userRole !== 'admin') {
+    if (image.user_id !== userId && ROLE_LEVEL[userRole] < ROLE_LEVEL.admin) {
       return res.status(403).json({ error: 'Нет прав для удаления' });
     }
 

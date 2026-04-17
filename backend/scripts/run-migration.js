@@ -95,7 +95,8 @@ async function runMigrations(existingPool) {
       } catch (err) {
         // Если колонка уже существует — помечаем как применённую и продолжаем.
         // Это случается когда миграция была выполнена вручную без записи в трекинг.
-        if (err.message && (err.message.includes('already exists') || err.message.includes('duplicate column'))) {
+        // 42701 = duplicate_column (PostgreSQL error code, locale-independent)
+        if (err.code === '42701' || (err.message && (err.message.includes('already exists') || err.message.includes('duplicate column') || err.message.includes('уже существует')))) {
           console.log(`  ↷ ${file} (уже частично применена, пропускаю)`);
           await client.query(
             'INSERT INTO schema_migrations (version) VALUES ($1) ON CONFLICT DO NOTHING',

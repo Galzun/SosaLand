@@ -15,6 +15,7 @@ import { timeAgo } from '../../utils/timeFormatter';
 import ProfileCommentsModal from './ProfileCommentsModal';
 import axios from 'axios';
 import { showConfirm, showAlert } from '../Dialog/dialogManager';
+import { renderWithMentions } from '../CommentSection/CommentSection';
 import './ProfileComments.scss';
 
 const PREVIEW_LIMIT = 3;
@@ -170,7 +171,7 @@ function ProfileCommentItem({ comment, currentUser, onDelete }) {
   const [avatarError, setAvatarError] = useState(false);
 
   const isOwner = currentUser && currentUser.id === comment.author.id;
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'creator';
 
   return (
     <div className="profile-comments__item">
@@ -213,7 +214,7 @@ function ProfileCommentItem({ comment, currentUser, onDelete }) {
             </button>
           )}
         </div>
-        <p className="profile-comments__item-text">{comment.content}</p>
+        <p className="profile-comments__item-text">{renderWithMentions(comment.content)}</p>
       </div>
     </div>
   );

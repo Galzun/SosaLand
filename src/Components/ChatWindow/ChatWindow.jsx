@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { renderWithMentions } from '../CommentSection/CommentSection';
 import MessageInput from '../MessageInput/MessageInput';
 import FileIcon from '../FileIcon/FileIcon';
 import './ChatWindow.scss';
@@ -188,7 +189,7 @@ function ChatWindow({
 
               {/* Текст сообщения */}
               {msg.content && (
-                <p className="chat__msg-text">{msg.content}</p>
+                <p className="chat__msg-text">{renderWithMentions(msg.content)}</p>
               )}
             </div>
 

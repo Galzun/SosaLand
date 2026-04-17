@@ -658,3 +658,13 @@
     color: #fff;
   }
 }
+
+// Упоминание @username в тексте поста
+.post-mention {
+  color: var(--cards-accent-color, #4aff9e);
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.15s;
+
+  &:hover { opacity: 0.75; }
+}
