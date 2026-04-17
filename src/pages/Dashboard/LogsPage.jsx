@@ -80,7 +80,7 @@ function sizeColor(bytes) {
 
 
 export default function LogsPage() {
-  const { user, token } = useAuth();
+  const { user, token, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const pageTopRef = useRef(null);
 
@@ -108,9 +108,10 @@ export default function LogsPage() {
 
   // Проверка прав
   useEffect(() => {
+    if (authLoading) return;
     if (!user) { navigate('/auth'); return; }
     if ((ROLE_LEVEL[user.role] ?? 1) < 3) navigate('/');
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   // Загрузка статистики
   const fetchStats = useCallback(() => {
@@ -254,6 +255,8 @@ export default function LogsPage() {
     setTopVisible(TOP_STEP);
     pageTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  if (authLoading || !user || (ROLE_LEVEL[user.role] ?? 1) < 3) return null;
 
   const totalPages  = Math.ceil(total / PAGE_SIZE);
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;

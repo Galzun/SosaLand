@@ -191,6 +191,8 @@ PlayerPage (/player/:username)
 | GET | `/api/albums/:id/images` | все | Медиа внутри альбома |
 | POST | `/api/albums/:id/images` | JWT (владелец) | Привязать медиа `{ imageIds: [] }` |
 | DELETE | `/api/albums/:id/images/:imageId` | JWT (владелец) | Удалить медиа из альбома + из images + с диска |
+| GET | `/api/reactions?targetType=X&targetId=Y` | все (JWT для userReacted) | Реакции на объект: `{ reactions: [{emoji, count, userReacted}] }` |
+| POST | `/api/reactions/toggle` | JWT | Toggle реакции; тело: `{ emoji, targetType, targetId }`; допустимые эмодзи: `❤️ 😂 😍 😭 👎 🤡 💩`; ответ: `{ added: bool }` |
 
 ## База данных — таблицы
 
@@ -451,6 +453,26 @@ S3_PUBLIC_URL=https://<bucket>.s3.timeweb.cloud  # опционально
 - `optionalAuth` — если токен есть и валиден → req.user, иначе → req.user = null; для забаненных всегда null
 - `ROLE_LEVEL` — `{ user: 1, editor: 2, admin: 3, creator: 4 }` — экспортируется для сравнения ролей в роутах
 
+## Защищённые страницы — паттерн редиректа
+
+`AuthContext` предоставляет `loading` — `true` пока `checkAuth()` асинхронно проверяет токен из localStorage. При обновлении страницы `user` и `token` изначально `null`, и только через несколько десятков мс становятся заполненными.
+
+**Правило:** любая страница с редиректом на `/auth` обязана проверять `loading` перед редиректом, иначе авторизованный пользователь будет выброшен при обновлении страницы.
+
+```jsx
+// Правильно:
+const { user, token, loading: authLoading } = useAuth(); // переименовать если есть свой loading
+
+useEffect(() => {
+  if (authLoading) return;          // ждём завершения checkAuth()
+  if (!user) navigate('/auth');
+}, [user, authLoading, navigate]);
+
+if (authLoading || !user) return null; // не рендерим контент до проверки
+```
+
+Страницы, где это уже реализовано: `EditProfile`, `Tickets`, `LogsPage`, `MessagesPage`.
+
 ## Иерархия ролей
 | Уровень | Роль | Описание |
 |---------|------|----------|
@@ -470,7 +492,7 @@ S3_PUBLIC_URL=https://<bucket>.s3.timeweb.cloud  # опционально
 - Лента `/feed` — глобальная, все посты, сортировка по дате (новые первые)
 - Прямая ссылка на пост `/post/:id` — страница `PostPage` загружает пост через `GET /api/posts/:id` и сразу открывает `PostModal` (`autoOpenModal` prop); кнопка «← Лента» для возврата
 - Страница профиля `/player/:username` — вкладки: **Посты** / **Фото**
-- Лайки: toggle (поставить/убрать), счётчик хранится в `posts.likes_count`
+- Лайки: бэкенд (`POST /api/posts/:id/like`) сохранён, но кнопка ❤️ убрана из UI — вместо неё `ReactionsBar` (см. «Система реакций»)
 - Удаление поста: автор **или admin/creator** (для модерации); при удалении физически удаляются все файлы с диска
 - **Редактирование поста**: только автор; кнопка ✏️ рядом с 🗑 в шапке PostCard и PostModal; открывает модалку с PostForm в режиме редактирования (`initialPost` prop); после сохранения пост обновляется в локальном состоянии через `patchPost`; под постом (если редактировался) отображается «Изменено N раз · время»; **модалка не закрывается по клику вне** (только кнопка «Отмена»); оверлей имеет `overflow-y: auto` — содержимое прокручивается при необходимости
 - Хук `usePosts({ userId?, disabled? })`: управляет состоянием, пагинацией, лайками; `disabled=true` — не загружает ничего
@@ -501,6 +523,7 @@ S3_PUBLIC_URL=https://<bucket>.s3.timeweb.cloud  # опционально
 - Кнопка 🔗 «Скопировать ссылку» (`.post-card__share`) — всегда видна, копирует `/post/${post.id}` через `navigator.clipboard`; opacity 0.5 по умолчанию, акцентный цвет при наведении
 - Props: добавлены `onCommentAdded` (callback при добавлении комментария) и `autoOpenModal` (если true — PostModal открыт сразу при монтировании)
 - Если `post.pollId` задан — рендерит `<PollViewer pollId={post.pollId} cssVars={cssVars} />` над текстом поста
+- **Футер** (`.post-card__footer`): `[ReactionsBar] ··· [💬 N]` — кнопка комментариев прижата к правому краю через `margin-left: auto`; кнопки ❤️ лайка нет
 - **Рендеринг контента**: функция `renderPostHtml(html)` — безопасно парсит HTML через `DOMParser`; допускает только `<a>` (цвет акцента, `target="_blank"`), `<br>`; блочные теги (`<div>`, `<p>`) конвертируются в `<br>`; обычные URL и `@упоминания` в тексте автоматически превращаются в ссылки (через `processTextNode` с `SPLIT_REGEX = /(https?:\/\/...|@\w+)/g`). Клик по ссылке/упоминанию не открывает PostModal (`stopPropagation`). Обрезание (`CONTENT_TRUNCATE = 300`) по длине `textContent` (без HTML-тегов) — свёрнутый вид показывает plain text, раскрытый — полный HTML; оба случая проходят через `renderPostHtml`
 
 ### PostModal
@@ -509,6 +532,7 @@ S3_PUBLIC_URL=https://<bucket>.s3.timeweb.cloud  # опционально
 - `.post-modal__attachments` — медиа-сетка переопределена (`margin:0; width:100%; border-radius:0`), аудио/документы/пагинация получают `padding: 0 20px`; двойных отрицательных отступов нет
 - Закрытие: клик на оверлей или Escape (крестика закрытия нет; кнопка ✕ удаления поста — только для автора)
 - Если `post.pollId` задан — рендерит `<PollViewer pollId={post.pollId} cssVars={cssVars} />` над текстом поста (аналогично PostCard)
+- **Строка статистики** (`.post-modal__stats`): `[ReactionsBar] ··· [💬 N] [время] [Изменено...]` — `💬` прижат к правому краю через `margin-left: auto`; кнопки ❤️ лайка нет
 - **Рендеринг контента**: та же функция `renderPostHtml(html)` что в PostCard — безопасный парсинг, ссылки и `@упоминания` цветом акцента. В PostModal `stopPropagation` на ссылках не нужен (нет родительского onClick)
 - `overflow-x: hidden` на `.post-modal__box` — никаких горизонтальных полос прокрутки
 - **Изменение ширины**: ручка `.post-modal__resize-handle` — дочерний элемент `.post-modal` (оверлея), не `.post-modal__box`. Позиционируется через `position: absolute; left: calc(50% - modalWidth/2)` — всегда на левом краю модала и не скроллируется с контентом. Ширина 16px, акцентная линия + 6 точек-грипперов цветом `--cards-accent-color`. Drag: `onMouseDown` → `mousemove/mouseup` на `document`; дельта умножается на 2 (модал центрирован → левый край точно следует за курсором). Диапазон: 400–1280px, дефолт 680px. Сохраняется в `localStorage` по ключу `sosaland:postModalWidth`.
@@ -814,6 +838,16 @@ await markFileDeletedInLogs(fileUrl)
 - `is_gallery` INTEGER DEFAULT 1 (migration 024) — 1 = видно в глобальной галерее; `DELETE /api/images/album/:groupId` устанавливает 0; профильное удаление альбомных файлов тоже устанавливает 0
 - `show_in_profile` INTEGER DEFAULT 1 (migration 026) — 1 = видно на вкладке «Фото» профиля; устанавливается в 0 когда альбомный файл удаляется из профиля (но не физически — он остаётся в альбоме)
 
+**reactions** (migration 034):
+- `id` TEXT PK (UUID)
+- `user_id` TEXT NOT NULL → users.id ON DELETE CASCADE
+- `emoji` TEXT NOT NULL — один из допустимых: `❤️ 😂 😍 😭 👎 🤡 💩`
+- `target_type` TEXT NOT NULL — `'post'` | `'news'` | `'event'` | `'comment'`
+- `target_id` TEXT NOT NULL — UUID соответствующего объекта
+- `created_at` INTEGER DEFAULT unix_now()
+- UNIQUE(user_id, emoji, target_type, target_id) — один эмодзи на объект от пользователя
+- INDEX on (target_type, target_id)
+
 ## Система новостей
 
 ### Страница списка `/news`
@@ -976,6 +1010,35 @@ await markFileDeletedInLogs(fileUrl)
 - В Home список сортируется: забаненные — в конце
 
 `PlayerCard` принимает пропы: `username`, `status` (`'online'|'offline'`), `currentUser`, `token`
+
+## Система реакций
+
+Эмодзи-реакции на посты, новости, события и комментарии. Один пользователь может поставить каждый эмодзи по одному разу.
+
+**Допустимые эмодзи:** `❤️ 😂 😍 😭 👎 🤡 💩`
+
+### Бэкенд (`backend/routes/reactions.js`)
+- `GET /api/reactions?targetType=X&targetId=Y` — возвращает `{ reactions: [{emoji, count, userReacted}] }`; опциональный JWT для поля `userReacted`
+- `POST /api/reactions/toggle` — тело `{ emoji, targetType, targetId }`; ставит реакцию если нет, убирает если есть; ответ `{ added: bool }`
+- Допустимые `targetType`: `'post'` | `'news'` | `'event'` | `'comment'`
+- Проверка эмодзи через `ALLOWED_EMOJIS` Set — неизвестные эмодзи возвращают 400
+
+### Компонент `ReactionsBar` (`src/Components/ReactionsBar/`)
+- Props: `targetType`, `targetId`, `cssVars?`
+- Самодостаточный: сам загружает реакции при монтировании, сам вызывает toggle
+- **Раскладка**: `[😊 кнопка-пикера] [❤️ 5] [😂 3] ...` — кнопка всегда слева, новые реакции появляются справа от неё и не двигают кнопку
+- Кнопка 😊 открывает пикер вниз (`top: calc(100% + 6px)`) — все 7 эмодзи в ряд; уже поставленные подсвечены акцентом; закрывается по клику вне
+- Оптимистичное обновление + откат при ошибке сети
+- Не рендерится совсем (`return null`) если реакций нет и пользователь не авторизован
+
+### Где используется
+| Место | targetType | Расположение |
+|-------|-----------|--------------|
+| PostCard (`.post-card__footer`) | `post` | Вместо кнопки ❤️ лайка; 💬 прижат к правому краю |
+| PostModal (`.post-modal__stats`) | `post` | Вместо кнопки ❤️ лайка; 💬 прижат через `margin-left: auto` |
+| CommentItem (`.comment-section__reactions`) | `comment` | Под текстом каждого комментария |
+| NewsDetailPage (`.news-detail__reactions`) | `news` | Перед секцией комментариев |
+| EventDetailPage (`.event-detail__reactions`) | `event` | Перед секцией комментариев |
 
 ## Что не реализовано
 - [ ] Удаление файлов сообщений с диска при удалении одного сообщения `DELETE /api/messages/:id` (при удалении всего диалога файлы удаляются)

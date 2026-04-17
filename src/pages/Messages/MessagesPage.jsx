@@ -21,7 +21,7 @@ import './MessagesPage.scss';
 const POLL_INTERVAL = 5000; // 5 секунд — частота polling'а при открытом чате
 
 function MessagesPage() {
-  const { user, token } = useAuth();
+  const { user, token, loading } = useAuth();
   const navigate         = useNavigate();
   const [searchParams]   = useSearchParams();
 
@@ -48,8 +48,9 @@ function MessagesPage() {
 
   // Перенаправляем неавторизованных
   useEffect(() => {
+    if (loading) return;
     if (!token) navigate('/auth');
-  }, [token, navigate]);
+  }, [token, loading, navigate]);
 
   // Загружаем список диалогов при монтировании
   useEffect(() => {
@@ -179,7 +180,7 @@ function MessagesPage() {
     if (activePartner) loadOlderMessages(activePartner.id);
   }, [activePartner, loadOlderMessages]);
 
-  if (!user) return null;
+  if (loading || !user) return null;
 
   return (
     <div className="messages-page">

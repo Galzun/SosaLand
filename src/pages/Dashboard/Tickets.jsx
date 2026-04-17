@@ -11,7 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import './Tickets.scss';
 
 function Tickets() {
-  const { user, token } = useAuth();
+  const { user, token, loading: authLoading } = useAuth();
   const navigate         = useNavigate();
 
   const [tickets, setTickets]         = useState([]);
@@ -25,6 +25,7 @@ function Tickets() {
   // Перенаправляем не-администраторов на главную страницу.
   // useEffect с зависимостью от user срабатывает при изменении состояния авторизации.
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
       navigate('/auth');
       return;
@@ -33,7 +34,7 @@ function Tickets() {
     if ((level[user.role] ?? 1) < 3) {
       navigate('/');
     }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   // Загружаем список тикетов с бэкенда.
   // useCallback мемоизирует функцию — без этого она создавалась бы заново при каждом рендере,
@@ -113,7 +114,7 @@ function Tickets() {
 
   // Не рендерим страницу пока не убедились в правах (избегаем мигания контента).
   const level = { creator: 4, admin: 3, editor: 2, user: 1 };
-  if (!user || (level[user.role] ?? 1) < 3) return null;
+  if (authLoading || !user || (level[user.role] ?? 1) < 3) return null;
 
   return (
     <div className="tickets">
