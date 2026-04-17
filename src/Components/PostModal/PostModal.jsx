@@ -15,6 +15,7 @@ import CommentSection from '../CommentSection/CommentSection';
 import PostAttachments from '../PostAttachments/PostAttachments';
 import PostForm from '../PostForm/PostForm';
 import PollViewer from '../PollViewer/PollViewer';
+import ReactionsBar from '../ReactionsBar/ReactionsBar';
 import { showConfirm } from '../Dialog/dialogManager';
 import './PostModal.scss';
 
@@ -145,11 +146,6 @@ function PostModal({ post, onClose, onLike, onDelete, onEdit, onCommentAdded, cs
   const timeText = timeAgo(post.createdAt * 1000);
   const avatarUrl = post.author?.avatarUrl;
 
-  const handleLike = () => {
-    if (!user) return;
-    onLike(post.id);
-  };
-
   const handleDelete = async () => {
     if (!(await showConfirm('Удалить пост?'))) return;
     onDelete(post.id);
@@ -255,16 +251,9 @@ function PostModal({ post, onClose, onLike, onDelete, onEdit, onCommentAdded, cs
           <p className="post-modal__content">{renderPostHtml(post.content)}</p>
         )}
 
-        {/* Статистика */}
+        {/* Статистика + реакции */}
         <div className="post-modal__stats">
-          <button
-            className={`post-modal__like ${post.liked ? 'post-modal__like--active' : ''} ${!user ? 'post-modal__like--disabled' : ''}`}
-            onClick={handleLike}
-            title={user ? (post.liked ? 'Убрать лайк' : 'Поставить лайк') : 'Войдите, чтобы поставить лайк'}
-          >
-            <span>{post.liked ? '❤️' : '🤍'}</span>
-            <span className="post-modal__like-count">{post.likesCount}</span>
-          </button>
+          <ReactionsBar targetType="post" targetId={post.id} cssVars={cssVars} />
 
           <span className="post-modal__stat-comments">
             💬 {post.commentsCount ?? 0}

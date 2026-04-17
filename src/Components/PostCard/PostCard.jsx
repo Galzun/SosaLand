@@ -12,6 +12,7 @@ import PostModal from '../PostModal/PostModal';
 import PostForm from '../PostForm/PostForm';
 import PostAttachments from '../PostAttachments/PostAttachments';
 import PollViewer from '../PollViewer/PollViewer';
+import ReactionsBar from '../ReactionsBar/ReactionsBar';
 import { showConfirm } from '../Dialog/dialogManager';
 import './PostCard.scss';
 
@@ -92,11 +93,6 @@ function PostCard({ post, onLike, onDelete, onEdit, onCommentAdded, cssVars, aut
   const displayContent = isTrunc && !contentExpanded
     ? contentText.slice(0, CONTENT_TRUNCATE) + '…'
     : content;
-
-  const handleLike = () => {
-    if (!user) return;
-    onLike(post.id);
-  };
 
   const handleDelete = async () => {
     if (!(await showConfirm('Удалить пост?'))) return;
@@ -227,16 +223,9 @@ function PostCard({ post, onLike, onDelete, onEdit, onCommentAdded, cssVars, aut
         </div>
       )}
 
-      {/* Нижняя панель: лайки + кнопка обсуждения */}
+      {/* Нижняя панель: реакции + кнопка обсуждения */}
       <div className="post-card__footer">
-        <button
-          className={`post-card__like ${post.liked ? 'post-card__like--active' : ''} ${!user ? 'post-card__like--disabled' : ''}`}
-          onClick={handleLike}
-          title={user ? (post.liked ? 'Убрать лайк' : 'Поставить лайк') : 'Войдите, чтобы поставить лайк'}
-        >
-          <span className="post-card__like-icon">{post.liked ? '❤️' : '🤍'}</span>
-          <span className="post-card__like-count">{post.likesCount}</span>
-        </button>
+        <ReactionsBar targetType="post" targetId={post.id} cssVars={cssVars} />
 
         <button
           className="post-card__comments-btn"

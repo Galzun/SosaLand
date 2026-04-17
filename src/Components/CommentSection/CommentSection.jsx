@@ -17,6 +17,7 @@ import { getMentionAtCursor } from '../../utils/mentionUtils';
 import useComments from '../../hooks/useComments';
 import EmojiPicker from '../EmojiPicker/EmojiPicker';
 import MentionDropdown from '../MentionDropdown/MentionDropdown';
+import ReactionsBar from '../ReactionsBar/ReactionsBar';
 import { showConfirm } from '../Dialog/dialogManager';
 import './CommentSection.scss';
 
@@ -479,6 +480,11 @@ function CommentItem({ comment, onDelete, currentUser }) {
             />
           </div>
         )}
+
+        {/* Реакции на комментарий */}
+        <div className="comment-section__reactions">
+          <ReactionsBar targetType="comment" targetId={comment.id} />
+        </div>
       </div>
     </div>
   );

@@ -492,6 +492,7 @@ S3_PUBLIC_URL=https://<bucket>.s3.timeweb.cloud  # опционально
 - Стиль `.post-form--editing` — без фона, рамки и отступов (модалка задаёт контекст)
 - **Оверлей PollBuilder** не закрывается по клику вне окна — только через кнопку ✕
 - **Редактор (`contentEditable` div)**: вместо `<textarea>` используется `<div contentEditable>` — поддерживает гиперссылки. Кнопка 🔗: выделить текст → `showPrompt` с URL → `execCommand('createLink')` → все `<a>` получают `target="_blank" rel="noopener noreferrer"`; если URL без схемы — добавляется `https://`. Вставка из буфера — только plain text (`execCommand('insertText')`). Символы считаются по `textContent.length` (без HTML-тегов). `content` в `onSubmit` — HTML-строка (может содержать `<a>`, `<br>`, `<div>`). В режиме редактирования начальный HTML устанавливается через `useEffect` → `innerHTML`. CSS-плейсхолдер через `[data-placeholder]:empty::before`
+- **@упоминания в редакторе**: при наборе `@` → `getMentionInEditor()` (из `src/utils/mentionUtils.js`) определяет запрос через `window.getSelection()` → дропдаун `MentionDropdown` над редактором; вставка через `document.execCommand('insertText', false, '@username\u00A0')`; выбор: мышью (`mousedown`) или клавиатурой (↑/↓/Enter/Tab/Esc); редактор обёрнут в `.post-form__editor-wrap` (`position:relative`) — относительно него позиционируется дропдаун
 
 ### PostCard
 - Вложения отображаются через `PostAttachments` (новый формат) или legacy `imageUrl`
@@ -500,7 +501,7 @@ S3_PUBLIC_URL=https://<bucket>.s3.timeweb.cloud  # опционально
 - Кнопка 🔗 «Скопировать ссылку» (`.post-card__share`) — всегда видна, копирует `/post/${post.id}` через `navigator.clipboard`; opacity 0.5 по умолчанию, акцентный цвет при наведении
 - Props: добавлены `onCommentAdded` (callback при добавлении комментария) и `autoOpenModal` (если true — PostModal открыт сразу при монтировании)
 - Если `post.pollId` задан — рендерит `<PollViewer pollId={post.pollId} cssVars={cssVars} />` над текстом поста
-- **Рендеринг контента**: функция `renderPostHtml(html)` — безопасно парсит HTML через `DOMParser`; допускает только `<a>` (цвет акцента, `target="_blank"`), `<br>`; блочные теги (`<div>`, `<p>`) конвертируются в `<br>`; обычные URL в тексте автоматически превращаются в ссылки. Клик по ссылке не открывает PostModal (`stopPropagation`). Обрезание (`CONTENT_TRUNCATE = 300`) по длине `textContent` (без HTML-тегов) — свёрнутый вид показывает plain text, раскрытый — полный HTML
+- **Рендеринг контента**: функция `renderPostHtml(html)` — безопасно парсит HTML через `DOMParser`; допускает только `<a>` (цвет акцента, `target="_blank"`), `<br>`; блочные теги (`<div>`, `<p>`) конвертируются в `<br>`; обычные URL и `@упоминания` в тексте автоматически превращаются в ссылки (через `processTextNode` с `SPLIT_REGEX = /(https?:\/\/...|@\w+)/g`). Клик по ссылке/упоминанию не открывает PostModal (`stopPropagation`). Обрезание (`CONTENT_TRUNCATE = 300`) по длине `textContent` (без HTML-тегов) — свёрнутый вид показывает plain text, раскрытый — полный HTML; оба случая проходят через `renderPostHtml`
 
 ### PostModal
 - Вложения отображаются через `PostAttachments` в полном размере (`compact={false}`, `disableScrollLock={true}`)
@@ -508,7 +509,7 @@ S3_PUBLIC_URL=https://<bucket>.s3.timeweb.cloud  # опционально
 - `.post-modal__attachments` — медиа-сетка переопределена (`margin:0; width:100%; border-radius:0`), аудио/документы/пагинация получают `padding: 0 20px`; двойных отрицательных отступов нет
 - Закрытие: клик на оверлей или Escape (крестика закрытия нет; кнопка ✕ удаления поста — только для автора)
 - Если `post.pollId` задан — рендерит `<PollViewer pollId={post.pollId} cssVars={cssVars} />` над текстом поста (аналогично PostCard)
-- **Рендеринг контента**: та же функция `renderPostHtml(html)` что в PostCard — безопасный парсинг, ссылки цветом акцента. В PostModal `stopPropagation` на ссылках не нужен (нет родительского onClick)
+- **Рендеринг контента**: та же функция `renderPostHtml(html)` что в PostCard — безопасный парсинг, ссылки и `@упоминания` цветом акцента. В PostModal `stopPropagation` на ссылках не нужен (нет родительского onClick)
 - `overflow-x: hidden` на `.post-modal__box` — никаких горизонтальных полос прокрутки
 - **Изменение ширины**: ручка `.post-modal__resize-handle` — дочерний элемент `.post-modal` (оверлея), не `.post-modal__box`. Позиционируется через `position: absolute; left: calc(50% - modalWidth/2)` — всегда на левом краю модала и не скроллируется с контентом. Ширина 16px, акцентная линия + 6 точек-грипперов цветом `--cards-accent-color`. Drag: `onMouseDown` → `mousemove/mouseup` на `document`; дельта умножается на 2 (модал центрирован → левый край точно следует за курсором). Диапазон: 400–1280px, дефолт 680px. Сохраняется в `localStorage` по ключу `sosaland:postModalWidth`.
 
@@ -692,6 +693,7 @@ await markFileDeletedInLogs(fileUrl)
 - Удалять может только автор или администратор (`DELETE /api/comments/:id`)
 - Хук `useComments({ type, id })` — управляет состоянием, пагинацией, добавлением/удалением; поддерживаемые типы: `post | image | profile | news | event`
 - `CommentSection.scss` использует `--cards-*` CSS-переменные (текст, акцент, hover-фоны)
+- `renderWithMentions(text)` — экспортируется из `CommentSection.jsx`; разбивает plain text на части, заменяя `@username` на `<Link>` к профилю; используется в `CommentItem`, `ProfileCommentItem`, `ChatWindow`
 - Компоненты: `CommentSection`, `ProfileComments`, `ProfileCommentsModal` (в `src/Components/`)
 
 ### CommentSection — режимы отображения формы
@@ -981,6 +983,43 @@ await markFileDeletedInLogs(fileUrl)
 - [ ] Редактирование комментариев и сообщений (только удаление)
 - [ ] WebSocket для real-time сообщений (сейчас polling каждые 5 сек)
 - [ ] Метаданные вложений постов: `duration`, `width`, `height` — поля в БД есть, но не заполняются при загрузке
+
+## Система упоминаний (@mention)
+
+### Ввод
+Автодополнение срабатывает при наборе `@` в любом поле ввода. Реализовано в трёх компонентах:
+
+| Компонент | Тип поля | Способ определения позиции |
+|---|---|---|
+| `CommentSection` | `<textarea>` | `getMentionAtCursor(value, cursorPos)` |
+| `MessageInput` | `<textarea>` | `getMentionAtCursor(value, cursorPos)` |
+| `PostForm` | `contentEditable div` | `getMentionInEditor()` через Selection API |
+
+- **`src/utils/mentionUtils.js`** — два хелпера:
+  - `getMentionAtCursor(value, cursorPos)` — для textarea: ищет `@слово` до курсора, возвращает `{ query, startIndex }` или `null`
+  - `getMentionInEditor()` — для contentEditable: использует `window.getSelection()`, возвращает `{ query, node, nodeOffset, len }` или `null`
+- Список игроков берётся из `usePlayer()` (PlayerContext → `allPlayers`), фильтруется по `name.startsWith(query)`, макс. 7 результатов
+- Вставка в textarea: `setText(before + '@username ' + after)` + `selectionStart/End` через `setTimeout`
+- Вставка в contentEditable: `document.execCommand('insertText', false, '@username\u00A0')` — неразрывный пробел как разделитель
+- **`MentionDropdown`** (`src/Components/MentionDropdown/`) — общий UI-дропдаун: аватарка 24px + жирный `@ник`; позиционируется через `position:absolute; bottom:calc(100%+4px)` относительно ближайшего `position:relative` родителя:
+  - CommentSection: обёртка `.comment-section__textarea-wrap`
+  - MessageInput: обёртка `.msg-input__textarea-wrap`
+  - PostForm: обёртка `.post-form__editor-wrap`
+- Клавиатура: ↑/↓ — навигация, Enter/Tab — выбор, Esc — закрыть; мышью — `onMouseDown` (не onClick, чтобы не терять фокус)
+- Закрытие по клику вне — через `mousedown` + `useRef` на дропдаун
+
+### Рендеринг
+`@username` в сохранённом тексте автоматически превращается в кликабельную ссылку `/player/username`:
+
+| Место | Функция |
+|---|---|
+| PostCard, PostModal | `processTextNode` внутри `renderPostHtml` — `SPLIT_REGEX = /(https?:\/\/...\|@\w+)/g`; `@username` → `<Link className="post-mention">` |
+| Комментарии (все типы) | `renderWithMentions(text)` — split по `/@\w+/g` → `<Link className="comment-section__mention">` |
+| Профиль (`ProfileComments`) | та же `renderWithMentions` (импорт из `CommentSection`) |
+| Сообщения (`ChatWindow`) | та же `renderWithMentions` |
+
+- Стиль `.post-mention` — акцентный цвет, жирный, без подчёркивания; определён в `PostCard.scss` (глобально) и вложен в `.post-modal__content` в `PostModal.scss`
+- Стиль `.comment-section__mention` — то же, определён в `CommentSection.scss`; `ProfileComments.scss` и `ChatWindow.scss` переиспользуют класс через нейминг
 
 ## Соглашения
 - Стили — SCSS с BEM, файл рядом с компонентом (`Component.jsx` + `Component.scss` или общий `Auth.scss`)

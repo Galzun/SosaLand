@@ -12,6 +12,7 @@ import SliderViewer from '../../Components/SliderViewer/SliderViewer';
 import PlayerListViewer from '../../Components/PlayerListViewer/PlayerListViewer';
 import ImageRowViewer from '../../Components/ImageRowViewer/ImageRowViewer';
 import ImageModal from '../../Components/ImageModal/ImageModal';
+import ReactionsBar from '../../Components/ReactionsBar/ReactionsBar';
 import './EventDetailPage.scss';
 
 // ---------------------------------------------------------------------------
@@ -377,6 +378,11 @@ function EventDetailPage() {
           Изменено {event.editedCount} {pluralEdit(event.editedCount)} · {formatDate(event.updatedAt)}
         </div>
       )}
+
+      {/* Реакции на событие */}
+      <div className="event-detail__reactions">
+        <ReactionsBar targetType="event" targetId={event.id} />
+      </div>
 
       {/* Комментарии */}
       <section className="event-detail__comments">

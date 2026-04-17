@@ -69,6 +69,9 @@ const { router: eventsRouter } = require('./routes/events');
 // Маршруты: GET /api/logs, GET /api/logs/stats
 const { router: logsRouter } = require('./routes/logs');
 
+// Роутер реакций (эмодзи на посты, новости, события и комментарии).
+const { router: reactionsRouter } = require('./routes/reactions');
+
 // Проверяем, что JWT_SECRET задан в .env.
 // Без него сервер не сможет подписывать и проверять токены — лучше упасть сразу.
 if (!process.env.JWT_SECRET) {
@@ -160,6 +163,9 @@ app.use('/api/events', eventsRouter);
 
 // Логи активности: GET /api/logs, GET /api/logs/stats (только admin+)
 app.use('/api/logs', logsRouter);
+
+// Реакции эмодзи: GET /api/reactions, POST /api/reactions/toggle
+app.use('/api/reactions', reactionsRouter);
 
 
 // --- Раздача собранного фронтенда (продакшн) ---

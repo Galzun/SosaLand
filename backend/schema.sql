@@ -383,6 +383,22 @@ CREATE TABLE IF NOT EXISTS album_images (
 
 
 -- ===========================================================================
+-- reactions  (реакции эмодзи на посты, новости, события и комментарии)
+-- ===========================================================================
+CREATE TABLE IF NOT EXISTS reactions (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  emoji       TEXT NOT NULL,
+  target_type TEXT NOT NULL,   -- 'post' | 'news' | 'event' | 'comment'
+  target_id   TEXT NOT NULL,
+  created_at  INTEGER DEFAULT (unix_now()),
+  UNIQUE(user_id, emoji, target_type, target_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reactions_target ON reactions(target_type, target_id);
+
+
+-- ===========================================================================
 -- activity_logs  (логи действий пользователей)
 -- ===========================================================================
 CREATE TABLE IF NOT EXISTS activity_logs (

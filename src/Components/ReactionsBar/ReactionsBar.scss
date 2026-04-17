@@ -1,0 +1,131 @@
+// Components/ReactionsBar/ReactionsBar.scss
+
+.reactions-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+
+  // -------------------------------------------------------------------------
+  // Существующая реакция (emoji + count)
+  // -------------------------------------------------------------------------
+  &__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px 2px 6px;
+    border-radius: 12px;
+    border: 1px solid var(--cards-border-color, rgba(255, 255, 255, 0.1));
+    background: transparent;
+    cursor: pointer;
+    color: var(--cards-text-color, #ccc);
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--cards-accent-color, #4aff9e);
+    }
+
+    &--active {
+      background: rgba(74, 255, 158, 0.1);
+      border-color: var(--cards-accent-color, #4aff9e);
+      color: var(--cards-accent-color, #4aff9e);
+
+      .reactions-bar__count {
+        color: var(--cards-accent-color, #4aff9e);
+      }
+    }
+
+    &:active { transform: scale(0.92); }
+    &:disabled { cursor: wait; opacity: 0.7; }
+  }
+
+  &__emoji {
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  &__count {
+    font-size: 11px;
+    font-weight: 600;
+    min-width: 9px;
+    text-align: center;
+    color: var(--cards-text-dim, rgba(255, 255, 255, 0.5));
+  }
+
+  // -------------------------------------------------------------------------
+  // Кнопка «+» и пикер
+  // -------------------------------------------------------------------------
+  &__add-wrap {
+    position: relative;
+  }
+
+  &__add {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--cards-border-color, rgba(255, 255, 255, 0.1));
+    background: transparent;
+    color: var(--cards-text-dim, rgba(255, 255, 255, 0.4));
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+    padding: 0;
+
+    &:hover,
+    &--open {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--cards-accent-color, #4aff9e);
+      color: var(--cards-accent-color, #4aff9e);
+    }
+
+    &:active { transform: scale(0.9); }
+  }
+
+  &__picker {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    background: #15152a;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    padding: 6px;
+    display: flex;
+    gap: 2px;
+    z-index: 200;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+    white-space: nowrap;
+
+    &-emoji {
+      font-size: 20px;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.12s, transform 0.1s, border-color 0.12s;
+      padding: 0;
+      line-height: 1;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.08);
+        transform: scale(1.22);
+      }
+
+      &--active {
+        background: rgba(74, 255, 158, 0.12);
+        border-color: rgba(74, 255, 158, 0.35);
+      }
+
+      &:active { transform: scale(0.9); }
+    }
+  }
+}

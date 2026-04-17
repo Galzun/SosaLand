@@ -11,6 +11,7 @@ import SliderViewer from '../../Components/SliderViewer/SliderViewer';
 import PlayerListViewer from '../../Components/PlayerListViewer/PlayerListViewer';
 import ImageRowViewer from '../../Components/ImageRowViewer/ImageRowViewer';
 import ImageModal from '../../Components/ImageModal/ImageModal';
+import ReactionsBar from '../../Components/ReactionsBar/ReactionsBar';
 import './NewsDetailPage.scss';
 
 function formatDate(ts) {
@@ -132,6 +133,11 @@ function NewsDetailPage() {
           Изменено {news.editedCount} {pluralEdit(news.editedCount)} · {formatDate(news.updatedAt)}
         </div>
       )}
+
+      {/* Реакции на новость */}
+      <div className="news-detail__reactions">
+        <ReactionsBar targetType="news" targetId={news.id} />
+      </div>
 
       {/* Комментарии */}
       <section className="news-detail__comments">
