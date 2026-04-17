@@ -174,12 +174,13 @@
     // Маркеры слайдера и списка игроков внутри редактора
     .rte-slider,
     .rte-player-list,
+    .rte-image-row,
     .rte-poll-marker {
       // Стили задаются инлайн при вставке,
       // здесь добавляем только интерактивность
       -webkit-user-select: none;
       user-select: none;
-      cursor: default;
+      cursor: pointer;
 
       &:hover {
         outline: 1px solid rgba(74, 255, 158, 0.4);

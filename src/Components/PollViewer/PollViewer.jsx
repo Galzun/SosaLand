@@ -11,14 +11,16 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import VotersModal from '../VotersModal/VotersModal';
 import PollBuilder from '../PollBuilder/PollBuilder';
+import { showConfirm } from '../Dialog/dialogManager';
 import './PollViewer.scss';
 
 const PAGE_SIZE = 5;
 
-function PollViewer({ pollId, cssVars }) {
+function PollViewer({ pollId, cssVars, onDeleted }) {
   const { user, token } = useAuth();
   const [poll,          setPoll]          = useState(null);
   const [loading,       setLoading]       = useState(true);
+  const [deleted,       setDeleted]       = useState(false);
   const [voting,        setVoting]        = useState(false);
   const [error,         setError]         = useState('');
   const [selected,      setSelected]      = useState([]); // выбранные option ids
@@ -109,6 +111,22 @@ function PollViewer({ pollId, cssVars }) {
     }
   };
 
+  // Удалить опрос
+  const handleDelete = async () => {
+    const confirmed = await showConfirm('Удалить опрос? Это действие необратимо.');
+    if (!confirmed) return;
+    try {
+      await axios.delete(`/api/polls/${pollId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setEditMode(false);
+      setDeleted(true);
+      onDeleted?.();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Ошибка при удалении опроса');
+    }
+  };
+
   // Сохранить изменения опроса
   const handleEditConfirm = async (pollData) => {
     setEditMode(false);
@@ -155,6 +173,7 @@ function PollViewer({ pollId, cssVars }) {
     );
   }
 
+  if (deleted) return null;
   if (!poll) return null;
 
   const hasVoted  = poll.userVotedIds && poll.userVotedIds.length > 0;
@@ -409,6 +428,7 @@ function PollViewer({ pollId, cssVars }) {
               }}
               onConfirm={handleEditConfirm}
               onCancel={() => setEditMode(false)}
+              onDelete={handleDelete}
             />
           </div>
         </div>,

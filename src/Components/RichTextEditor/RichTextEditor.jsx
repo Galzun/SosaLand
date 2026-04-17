@@ -715,6 +715,18 @@ function RichTextEditor({ value, onChange, onUploadImage, onCreatePoll, allPlaye
       return;
     }
 
+    // Удаление опроса по клику на маркер
+    const pollMarker = e.target.closest?.('.rte-poll-marker');
+    if (pollMarker) {
+      showConfirm('Удалить опрос из статьи?').then(confirmed => {
+        if (!confirmed) return;
+        pollMarker.remove();
+        // Удаляем пустой <p> после маркера, если он остался
+        handleInput();
+      });
+      return;
+    }
+
     const tag = e.target.tagName.toLowerCase();
     if (tag === 'video') {
       e.preventDefault();
@@ -738,7 +750,7 @@ function RichTextEditor({ value, onChange, onUploadImage, onCreatePoll, allPlaye
       }
     }
     deselectMedia();
-  }, [selectMedia, deselectMedia, allPlayers]);
+  }, [selectMedia, deselectMedia, allPlayers, handleInput]);
 
   const handleEditorMouseDown = useCallback((e) => {
     const tag = e.target.tagName.toLowerCase();

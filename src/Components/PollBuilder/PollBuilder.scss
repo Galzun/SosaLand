@@ -224,10 +224,28 @@
   &__footer {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
     gap: 10px;
     padding: 14px 18px;
     background: #13132a;
     border-top: 1px solid #2a2a3a;
+  }
+
+  &__btn-delete {
+    background: none;
+    border: 1px solid rgba(255, 74, 74, 0.4);
+    color: #ff6b6b;
+    font-size: 0.88rem;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-right: auto;
+    transition: background 0.15s, border-color 0.15s;
+
+    &:hover {
+      background: rgba(255, 74, 74, 0.1);
+      border-color: #ff4a4a;
+    }
   }
 
   &__btn-cancel {

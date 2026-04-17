@@ -17,7 +17,7 @@ const DESC_MAX      = 500;
 const OPTIONS_MIN   = 2;
 const OPTIONS_MAX   = 25;
 
-function PollBuilder({ onConfirm, onCancel, initialData }) {
+function PollBuilder({ onConfirm, onCancel, onDelete, initialData }) {
   const isEdit = Boolean(initialData);
 
   const [question,        setQuestion]        = useState(initialData?.question        || '');
@@ -212,6 +212,11 @@ function PollBuilder({ onConfirm, onCancel, initialData }) {
       </div>
 
       <div className="poll-builder__footer">
+        {isEdit && onDelete && (
+          <button type="button" className="poll-builder__btn-delete" onClick={onDelete}>
+            Удалить опрос
+          </button>
+        )}
         <button type="button" className="poll-builder__btn-cancel" onClick={onCancel}>
           Отмена
         </button>
