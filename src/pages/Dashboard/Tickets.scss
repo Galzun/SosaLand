@@ -34,6 +34,53 @@
     margin-bottom: 16px;
   }
 
+  // Вкладки
+  &__tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  &__tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: 1px solid #2a2a3a;
+    background: transparent;
+    color: #aaa;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &:hover {
+      border-color: #4aff9e55;
+      color: #ddd;
+    }
+
+    &--active {
+      background: rgba(74, 255, 158, 0.1);
+      border-color: #4aff9e;
+      color: #4aff9e;
+    }
+  }
+
+  &__tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: #ff4a4a;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
   &__list {
     display: flex;
     flex-direction: column;
@@ -113,6 +160,73 @@
     flex-direction: column;
     gap: 8px;
     flex-shrink: 0;
+  }
+
+  // Карточка в истории
+  &__card--history {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  &__card--approved {
+    border-color: rgba(74, 255, 158, 0.2);
+  }
+
+  &__card--rejected {
+    border-color: rgba(255, 74, 74, 0.2);
+  }
+
+  // Блок вердикта (кто обработал)
+  &__card-verdict {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex-shrink: 0;
+    min-width: 160px;
+  }
+
+  &__verdict-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+
+    &--approved {
+      background: rgba(74, 255, 158, 0.12);
+      color: #4aff9e;
+      border: 1px solid rgba(74, 255, 158, 0.35);
+    }
+
+    &--rejected {
+      background: rgba(255, 74, 74, 0.1);
+      color: #ff6b6b;
+      border: 1px solid rgba(255, 74, 74, 0.3);
+    }
+  }
+
+  &__verdict-by {
+    font-size: 0.85rem;
+    color: #ccc;
+
+    strong {
+      color: #fff;
+    }
+  }
+
+  &__verdict-date {
+    font-size: 0.78rem;
+    color: #666;
+  }
+
+  &__verdict-reason {
+    font-size: 0.78rem;
+    color: #ffa94d;
+    font-style: italic;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   // Кнопки действий

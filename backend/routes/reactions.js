@@ -12,7 +12,7 @@ const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-const ALLOWED_EMOJIS = new Set(['❤️', '😂', '😍', '😭', '👎', '🤡', '💩']);
+const ALLOWED_EMOJIS = new Set(['❤️', '😊', '😂', '😍', '😭', '🤯', '👎', '💩', '🤡']);
 
 // ---------------------------------------------------------------------------
 // optionalAuth — опциональная авторизация (для поля userReacted)

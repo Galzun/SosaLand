@@ -507,6 +507,29 @@
     color: var(--text-muted);
   }
 
+  // Превью файла при наведении
+  &__file-preview {
+    position: fixed;
+    z-index: 9999;
+    background: #111118;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+    pointer-events: none;
+    max-width: 280px;
+    max-height: 200px;
+
+    img, video {
+      display: block;
+      max-width: 280px;
+      max-height: 200px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+  }
+
   // ── Пагинация ────────────────────────────────────
   &__pagination {
     display: flex;

@@ -124,6 +124,52 @@ router.post('/', async (req, res) => {
 
 
 // ---------------------------------------------------------------------------
+// GET /api/tickets/admin/history — последние обработанные тикеты
+// ---------------------------------------------------------------------------
+// Только для администраторов. Возвращает approved/rejected тикеты с именем
+// того, кто обработал заявку.
+// ---------------------------------------------------------------------------
+router.get('/admin/history', requireAuth, isAdmin, async (req, res) => {
+  try {
+    const limit  = Math.min(Number(req.query.limit)  || 50, 100);
+    const offset = Math.max(Number(req.query.offset) || 0,  0);
+
+    const tickets = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT t.id, t.minecraft_uuid, t.minecraft_name, t.username, t.contact,
+                t.status, t.created_at, t.approved_at, t.rejection_reason,
+                u.username AS approved_by_username
+         FROM tickets t
+         LEFT JOIN users u ON u.id = t.approved_by
+         WHERE t.status IN ('approved', 'rejected')
+         ORDER BY t.approved_at DESC
+         LIMIT ? OFFSET ?`,
+        [limit, offset],
+        (err, rows) => { if (err) reject(err); else resolve(rows); }
+      );
+    });
+
+    res.json(tickets.map(t => ({
+      id:                  t.id,
+      minecraftUuid:       t.minecraft_uuid,
+      minecraftName:       t.minecraft_name,
+      username:            t.username,
+      contact:             t.contact,
+      status:              t.status,
+      createdAt:           t.created_at,
+      approvedAt:          t.approved_at,
+      rejectionReason:     t.rejection_reason,
+      approvedByUsername:  t.approved_by_username,
+    })));
+
+  } catch (err) {
+    console.error('Ошибка при получении истории тикетов:', err.message);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
 // GET /api/admin/tickets — список всех pending-тикетов
 // ---------------------------------------------------------------------------
 // Только для администраторов. Требует JWT + role === 'admin'.

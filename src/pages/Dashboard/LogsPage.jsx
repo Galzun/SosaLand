@@ -2,6 +2,7 @@
 // Страница логов активности — только для admin и creator.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -250,6 +251,20 @@ export default function LogsPage() {
     }
   }
 
+  // Превью файла при наведении
+  const [filePreview, setFilePreview] = useState(null);
+
+  function showFilePreview(e, log) {
+    if (!log.targetId || !log.fileType) return;
+    if (!log.fileType.startsWith('image/') && !log.fileType.startsWith('video/')) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setFilePreview({ url: log.targetId, fileType: log.fileType, rect });
+  }
+
+  function hideFilePreview() {
+    setFilePreview(null);
+  }
+
   // Свернуть топ и проскроллить наверх страницы
   function collapseTop() {
     setTopVisible(TOP_STEP);
@@ -262,6 +277,7 @@ export default function LogsPage() {
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
   return (
+    <>
     <div className="logs-page" ref={pageTopRef}>
       <h1 className="logs-page__title">Логи активности</h1>
 
@@ -501,6 +517,8 @@ export default function LogsPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             title={`Открыть файл: ${log.fileName}`}
+                            onMouseEnter={e => showFilePreview(e, log)}
+                            onMouseLeave={hideFilePreview}
                           >
                             {fileTypeIcon(log.fileType)}&nbsp;{log.fileName}
                           </a>
@@ -611,5 +629,34 @@ export default function LogsPage() {
         </>
       )}
     </div>
+
+    {/* Превью файла при наведении */}
+    {filePreview && createPortal(
+      (() => {
+        const PREVIEW_W = 280;
+        const PREVIEW_H = 200;
+        const spaceRight = window.innerWidth - filePreview.rect.right - 12;
+        const left = spaceRight >= PREVIEW_W
+          ? filePreview.rect.right + 12
+          : filePreview.rect.left - PREVIEW_W - 12;
+        const top = Math.min(
+          Math.max(8, filePreview.rect.top - 20),
+          window.innerHeight - PREVIEW_H - 8
+        );
+        return (
+          <div
+            className="logs-page__file-preview"
+            style={{ left, top }}
+          >
+            {filePreview.fileType.startsWith('video/')
+              ? <video src={`${filePreview.url}#t=0.1`} preload="metadata" muted playsInline />
+              : <img src={filePreview.url} alt="preview" />
+            }
+          </div>
+        );
+      })(),
+      document.body
+    )}
+    </>
   );
 }

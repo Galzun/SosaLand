@@ -12,7 +12,7 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import './ReactionsBar.scss';
 
-export const REACTION_EMOJIS = ['❤️', '😂', '😍', '😭', '👎', '🤡', '💩'];
+export const REACTION_EMOJIS = ['❤️', '😊', '😂', '😍', '😭', '🤯', '👎', '💩', '🤡'];
 
 function ReactionsBar({ targetType, targetId, cssVars }) {
   const { user, token } = useAuth();
