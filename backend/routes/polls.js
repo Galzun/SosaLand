@@ -411,7 +411,7 @@ router.post('/:id/vote', requireAuth, async (req, res) => {
       // Декрементируем счётчики старых вариантов
       for (const vote of existingVotes) {
         await dbRun(
-          `UPDATE poll_options SET votes_count = MAX(0, votes_count - 1) WHERE id = ?`,
+          `UPDATE poll_options SET votes_count = GREATEST(0, votes_count - 1) WHERE id = ?`,
           [vote.option_id]
         );
       }
@@ -421,7 +421,7 @@ router.post('/:id/vote', requireAuth, async (req, res) => {
       );
       // Корректируем total_votes
       await dbRun(
-        `UPDATE polls SET total_votes = MAX(0, total_votes - ?) WHERE id = ?`,
+        `UPDATE polls SET total_votes = GREATEST(0, total_votes - ?) WHERE id = ?`,
         [existingVotes.length, poll.id]
       );
     }
