@@ -316,7 +316,7 @@ function EventDetailPage() {
           )}
         </div>
 
-        {user && ['editor','admin','creator'].includes(user.role) && (
+        {user && (['editor','admin','creator'].includes(user.role) || (user.customPermissions ?? []).includes('manage_events')) && (
           <div className="event-detail__admin-actions">
             <Link
               to={`/dashboard/events/${slug}/edit`}

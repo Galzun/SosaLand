@@ -79,7 +79,7 @@ function PostCard({ post, onLike, onDelete, onEdit, onCommentAdded, cssVars, aut
   const { user, token } = useAuth();
 
   const isOwner   = user && post.author && user.id === post.author.id;
-  const isAdmin   = user && ['admin', 'creator'].includes(user.role);
+  const isAdmin   = user && (['admin', 'creator'].includes(user.role) || (user.customPermissions ?? []).includes('moderate_content'));
   const timeText = timeAgo(post.createdAt * 1000);
 
   const content    = post.content || '';

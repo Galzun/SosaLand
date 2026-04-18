@@ -14,7 +14,7 @@ const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const db      = require('../db');
-const { requireAuth, isAdmin } = require('../middleware/auth');
+const { requireAuth, isAdminOrPerm } = require('../middleware/auth');
 const { logActivity } = require('../utils/logActivity');
 
 const router = express.Router();
@@ -129,7 +129,7 @@ router.post('/', async (req, res) => {
 // Только для администраторов. Возвращает approved/rejected тикеты с именем
 // того, кто обработал заявку.
 // ---------------------------------------------------------------------------
-router.get('/admin/history', requireAuth, isAdmin, async (req, res) => {
+router.get('/admin/history', requireAuth, isAdminOrPerm('manage_tickets'), async (req, res) => {
   try {
     const limit  = Math.min(Number(req.query.limit)  || 50, 100);
     const offset = Math.max(Number(req.query.offset) || 0,  0);
@@ -175,7 +175,7 @@ router.get('/admin/history', requireAuth, isAdmin, async (req, res) => {
 // Только для администраторов. Требует JWT + role === 'admin'.
 // Возвращает: массив объектов тикета (без password_hash)
 // ---------------------------------------------------------------------------
-router.get('/admin', requireAuth, isAdmin, async (req, res) => {
+router.get('/admin', requireAuth, isAdminOrPerm('manage_tickets'), async (req, res) => {
   try {
     const tickets = await new Promise((resolve, reject) => {
       db.all(
@@ -217,7 +217,7 @@ router.get('/admin', requireAuth, isAdmin, async (req, res) => {
 // Создаёт пользователя в таблице users, меняет статус тикета на 'approved'.
 // Возвращает: { success: true }
 // ---------------------------------------------------------------------------
-router.post('/admin/:id/approve', requireAuth, isAdmin, async (req, res) => {
+router.post('/admin/:id/approve', requireAuth, isAdminOrPerm('manage_tickets'), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -297,7 +297,7 @@ router.post('/admin/:id/approve', requireAuth, isAdmin, async (req, res) => {
 // Принимает: { rejectionReason } (необязательно)
 // Возвращает: { success: true }
 // ---------------------------------------------------------------------------
-router.post('/admin/:id/reject', requireAuth, isAdmin, async (req, res) => {
+router.post('/admin/:id/reject', requireAuth, isAdminOrPerm('manage_tickets'), async (req, res) => {
   const { id }               = req.params;
   const { rejectionReason }  = req.body; // необязательное поле
 

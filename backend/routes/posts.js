@@ -450,7 +450,8 @@ router.delete('/:id', requireAuth, async (req, res) => {
     const post = await db.get(`SELECT id, user_id, image_url FROM posts WHERE id = ?`, [id]);
     if (!post) return res.status(404).json({ error: 'Пост не найден' });
     const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
-    if (post.user_id !== userId && callerLevel < ROLE_LEVEL.admin) {
+    const canDeleteAny = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('moderate_content');
+    if (post.user_id !== userId && !canDeleteAny) {
       return res.status(403).json({ error: 'Нельзя удалить чужой пост' });
     }
 

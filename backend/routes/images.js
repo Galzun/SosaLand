@@ -310,7 +310,7 @@ router.delete('/group/:groupId', requireAuth, async (req, res) => {
 
     if (images.length === 0) return res.status(404).json({ error: 'Медиа не найдено' });
 
-    if (images[0].user_id !== userId && ROLE_LEVEL[userRole] < ROLE_LEVEL.admin) {
+    if (images[0].user_id !== userId && ROLE_LEVEL[userRole] < ROLE_LEVEL.admin && !req.user.customPermissions?.has('moderate_content')) {
       return res.status(403).json({ error: 'Нет прав для удаления' });
     }
 
@@ -379,7 +379,7 @@ router.delete('/album/:groupId', requireAuth, async (req, res) => {
 
     if (images.length === 0) return res.status(404).json({ error: 'Альбом не найден' });
 
-    if (images[0].user_id !== userId && ROLE_LEVEL[userRole] < ROLE_LEVEL.admin) {
+    if (images[0].user_id !== userId && ROLE_LEVEL[userRole] < ROLE_LEVEL.admin && !req.user.customPermissions?.has('moderate_content')) {
       return res.status(403).json({ error: 'Нет прав для удаления' });
     }
 
@@ -413,7 +413,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
     if (!image) return res.status(404).json({ error: 'Медиа не найдено' });
 
-    if (image.user_id !== userId && ROLE_LEVEL[userRole] < ROLE_LEVEL.admin) {
+    if (image.user_id !== userId && ROLE_LEVEL[userRole] < ROLE_LEVEL.admin && !req.user.customPermissions?.has('moderate_content')) {
       return res.status(403).json({ error: 'Нет прав для удаления' });
     }
 

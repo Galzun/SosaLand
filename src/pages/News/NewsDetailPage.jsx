@@ -102,7 +102,7 @@ function NewsDetailPage() {
 
         <h1 className="news-detail__title">{news.title}</h1>
 
-        {user && ['editor','admin','creator'].includes(user.role) && (
+        {user && (['editor','admin','creator'].includes(user.role) || (user.customPermissions ?? []).includes('manage_news')) && (
           <div className="news-detail__admin-actions">
             <Link
               to={`/dashboard/news/${slug}/edit`}

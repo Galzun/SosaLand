@@ -54,7 +54,7 @@ function NewsPage() {
     <main className="news-page">
       <div className="news-page__header">
         <h1 className="news-page__title">Новости</h1>
-        {user && ['editor','admin','creator'].includes(user.role) && (
+        {user && (['editor','admin','creator'].includes(user.role) || (user.customPermissions ?? []).includes('manage_news')) && (
           <Link to="/dashboard/news/create" className="news-page__create-btn">
             + Написать новость
           </Link>

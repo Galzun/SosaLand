@@ -44,7 +44,8 @@ function NewsCreate() {
   // Перенаправляем тех, у кого нет прав редактора и выше
   useEffect(() => {
     const level = { creator: 4, admin: 3, editor: 2, user: 1 };
-    if (user && (level[user.role] ?? 1) < 2) navigate('/');
+    const hasNewsAccess = (level[user?.role] ?? 1) >= 2 || (user?.customPermissions ?? []).includes('manage_news');
+    if (user && !hasNewsAccess) navigate('/');
   }, [user, navigate]);
 
   // Загружаем данные для редактирования

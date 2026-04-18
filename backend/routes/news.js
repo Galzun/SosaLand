@@ -16,7 +16,7 @@ const multer  = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { uploadFile, generateFilename } = require('../utils/storage');
 const db      = require('../db');
-const { requireAuth, isAdmin, isEditor } = require('../middleware/auth');
+const { requireAuth, isAdminOrPerm, isEditorOrPerm } = require('../middleware/auth');
 const { newsCommentsRouter } = require('./comments');
 const { logActivity } = require('../utils/logActivity');
 
@@ -214,7 +214,7 @@ router.get('/:slug', async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /api/news — создать новость (editor и выше)
 // ---------------------------------------------------------------------------
-router.post('/', requireAuth, isEditor, async (req, res) => {
+router.post('/', requireAuth, isEditorOrPerm('manage_news'), async (req, res) => {
   const { title, preview_image_url, content } = req.body;
 
   if (!title || typeof title !== 'string' || !title.trim()) {
@@ -272,7 +272,7 @@ router.post('/', requireAuth, isEditor, async (req, res) => {
 // ---------------------------------------------------------------------------
 // PUT /api/news/:slug — обновить новость (editor и выше)
 // ---------------------------------------------------------------------------
-router.put('/:slug', requireAuth, isEditor, async (req, res) => {
+router.put('/:slug', requireAuth, isEditorOrPerm('manage_news'), async (req, res) => {
   const { slug } = req.params;
   const { title, preview_image_url, content } = req.body;
 
@@ -342,7 +342,7 @@ router.put('/:slug', requireAuth, isEditor, async (req, res) => {
 // ---------------------------------------------------------------------------
 // DELETE /api/news/:slug — удалить новость (только admin)
 // ---------------------------------------------------------------------------
-router.delete('/:slug', requireAuth, isAdmin, async (req, res) => {
+router.delete('/:slug', requireAuth, isAdminOrPerm('manage_news'), async (req, res) => {
   const { slug } = req.params;
 
   try {
@@ -374,7 +374,7 @@ router.delete('/:slug', requireAuth, isAdmin, async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /api/news/upload-image — загрузить изображение для редактора (editor и выше)
 // ---------------------------------------------------------------------------
-router.post('/upload-image', requireAuth, isEditor, (req, res) => {
+router.post('/upload-image', requireAuth, isEditorOrPerm('manage_news'), (req, res) => {
   uploadMiddleware(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });

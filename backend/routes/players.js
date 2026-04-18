@@ -18,30 +18,31 @@ const router = express.Router();
 // ---------------------------------------------------------------------------
 // GET /api/players — получить всех известных игроков из базы данных
 // ---------------------------------------------------------------------------
-router.get('/', (req, res) => {
-  db.all(
-    `SELECT uuid, name, first_seen, last_seen, is_banned, ban_reason
-     FROM players
-     ORDER BY last_seen DESC`,
-    [],
-    (err, rows) => {
-      if (err) {
-        console.error('Ошибка при получении игроков:', err.message);
-        return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
-      }
+router.get('/', async (req, res) => {
+  try {
+    const rows = await db.all(
+      `SELECT p.uuid, p.name, p.first_seen, p.last_seen, p.is_banned, p.ban_reason,
+              u.role AS user_role
+       FROM players p
+       LEFT JOIN users u ON u.minecraft_uuid = p.uuid
+       ORDER BY p.last_seen DESC`
+    );
 
-      const players = rows.map(r => ({
-        uuid:      r.uuid,
-        name:      r.name,
-        firstSeen: r.first_seen,
-        lastSeen:  r.last_seen,
-        isBanned:  !!r.is_banned,
-        banReason: r.ban_reason || null,
-      }));
+    const players = rows.map(r => ({
+      uuid:      r.uuid,
+      name:      r.name,
+      firstSeen: r.first_seen,
+      lastSeen:  r.last_seen,
+      isBanned:  !!r.is_banned,
+      banReason: r.ban_reason || null,
+      role:      r.user_role || null,
+    }));
 
-      res.json(players);
-    }
-  );
+    res.json(players);
+  } catch (err) {
+    console.error('Ошибка при получении игроков:', err.message);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
 });
 
 
@@ -103,7 +104,8 @@ router.post('/ban-by-name/:name', requireAuth, async (req, res) => {
   const { reason } = req.body || {};
 
   const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
-  if (callerLevel < ROLE_LEVEL.admin) {
+  const canBan = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('ban_users');
+  if (!canBan) {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 
@@ -184,7 +186,8 @@ router.post('/unban-by-name/:name', requireAuth, async (req, res) => {
   const { name } = req.params;
 
   const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
-  if (callerLevel < ROLE_LEVEL.admin) {
+  const canBan = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('ban_users');
+  if (!canBan) {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 
@@ -243,7 +246,8 @@ router.post('/:uuid/ban', requireAuth, async (req, res) => {
   const { reason } = req.body || {};
 
   const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
-  if (callerLevel < ROLE_LEVEL.admin) {
+  const canBan = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('ban_users');
+  if (!canBan) {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 
@@ -288,7 +292,8 @@ router.post('/:uuid/unban', requireAuth, async (req, res) => {
   const { uuid } = req.params;
 
   const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
-  if (callerLevel < ROLE_LEVEL.admin) {
+  const canBan = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('ban_users');
+  if (!canBan) {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 

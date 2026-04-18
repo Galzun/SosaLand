@@ -1,0 +1,530 @@
+// RolesPage.scss — страница управления кастомными ролями
+
+.roles-page {
+  padding: 28px 32px;
+  max-width: 900px;
+
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  &__title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #eee;
+    margin: 0;
+  }
+
+  &__create-btn {
+    background: #4aff9e;
+    color: #0a0a1a;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+
+    &:hover { opacity: 0.85; }
+  }
+
+  &__hint {
+    font-size: 0.85rem;
+    color: #666;
+    margin: 0 0 24px;
+    line-height: 1.5;
+  }
+
+  &__section-heading {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 20px 0 10px;
+
+    &:first-of-type { margin-top: 4px; }
+  }
+
+  &__list--system {
+    margin-bottom: 8px;
+  }
+
+  &__card--system {
+    opacity: 0.92;
+  }
+
+  &__system-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__system-label {
+    font-size: 0.72rem;
+    color: #555;
+    font-style: italic;
+  }
+
+  &__loading,
+  &__error,
+  &__empty {
+    padding: 40px 0;
+    text-align: center;
+    color: #666;
+    font-size: 0.95rem;
+  }
+
+  &__error { color: #ff6b6b; }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  // ── Карточка роли ────────────────────────────────────────────────────────
+  &__card {
+    background: #1a1a2e;
+    border: 1px solid #2a2a3a;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  &__card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    gap: 12px;
+  }
+
+  &__card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  &__card-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    font-size: 1rem;
+    padding: 4px 7px;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+    line-height: 1;
+
+    &:hover {
+      color: #eee;
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    &--danger:hover {
+      color: #ff4a4a;
+      background: rgba(255, 74, 74, 0.1);
+    }
+
+    &--move {
+      font-size: 0.75rem;
+      padding: 3px 6px;
+      color: #555;
+
+      &:hover:not(:disabled) {
+        color: #4aff9e;
+        background: rgba(74, 255, 158, 0.08);
+      }
+
+      &:disabled {
+        opacity: 0.2;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  &__card-move {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  &__card-body {
+    border-top: 1px solid #2a2a3a;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  &__section-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 10px;
+  }
+
+  // ── Права ────────────────────────────────────────────────────────────────
+  &__no-perms {
+    font-size: 0.85rem;
+    color: #444;
+  }
+
+  &__perm-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__perm-tag {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 0.8rem;
+    color: #aaa;
+  }
+
+  // ── Бейдж роли ────────────────────────────────────────────────────────────
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+}
+
+// ── Пользователи роли ───────────────────────────────────────────────────────
+.roles-users {
+  &__loading,
+  &__error,
+  &__empty {
+    font-size: 0.85rem;
+    color: #555;
+    padding: 4px 0;
+  }
+
+  &__error { color: #ff6b6b; }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    transition: background 0.15s;
+
+    &:hover { background: rgba(255, 255, 255, 0.06); }
+  }
+
+  &__avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    overflow: hidden;
+    background: #2a2a3a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  &__name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #ddd;
+    flex: 1;
+  }
+
+  &__sys-role {
+    font-size: 0.75rem;
+    color: #555;
+  }
+
+  &__revoke {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #555;
+    font-size: 0.85rem;
+    padding: 3px 6px;
+    border-radius: 5px;
+    transition: color 0.15s, background 0.15s;
+    line-height: 1;
+    flex-shrink: 0;
+
+    &:hover {
+      color: #ff4a4a;
+      background: rgba(255, 74, 74, 0.1);
+    }
+  }
+}
+
+// ── Модалка редактора роли ──────────────────────────────────────────────────
+.roles-modal {
+  &__overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 20px;
+  }
+
+  &__box {
+    background: #12121e;
+    border: 1px solid #2a2a3a;
+    border-radius: 16px;
+    width: 560px;
+    max-width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px 16px;
+    border-bottom: 1px solid #2a2a3a;
+  }
+
+  &__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #eee;
+  }
+
+  &__close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #555;
+    font-size: 1rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: color 0.15s;
+
+    &:hover { color: #eee; }
+  }
+
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  &__field { display: flex; flex-direction: column; gap: 8px; }
+
+  &__label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #777;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__input {
+    background: #1a1a2e;
+    border: 1px solid #2a2a3a;
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: #eee;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.15s;
+
+    &:focus { border-color: #4aff9e; }
+  }
+
+  // Цветовые пресеты
+  &__color-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  &__preset-color {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+
+    &:hover { transform: scale(1.15); }
+
+    &--active {
+      border-color: #fff;
+      transform: scale(1.15);
+    }
+  }
+
+  &__custom-color {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__color-input {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 2px;
+    background: transparent;
+  }
+
+  &__color-value {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: #888;
+  }
+
+  &__preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border: 1px dashed #2a2a3a;
+  }
+
+  // Права
+  &__perms {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 4px;
+
+    &::-webkit-scrollbar { width: 4px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 4px; }
+  }
+
+  &__perm-group { display: flex; flex-direction: column; gap: 6px; }
+
+  &__perm-group-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  &__perm-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 5px 8px;
+    border-radius: 7px;
+    transition: background 0.12s;
+
+    &:hover { background: rgba(255, 255, 255, 0.04); }
+  }
+
+  &__perm-checkbox {
+    width: 15px;
+    height: 15px;
+    accent-color: #4aff9e;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  &__perm-label {
+    font-size: 0.875rem;
+    color: #ccc;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  &__error {
+    color: #ff6b6b;
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    background: rgba(255, 74, 74, 0.08);
+    border-radius: 7px;
+    border: 1px solid rgba(255, 74, 74, 0.2);
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 22px;
+    border-top: 1px solid #2a2a3a;
+  }
+
+  &__btn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.15s;
+
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    &--cancel {
+      background: rgba(255, 255, 255, 0.07);
+      color: #aaa;
+
+      &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+    }
+
+    &--save {
+      background: #4aff9e;
+      color: #0a0a1a;
+
+      &:hover:not(:disabled) { opacity: 0.85; }
+    }
+  }
+}

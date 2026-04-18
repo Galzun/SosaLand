@@ -399,6 +399,35 @@ CREATE INDEX IF NOT EXISTS idx_reactions_target ON reactions(target_type, target
 
 
 -- ===========================================================================
+-- custom_roles  (кастомные роли с цветом и правами)
+-- ===========================================================================
+CREATE TABLE IF NOT EXISTS custom_roles (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  color       TEXT NOT NULL DEFAULT '#4aff9e',
+  permissions TEXT NOT NULL DEFAULT '[]',  -- JSON-массив строк (permission ids)
+  created_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at  INTEGER DEFAULT (unix_now()),
+  updated_at  INTEGER
+);
+
+-- ===========================================================================
+-- user_custom_roles  (назначение кастомных ролей пользователям, many-to-many)
+-- ===========================================================================
+CREATE TABLE IF NOT EXISTS user_custom_roles (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role_id    TEXT NOT NULL REFERENCES custom_roles(id) ON DELETE CASCADE,
+  granted_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  granted_at INTEGER DEFAULT (unix_now()),
+  UNIQUE(user_id, role_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_custom_roles_user_id ON user_custom_roles(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_custom_roles_role_id ON user_custom_roles(role_id);
+
+
+-- ===========================================================================
 -- activity_logs  (логи действий пользователей)
 -- ===========================================================================
 CREATE TABLE IF NOT EXISTS activity_logs (

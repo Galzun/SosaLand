@@ -8,7 +8,7 @@
 
 const express = require('express');
 const db      = require('../db');
-const { requireAuth, isAdmin } = require('../middleware/auth');
+const { requireAuth, isAdminOrPerm } = require('../middleware/auth');
 const { logActivity } = require('../utils/logActivity');
 const { deleteFile } = require('../utils/storage');
 
@@ -45,7 +45,7 @@ const ACTION_LABEL = {
 // ---------------------------------------------------------------------------
 // GET /api/logs/users?q=... — поиск ников по подстроке (для автодополнения)
 // ---------------------------------------------------------------------------
-router.get('/users', requireAuth, isAdmin, async (req, res) => {
+router.get('/users', requireAuth, isAdminOrPerm('view_logs'), async (req, res) => {
   const q     = (req.query.q || '').trim().toLowerCase();
   const limit = Math.min(parseInt(req.query.limit) || 10, 30);
 
@@ -78,7 +78,7 @@ router.get('/users', requireAuth, isAdmin, async (req, res) => {
 // ---------------------------------------------------------------------------
 // GET /api/logs/stats — топ пользователей по объёму загрузок
 // ---------------------------------------------------------------------------
-router.get('/stats', requireAuth, isAdmin, async (req, res) => {
+router.get('/stats', requireAuth, isAdminOrPerm('view_logs'), async (req, res) => {
   try {
     // Топ только для пользователей с file_size IS NOT NULL (файл не удалён)
     // и только там, где user_id IS NOT NULL (пользователь не удалён)
@@ -144,7 +144,7 @@ router.get('/stats', requireAuth, isAdmin, async (req, res) => {
 //   limit    — количество записей (default 50, max 200)
 //   offset   — смещение (default 0)
 // ---------------------------------------------------------------------------
-router.get('/', requireAuth, isAdmin, async (req, res) => {
+router.get('/', requireAuth, isAdminOrPerm('view_logs'), async (req, res) => {
   const limit    = Math.min(parseInt(req.query.limit)  || 50, 200);
   const offset   = Math.max(parseInt(req.query.offset) || 0,  0);
   const action   = req.query.action   || null;
@@ -258,7 +258,7 @@ router.get('/', requireAuth, isAdmin, async (req, res) => {
 // Запись лога остаётся (для истории), но файл удаляется физически.
 // Обнуляем target_id в записи лога после удаления.
 // ---------------------------------------------------------------------------
-router.delete('/:id/file', requireAuth, isAdmin, async (req, res) => {
+router.delete('/:id/file', requireAuth, isAdminOrPerm('view_logs'), async (req, res) => {
   const { id } = req.params;
   try {
     const log = await db.get(

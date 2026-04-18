@@ -142,7 +142,7 @@ function PostModal({ post, onClose, onLike, onDelete, onEdit, onCommentAdded, cs
   }, []);
 
   const isOwner = user && post.author && user.id === post.author.id;
-  const isAdmin = user?.role === 'admin' || user?.role === 'creator';
+  const isAdmin = user?.role === 'admin' || user?.role === 'creator' || (user?.customPermissions ?? []).includes('moderate_content');
   const timeText = timeAgo(post.createdAt * 1000);
   const avatarUrl = post.author?.avatarUrl;
 

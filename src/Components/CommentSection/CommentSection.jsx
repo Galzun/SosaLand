@@ -409,7 +409,7 @@ function CommentItem({ comment, onDelete, currentUser }) {
   const [expanded,    setExpanded]    = useState(false);
 
   const isOwner = currentUser && currentUser.id === comment.author.id;
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'creator';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'creator' || (currentUser?.customPermissions ?? []).includes('moderate_content');
 
   const handleDelete = async () => {
     if (!(await showConfirm('Удалить комментарий?'))) return;

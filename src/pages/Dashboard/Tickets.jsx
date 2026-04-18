@@ -40,11 +40,15 @@ function Tickets() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
 
   // Перенаправляем не-администраторов
+  const canManageTickets = user && (
+    (ROLE_LEVEL[user.role] ?? 1) >= 3 ||
+    (user.customPermissions ?? []).includes('manage_tickets')
+  );
   useEffect(() => {
     if (authLoading) return;
     if (!user) { navigate('/auth'); return; }
-    if ((ROLE_LEVEL[user.role] ?? 1) < 3) navigate('/');
-  }, [user, authLoading, navigate]);
+    if (!canManageTickets) navigate('/');
+  }, [user, authLoading, canManageTickets, navigate]);
 
   // Загрузка ожидающих тикетов
   const fetchTickets = useCallback(async () => {
@@ -127,7 +131,7 @@ function Tickets() {
     }
   };
 
-  if (authLoading || !user || (ROLE_LEVEL[user.role] ?? 1) < 3) return null;
+  if (authLoading || !user || !canManageTickets) return null;
 
   return (
     <div className="tickets">

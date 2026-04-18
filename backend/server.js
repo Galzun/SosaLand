@@ -72,6 +72,11 @@ const { router: logsRouter } = require('./routes/logs');
 // Роутер реакций (эмодзи на посты, новости, события и комментарии).
 const { router: reactionsRouter } = require('./routes/reactions');
 
+// Роутер кастомных ролей.
+// Маршруты: GET/POST /api/roles, GET/PUT/DELETE /api/roles/:id,
+//           GET/POST /api/roles/:id/users, DELETE /api/roles/:id/users/:userId
+const { router: rolesRouter } = require('./routes/roles');
+
 // Проверяем, что JWT_SECRET задан в .env.
 // Без него сервер не сможет подписывать и проверять токены — лучше упасть сразу.
 if (!process.env.JWT_SECRET) {
@@ -166,6 +171,9 @@ app.use('/api/logs', logsRouter);
 
 // Реакции эмодзи: GET /api/reactions, POST /api/reactions/toggle
 app.use('/api/reactions', reactionsRouter);
+
+// Кастомные роли: GET/POST/PUT/DELETE /api/roles, /api/roles/:id/users
+app.use('/api/roles', rolesRouter);
 
 
 // --- Раздача собранного фронтенда (продакшн) ---

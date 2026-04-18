@@ -16,7 +16,7 @@ const multer  = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { uploadFile, generateFilename } = require('../utils/storage');
 const db      = require('../db');
-const { requireAuth, isAdmin, isEditor } = require('../middleware/auth');
+const { requireAuth, isAdminOrPerm, isEditorOrPerm } = require('../middleware/auth');
 const { eventCommentsRouter } = require('./comments');
 const { logActivity } = require('../utils/logActivity');
 
@@ -188,7 +188,7 @@ router.get('/:slug', async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /api/events — создать событие (editor и выше)
 // ---------------------------------------------------------------------------
-router.post('/', requireAuth, isEditor, async (req, res) => {
+router.post('/', requireAuth, isEditorOrPerm('manage_events'), async (req, res) => {
   const { title, preview_image_url, preview_image_results_url, content_main, content_results, start_time, end_time } = req.body;
 
   if (!title || typeof title !== 'string' || !title.trim()) {
@@ -252,7 +252,7 @@ router.post('/', requireAuth, isEditor, async (req, res) => {
 // ---------------------------------------------------------------------------
 // PUT /api/events/:slug — обновить событие (editor и выше)
 // ---------------------------------------------------------------------------
-router.put('/:slug', requireAuth, isEditor, async (req, res) => {
+router.put('/:slug', requireAuth, isEditorOrPerm('manage_events'), async (req, res) => {
   const { slug } = req.params;
   const { title, preview_image_url, preview_image_results_url, content_main, content_results, start_time, end_time } = req.body;
 
@@ -324,7 +324,7 @@ router.put('/:slug', requireAuth, isEditor, async (req, res) => {
 // ---------------------------------------------------------------------------
 // DELETE /api/events/:slug — удалить событие (только admin)
 // ---------------------------------------------------------------------------
-router.delete('/:slug', requireAuth, isAdmin, async (req, res) => {
+router.delete('/:slug', requireAuth, isAdminOrPerm('manage_events'), async (req, res) => {
   const { slug } = req.params;
 
   try {
@@ -356,7 +356,7 @@ router.delete('/:slug', requireAuth, isAdmin, async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /api/events/upload-image — загрузить изображение для редактора (editor и выше)
 // ---------------------------------------------------------------------------
-router.post('/upload-image', requireAuth, isEditor, (req, res) => {
+router.post('/upload-image', requireAuth, isEditorOrPerm('manage_events'), (req, res) => {
   uploadMiddleware(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });

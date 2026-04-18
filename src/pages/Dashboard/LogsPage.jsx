@@ -108,11 +108,15 @@ export default function LogsPage() {
   const searchWrapRef = useRef(null);
 
   // Проверка прав
+  const canViewLogs = user && (
+    (ROLE_LEVEL[user.role] ?? 1) >= 3 ||
+    (user.customPermissions ?? []).includes('view_logs')
+  );
   useEffect(() => {
     if (authLoading) return;
     if (!user) { navigate('/auth'); return; }
-    if ((ROLE_LEVEL[user.role] ?? 1) < 3) navigate('/');
-  }, [user, authLoading, navigate]);
+    if (!canViewLogs) navigate('/');
+  }, [user, authLoading, canViewLogs, navigate]);
 
   // Загрузка статистики
   const fetchStats = useCallback(() => {
@@ -271,7 +275,7 @@ export default function LogsPage() {
     pageTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  if (authLoading || !user || (ROLE_LEVEL[user.role] ?? 1) < 3) return null;
+  if (authLoading || !user || !canViewLogs) return null;
 
   const totalPages  = Math.ceil(total / PAGE_SIZE);
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;

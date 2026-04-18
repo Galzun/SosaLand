@@ -48,25 +48,6 @@ function PlayerCard({ username, status, currentUser, token }) {
     }
   }, [menuOpen, profile, username]);
 
-  const changeRole = async (e, newRole) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!profile) return;
-    setLoading(true);
-    setMenuOpen(false);
-    try {
-      await axios.put(`/api/users/${profile.id}/role`, { role: newRole }, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setProfile(prev => ({ ...prev, role: newRole }));
-    } catch (err) {
-      setErrorMsg(err.response?.data?.error || 'Ошибка');
-      setTimeout(() => setErrorMsg(null), 2500);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleToggleBan = async (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -170,11 +151,18 @@ function PlayerCard({ username, status, currentUser, token }) {
   const isBannedCurrent = player.isBanned ?? false;
   const banReason       = player.banReason || null;
 
-  const canManage    = currentUser && roleLevel(currentUser.role) >= roleLevel('admin');
+  const perms        = currentUser?.customPermissions ?? [];
   const callerLevel  = currentUser ? roleLevel(currentUser.role) : 0;
   const targetLevel  = profile ? roleLevel(profile.role) : 0;
-  const canActOnRole = profile && targetLevel < callerLevel && profile.id !== currentUser?.id;
-  const banDisabled  = loading || (profile !== null && profile !== undefined && targetLevel >= callerLevel);
+  const canBan       = currentUser && (callerLevel >= roleLevel('admin') || perms.includes('ban_users'));
+  const canAccounts  = currentUser && (callerLevel >= roleLevel('admin') || perms.includes('manage_user_accounts'));
+  const canManage    = canBan || canAccounts;
+  // manage_user_accounts может управлять только теми, кто ниже admin
+  const canActOnRole = canAccounts && profile && profile.id !== currentUser?.id &&
+    (callerLevel > targetLevel || (perms.includes('manage_user_accounts') && targetLevel < roleLevel('admin')));
+  // ban_users может банить всех ниже admin; системные admin — всех ниже своего уровня
+  const banDisabled  = loading || !canBan || profile?.id === currentUser?.id ||
+    (callerLevel < roleLevel('admin') && targetLevel >= roleLevel('admin'));
 
   return (
     <div className="player-card-wrapper" ref={wrapperRef}>
@@ -202,39 +190,6 @@ function PlayerCard({ username, status, currentUser, token }) {
                 <div className="player-card__menu-loading">Загрузка...</div>
               ) : (
                 <>
-                  {canActOnRole && (
-                    <>
-                      {callerLevel > roleLevel('admin') && profile.role !== 'admin' && (
-                        <button
-                          className="player-card__menu-item"
-                          onClick={(e) => changeRole(e, 'admin')}
-                          disabled={loading}
-                        >
-                          👑 Сделать администратором
-                        </button>
-                      )}
-                      {profile.role !== 'editor' && (
-                        <button
-                          className="player-card__menu-item"
-                          onClick={(e) => changeRole(e, 'editor')}
-                          disabled={loading}
-                        >
-                          ✏️ Сделать редактором
-                        </button>
-                      )}
-                      {profile.role !== 'user' && (
-                        <button
-                          className="player-card__menu-item"
-                          onClick={(e) => changeRole(e, 'user')}
-                          disabled={loading}
-                        >
-                          👤 Сделать игроком
-                        </button>
-                      )}
-                      <div className="player-card__menu-divider" />
-                    </>
-                  )}
-
                   <button
                     className={`player-card__menu-item player-card__menu-item--${isBannedCurrent ? 'unban' : 'ban'}`}
                     onClick={handleToggleBan}

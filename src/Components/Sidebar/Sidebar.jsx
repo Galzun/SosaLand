@@ -14,15 +14,6 @@ import './Sidebar.scss';
 
 const UNREAD_POLL_INTERVAL = 15_000;
 
-function roleLabel(role) {
-  switch (role) {
-    case 'creator': return 'Создатель';
-    case 'admin':   return 'Администратор';
-    case 'editor':  return 'Редактор';
-    default:        return 'Игрок';
-  }
-}
-
 function roleLevel(role) {
   return { creator: 4, admin: 3, editor: 2, user: 1 }[role] ?? 1;
 }
@@ -68,9 +59,14 @@ function Sidebar({ serverIp, borderColor }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Загружаем pending-тикеты (только для admin+)
+  // Загружаем pending-тикеты (для admin+ или manage_tickets)
   useEffect(() => {
-    if (!user || roleLevel(user.role) < roleLevel('admin') || !token) { setPendingCount(0); return; }
+    const perms = user?.customPermissions ?? [];
+    const canSeeTickets = user && (
+      roleLevel(user.role) >= roleLevel('admin') ||
+      perms.includes('manage_tickets')
+    );
+    if (!canSeeTickets || !token) { setPendingCount(0); return; }
     const fetch = async () => {
       try {
         const r = await axios.get('/api/tickets/admin', { headers: { Authorization: `Bearer ${token}` } });
@@ -134,7 +130,11 @@ function Sidebar({ serverIp, borderColor }) {
     { to: '/messages',icon: '💬', label: 'Сообщения', requireAuth: true },
   ];
 
+  const perms   = user?.customPermissions ?? [];
   const isAdmin = user && roleLevel(user.role) >= roleLevel('admin');
+  const canSeeTickets = isAdmin || perms.includes('manage_tickets');
+  const canSeeRoles   = isAdmin || perms.includes('manage_custom_roles') || perms.includes('assign_custom_roles');
+  const canSeeLogs    = isAdmin || perms.includes('view_logs');
 
   return (
     <>
@@ -181,9 +181,14 @@ function Sidebar({ serverIp, borderColor }) {
               </div>
               <div className="sidebar__profile-info">
                 <span className="sidebar__profile-name">{user.username}</span>
-                <span className={`sidebar__profile-role sidebar__profile-role--${user.role}`}>
-                  {roleLabel(user.role)}
-                </span>
+                {user.customRoles?.[0] && (
+                  <span
+                    className="sidebar__profile-role"
+                    style={{ color: user.customRoles[0].color }}
+                  >
+                    {user.customRoles[0].name}
+                  </span>
+                )}
               </div>
             </Link>
           ) : (
@@ -221,8 +226,8 @@ function Sidebar({ serverIp, borderColor }) {
             })
           }
 
-          {/* Заявки — только admin+ */}
-          {isAdmin && (
+          {/* Заявки — admin+ или manage_tickets */}
+          {canSeeTickets && (
             <NavLink
               to="/dashboard/tickets"
               className={({ isActive }) =>
@@ -234,8 +239,21 @@ function Sidebar({ serverIp, borderColor }) {
             </NavLink>
           )}
 
-          {/* Логи — только admin+ */}
-          {isAdmin && (
+          {/* Роли — admin+ или manage/assign_custom_roles */}
+          {canSeeRoles && (
+            <NavLink
+              to="/dashboard/roles"
+              className={({ isActive }) =>
+                `sidebar__item${isActive ? ' sidebar__item--active' : ''}`
+              }
+            >
+              <span className="sidebar__item-icon">🎭</span>
+              <span className="sidebar__item-label">Роли</span>
+            </NavLink>
+          )}
+
+          {/* Логи — admin+ или view_logs */}
+          {canSeeLogs && (
             <NavLink
               to="/dashboard/logs"
               className={({ isActive }) =>

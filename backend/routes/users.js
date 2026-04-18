@@ -137,6 +137,26 @@ function formatUser(row) {
 }
 
 // ---------------------------------------------------------------------------
+// Вспомогательная функция: загружает кастомные роли пользователя
+// ---------------------------------------------------------------------------
+async function fetchCustomRoles(userId) {
+  try {
+    const rows = await db.all(
+      `SELECT cr.id, cr.name, cr.color
+       FROM user_custom_roles ucr
+       JOIN custom_roles cr ON cr.id = ucr.role_id
+       WHERE ucr.user_id = ?
+       ORDER BY cr.created_at ASC`,
+      [userId]
+    );
+    return rows.map(r => ({ id: r.id, name: r.name, color: r.color }));
+  } catch {
+    // Таблица может отсутствовать до применения миграции — возвращаем пустой массив
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/users/by-minecraft/:minecraftName
 // ---------------------------------------------------------------------------
 // Ищет аккаунт сайта по нику Minecraft-игрока. Доступ: публичный.
@@ -170,7 +190,8 @@ router.get('/by-minecraft/:minecraftName', async (req, res) => {
 
     if (!user) return res.status(404).json({ error: 'Аккаунт не найден' });
 
-    res.json(formatUser(user));
+    const customRoles = await fetchCustomRoles(user.id);
+    res.json({ ...formatUser(user), customRoles });
   } catch (err) {
     console.error('Ошибка при поиске пользователя по нику:', err.message);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
@@ -197,7 +218,8 @@ router.get('/:id', async (req, res) => {
 
     if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
 
-    res.json(formatUser(user));
+    const customRoles = await fetchCustomRoles(user.id);
+    res.json({ ...formatUser(user), customRoles });
   } catch (err) {
     console.error('Ошибка при получении профиля:', err.message);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
@@ -476,9 +498,10 @@ router.put('/:id/role', requireAuth, async (req, res) => {
   }
 
   const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
+  const canManageAccounts = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('manage_user_accounts');
 
-  // Только admin и выше могут менять роли
-  if (callerLevel < ROLE_LEVEL.admin) {
+  // Только admin и выше (или manage_user_accounts) могут менять роли
+  if (!canManageAccounts) {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 
@@ -528,7 +551,8 @@ router.post('/:id/ban', requireAuth, async (req, res) => {
   const { reason } = req.body;
 
   const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
-  if (callerLevel < ROLE_LEVEL.admin) {
+  const canBan = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('ban_users');
+  if (!canBan) {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 
@@ -577,7 +601,8 @@ router.post('/:id/unban', requireAuth, async (req, res) => {
   const { id } = req.params;
 
   const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
-  if (callerLevel < ROLE_LEVEL.admin) {
+  const canBan = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('ban_users');
+  if (!canBan) {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 
@@ -620,8 +645,9 @@ router.post('/:id/unban', requireAuth, async (req, res) => {
 router.post('/:id/clear-data', requireAuth, async (req, res) => {
   const { id } = req.params;
   const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
+  const canManageAccounts = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('manage_user_accounts');
 
-  if (callerLevel < ROLE_LEVEL.admin) {
+  if (!canManageAccounts) {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 
@@ -772,8 +798,9 @@ router.post('/:id/clear-data', requireAuth, async (req, res) => {
 router.delete('/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
+  const canManageAccounts = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('manage_user_accounts');
 
-  if (callerLevel < ROLE_LEVEL.admin) {
+  if (!canManageAccounts) {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 
@@ -843,8 +870,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
 router.post('/:id/reset-password', requireAuth, async (req, res) => {
   const { id } = req.params;
   const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
+  const canManageAccounts = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('manage_user_accounts');
 
-  if (callerLevel < ROLE_LEVEL.admin) {
+  if (!canManageAccounts) {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 
@@ -887,8 +915,9 @@ router.put('/:id/username', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { username: newUsername } = req.body;
   const callerLevel = ROLE_LEVEL[req.user.role] ?? 0;
+  const canManageAccounts = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('manage_user_accounts');
 
-  if (callerLevel < ROLE_LEVEL.admin) {
+  if (!canManageAccounts) {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 

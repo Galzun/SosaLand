@@ -17,6 +17,7 @@ import NewsPage from './pages/News/NewsPage';
 import NewsDetailPage from './pages/News/NewsDetailPage';
 import NewsCreate from './pages/Dashboard/NewsCreate';
 import LogsPage from './pages/Dashboard/LogsPage';
+import RolesPage from './pages/Dashboard/RolesPage';
 import PostPage from './pages/PostPage/PostPage';
 import { PlayerProvider } from './context/PlayerContext';
 // AuthProvider оборачивает всё приложение и предоставляет useAuth() везде.
@@ -68,6 +69,7 @@ function App() {
               <Route path="/news" element={<NewsPage />} />
               <Route path="/news/:slug" element={<NewsDetailPage />} />
               <Route path="/dashboard/logs" element={<LogsPage />} />
+              <Route path="/dashboard/roles" element={<RolesPage />} />
               <Route path="/post/:id" element={<PostPage />} />
             </Routes>
             </div>

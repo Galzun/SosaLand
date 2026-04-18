@@ -184,6 +184,26 @@ router.post('/login', async (req, res) => {
       { expiresIn: JWT_EXPIRES_IN }
     );
 
+    // Загружаем кастомные роли и права
+    let customRoles = [];
+    let customPermissions = [];
+    try {
+      const roleRows = await db.all(
+        `SELECT cr.id, cr.name, cr.color, cr.priority, cr.permissions
+         FROM user_custom_roles ucr
+         JOIN custom_roles cr ON cr.id = ucr.role_id
+         WHERE ucr.user_id = ?
+         ORDER BY cr.priority ASC`,
+        [user.id]
+      );
+      const permSet = new Set();
+      customRoles = roleRows.map(r => {
+        JSON.parse(r.permissions || '[]').forEach(p => permSet.add(p));
+        return { id: r.id, name: r.name, color: r.color, priority: r.priority };
+      });
+      customPermissions = [...permSet];
+    } catch { /* таблицы могут не существовать до миграции */ }
+
     res.json({
       token,
       user: {
@@ -193,6 +213,8 @@ router.post('/login', async (req, res) => {
         role: user.role,
         isBanned: !!user.is_banned,
         banReason: user.ban_reason || null,
+        customRoles,
+        customPermissions,
       },
       ...(passwordWasReset ? { passwordWasReset: true } : {}),
     });
@@ -232,14 +254,37 @@ router.get('/me', async (req, res) => {
 
     if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
 
+    // Загружаем кастомные роли пользователя, отсортированные по приоритету
+    let customRoles = [];
+    let customPermissions = [];
+    try {
+      const rows = await db.all(
+        `SELECT cr.id, cr.name, cr.color, cr.priority, cr.permissions
+         FROM user_custom_roles ucr
+         JOIN custom_roles cr ON cr.id = ucr.role_id
+         WHERE ucr.user_id = ?
+         ORDER BY cr.priority ASC`,
+        [user.id]
+      );
+      const permSet = new Set();
+      customRoles = rows.map(r => {
+        const perms = JSON.parse(r.permissions || '[]');
+        perms.forEach(p => permSet.add(p));
+        return { id: r.id, name: r.name, color: r.color, priority: r.priority };
+      });
+      customPermissions = [...permSet];
+    } catch { /* таблица может не существовать до миграции */ }
+
     res.json({
-      id:            user.id,
-      username:      user.username,
-      minecraftUuid: user.minecraft_uuid,
-      role:          user.role,
-      createdAt:     user.created_at,
-      isBanned:      !!user.is_banned,
-      banReason:     user.ban_reason || null,
+      id:                user.id,
+      username:          user.username,
+      minecraftUuid:     user.minecraft_uuid,
+      role:              user.role,
+      createdAt:         user.created_at,
+      isBanned:          !!user.is_banned,
+      banReason:         user.ban_reason || null,
+      customRoles,
+      customPermissions,
     });
   } catch {
     res.status(401).json({ error: 'Неверный токен' });

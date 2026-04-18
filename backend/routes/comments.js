@@ -311,7 +311,8 @@ commentsDeleteRouter.delete('/:id', requireAuth, async (req, res) => {
     if (!comment) return res.status(404).json({ error: 'Комментарий не найден' });
 
     const callerLevel = ROLE_LEVEL[userRole] ?? 0;
-    if (comment.user_id !== userId && callerLevel < ROLE_LEVEL.admin) {
+    const canDeleteAny = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('moderate_content');
+    if (comment.user_id !== userId && !canDeleteAny) {
       return res.status(403).json({ error: 'Нет прав для удаления этого комментария' });
     }
 

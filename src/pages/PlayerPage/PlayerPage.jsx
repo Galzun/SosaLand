@@ -17,6 +17,14 @@ import usePosts from '../../hooks/usePosts';
 import { showConfirm, showAlert } from '../../Components/Dialog/dialogManager';
 import './PlayerPage.scss';
 
+function hexToRgba(hex, alpha = 1) {
+  const h = (hex || '#4aff9e').replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 
 // Парсим дату/время из имени файла формата "2026-02-10_20.20.19.png"
 function parseDateFromFilename(title) {
@@ -43,6 +51,13 @@ function PlayerPage() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [avatarError,    setAvatarError]    = useState(false);
   const [copiedUuid,     setCopiedUuid]     = useState(false);
+
+  // --- Кастомные роли ---
+  const [customRoles,        setCustomRoles]        = useState([]);  // роли этого профиля
+  const [allRoles,           setAllRoles]           = useState(null); // все роли (загружаются по требованию)
+  const [showRoleDropdown,   setShowRoleDropdown]   = useState(false);
+  const [roleAssigning,      setRoleAssigning]      = useState(false);
+  const roleDropdownRef = useRef(null);
 
   // Активная вкладка: 'posts' | 'photos' | 'comments'
   const [activeTab, setActiveTab] = useState('posts');
@@ -103,6 +118,9 @@ function PlayerPage() {
   // Сбрасываем позицию скролла и состояние вкладок при переходе на другой профиль
   useEffect(() => {
     window.scrollTo(0, 0);
+    setCustomRoles([]);
+    setAllRoles(null);
+    setShowRoleDropdown(false);
     setPhotosLoaded(false);
     setPhotos([]);
     setAlbumsLoaded(false);
@@ -158,8 +176,12 @@ function PlayerPage() {
   useEffect(() => {
     if (!username) return;
     setProfileLoading(true);
+    setCustomRoles([]);
     axios.get(`/api/users/by-minecraft/${username}`)
-      .then(({ data }) => setProfile(data))
+      .then(({ data }) => {
+        setProfile(data);
+        setCustomRoles(data.customRoles || []);
+      })
       .catch((err) => {
         if (err.response?.status !== 404) {
           console.error('Ошибка загрузки профиля:', err.message);
@@ -168,6 +190,57 @@ function PlayerPage() {
       })
       .finally(() => setProfileLoading(false));
   }, [username]);
+
+  // Закрытие дропдауна ролей при клике вне
+  useEffect(() => {
+    if (!showRoleDropdown) return;
+    const handle = (e) => {
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(e.target)) {
+        setShowRoleDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [showRoleDropdown]);
+
+  // Загрузка всех ролей при открытии дропдауна
+  const loadAllRoles = useCallback(async () => {
+    if (allRoles !== null) return;
+    try {
+      const { data } = await axios.get('/api/roles');
+      setAllRoles(data);
+    } catch { setAllRoles([]); }
+  }, [allRoles]);
+
+  const handleAssignRole = async (role) => {
+    if (!profile || roleAssigning) return;
+    setRoleAssigning(true);
+    try {
+      await axios.post(`/api/roles/${role.id}/users`, { userId: profile.id }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCustomRoles(prev => [...prev, { id: role.id, name: role.name, color: role.color }]);
+      setShowRoleDropdown(false);
+    } catch (err) {
+      await showAlert(err.response?.data?.error || 'Ошибка назначения роли');
+    } finally {
+      setRoleAssigning(false);
+    }
+  };
+
+  const handleRevokeRole = async (role) => {
+    if (!profile) return;
+    const ok = await showConfirm(`Забрать роль «${role.name}» у ${profile.username}?`, { danger: true, confirmText: 'Забрать' });
+    if (!ok) return;
+    try {
+      await axios.delete(`/api/roles/${role.id}/users/${profile.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCustomRoles(prev => prev.filter(r => r.id !== role.id));
+    } catch (err) {
+      await showAlert(err.response?.data?.error || 'Ошибка');
+    }
+  };
 
   const {
     posts,
@@ -217,8 +290,13 @@ function PlayerPage() {
 
   const callerLevel = user ? ({ user: 1, editor: 2, admin: 3, creator: 4 }[user.role] ?? 0) : 0;
   const profileLevel = profile ? ({ user: 1, editor: 2, admin: 3, creator: 4 }[profile.role] ?? 0) : 0;
-  // Кнопка удаления видна admin/creator, только не на своём профиле и не выше своего уровня
-  const canDeleteProfile = user && profile && !isOwner && callerLevel >= 3 && profileLevel < callerLevel;
+  const perms = user?.customPermissions ?? [];
+  const canManageAccounts = callerLevel >= 3 || perms.includes('manage_user_accounts');
+  // manage_user_accounts может управлять только теми, чья роль ниже admin
+  const canDeleteProfile = user && profile && !isOwner && canManageAccounts &&
+    (callerLevel > profileLevel || (perms.includes('manage_user_accounts') && profileLevel < 3));
+  const canDeleteMedia   = isOwner || callerLevel >= 3 || perms.includes('moderate_content');
+  const canAssignRoles   = callerLevel >= 3 || perms.includes('assign_custom_roles') || perms.includes('manage_custom_roles');
 
   const handleClearData = async () => {
     const selected = Object.entries(clearSections).filter(([, v]) => v).map(([k]) => k);
@@ -904,6 +982,75 @@ function PlayerPage() {
                 <h1>{player.name}</h1>
               </div>
 
+              {/* Кастомные роли */}
+              {!profileLoading && profile && (customRoles.length > 0 || canAssignRoles) && (() => {
+                return (
+                <div className="player-page__roles-row">
+                  {/* Роли */}
+                  {customRoles.map(role => (
+                    <span
+                      key={role.id}
+                      className="player-page__role-badge"
+                      style={{
+                        color:       role.color,
+                        background:  hexToRgba(role.color, 0.12),
+                        borderColor: hexToRgba(role.color, 0.35),
+                      }}
+                    >
+                      {role.name}
+                      {canAssignRoles && (
+                        <button
+                          className="player-page__role-badge-remove"
+                          onClick={() => handleRevokeRole(role)}
+                          title="Забрать роль"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </span>
+                  ))}
+
+                  {/* Кнопка + для назначения роли */}
+                  {canAssignRoles && (
+                    <div className="player-page__role-add" ref={roleDropdownRef}>
+                      <button
+                        className="player-page__role-add-btn"
+                        onClick={() => { setShowRoleDropdown(p => !p); loadAllRoles(); }}
+                        title="Добавить роль"
+                      >
+                        +
+                      </button>
+                      {showRoleDropdown && (
+                        <div className="player-page__role-dropdown">
+                          {allRoles === null && <div className="player-page__role-dropdown-loading">Загрузка...</div>}
+                          {allRoles !== null && allRoles.filter(r => !customRoles.find(c => c.id === r.id)).length === 0 && (
+                            <div className="player-page__role-dropdown-empty">Все роли уже назначены</div>
+                          )}
+                          {allRoles !== null && allRoles
+                            .filter(r => !customRoles.find(c => c.id === r.id))
+                            .map(role => (
+                              <button
+                                key={role.id}
+                                className="player-page__role-dropdown-item"
+                                onClick={() => handleAssignRole(role)}
+                                disabled={roleAssigning}
+                              >
+                                <span
+                                  className="player-page__role-dropdown-dot"
+                                  style={{ background: role.color, boxShadow: `0 0 6px ${hexToRgba(role.color, 0.5)}` }}
+                                />
+                                <span style={{ color: role.color }}>{role.name}</span>
+                              </button>
+                            ))
+                          }
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                );
+              })()}
+
               {!profileLoading && profile?.bio && (
                 <p className="player-page__bio">{profile.bio}</p>
               )}
@@ -1138,7 +1285,7 @@ function PlayerPage() {
                     key={album.albumId}
                     album={album}
                     onClick={(idx) => openPhotoModal(album, idx)}
-                    canDelete={isOwner || callerLevel >= 3}
+                    canDelete={canDeleteMedia}
                     onDelete={() => handleAlbumDelete(album)}
                   />
                 ))}
@@ -1238,7 +1385,7 @@ function PlayerPage() {
                       <span className="player-page__album-name">{album.name}</span>
                       <span className="player-page__album-count">{album.count} медиа</span>
                     </div>
-                    {(isOwner || callerLevel >= 3) && (
+                    {canDeleteMedia && (
                       <button
                         className="player-page__album-card-delete"
                         onClick={(e) => { e.stopPropagation(); handleDeleteAlbum(album); }}
@@ -1446,7 +1593,7 @@ function PlayerPage() {
                         <img src={item.imageUrl} alt={item.title || ''} loading="lazy" />
                       )}
                     </div>
-                    {isOwner && (
+                    {canDeleteMedia && (
                       <button
                         className="player-page__album-image-remove"
                         onClick={() => handleRemoveFromAlbum(item.id)}
@@ -1484,7 +1631,7 @@ function PlayerPage() {
           albumRanges={photoAlbumRanges}
           onClose={() => setPhotosModalIndex(null)}
           cssVars={cssVars}
-          onDeleteItem={isOwner ? async (imageId) => {
+          onDeleteItem={canDeleteMedia ? async (imageId) => {
             try {
               await axios.delete(`/api/images/${imageId}`, { headers: { Authorization: `Bearer ${token}` } });
               setPhotos(prev => prev
@@ -1505,7 +1652,7 @@ function PlayerPage() {
           showAlbumTag={false}
           onClose={() => setAlbumModalIndex(null)}
           cssVars={cssVars}
-          onDeleteItem={isOwner ? (imageId) => deleteFromAlbum(imageId).catch(err => alert(err.response?.data?.error || 'Ошибка при удалении')) : undefined}
+          onDeleteItem={canDeleteMedia ? (imageId) => deleteFromAlbum(imageId).catch(err => alert(err.response?.data?.error || 'Ошибка при удалении')) : undefined}
         />
       )}
     </main>

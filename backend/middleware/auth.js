@@ -24,7 +24,7 @@ const ROLE_LEVEL = {
 };
 
 /**
- * requireAuth — проверяет JWT и проверяет бан из БД.
+ * requireAuth — проверяет JWT, бан из БД, и загружает кастомные права (customPermissions).
  */
 function requireAuth(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -46,9 +46,9 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Токен недействителен или просрочен' });
   }
 
-  // Проверяем бан из БД — токен мог быть выдан до бана
+  // Проверяем бан и загружаем кастомные права из БД
   db.get('SELECT is_banned, ban_reason, role FROM users WHERE id = ?', [decoded.id])
-    .then(row => {
+    .then(async row => {
       if (!row) return res.status(401).json({ error: 'Пользователь не найден' });
 
       if (row.is_banned) {
@@ -56,8 +56,27 @@ function requireAuth(req, res, next) {
         return res.status(403).json({ error: `Ваш аккаунт заблокирован${reason}` });
       }
 
+      // Загружаем кастомные права из всех назначенных ролей
+      let customPermissions = new Set();
+      try {
+        const permsRows = await db.all(
+          `SELECT cr.permissions
+           FROM user_custom_roles ucr
+           JOIN custom_roles cr ON cr.id = ucr.role_id
+           WHERE ucr.user_id = ?`,
+          [decoded.id]
+        );
+        permsRows.forEach(r => {
+          try {
+            JSON.parse(r.permissions || '[]').forEach(p => customPermissions.add(p));
+          } catch {}
+        });
+      } catch {
+        // Таблица может не существовать при первом запуске до миграции — не критично
+      }
+
       // Берём роль из БД (актуальнее чем в токене — могла измениться)
-      req.user = { ...decoded, role: row.role };
+      req.user = { ...decoded, role: row.role, customPermissions };
       next();
     })
     .catch(() => res.status(401).json({ error: 'Пользователь не найден' }));
@@ -69,10 +88,8 @@ function requireAuth(req, res, next) {
  */
 function isAdmin(req, res, next) {
   const level = ROLE_LEVEL[req.user?.role] ?? 0;
-  if (level < ROLE_LEVEL.admin) {
-    return res.status(403).json({ error: 'Доступ запрещён: требуются права администратора' });
-  }
-  next();
+  if (level >= ROLE_LEVEL.admin) return next();
+  return res.status(403).json({ error: 'Доступ запрещён: требуются права администратора' });
 }
 
 /**
@@ -81,10 +98,51 @@ function isAdmin(req, res, next) {
  */
 function isEditor(req, res, next) {
   const level = ROLE_LEVEL[req.user?.role] ?? 0;
-  if (level < ROLE_LEVEL.editor) {
-    return res.status(403).json({ error: 'Доступ запрещён: требуются права редактора' });
-  }
-  next();
+  if (level >= ROLE_LEVEL.editor) return next();
+  return res.status(403).json({ error: 'Доступ запрещён: требуются права редактора' });
+}
+
+/**
+ * hasPermission(perm) — middleware-фабрика: проверяет кастомное право.
+ * Проходит если у пользователя есть право perm в кастомных ролях.
+ * Использовать ПОСЛЕ requireAuth.
+ *
+ * Пример: router.get('/secret', requireAuth, hasPermission('view_logs'), handler)
+ */
+function hasPermission(perm) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: 'Не авторизован' });
+    if (req.user.customPermissions?.has(perm)) return next();
+    return res.status(403).json({ error: 'Доступ запрещён' });
+  };
+}
+
+/**
+ * isAdminOrPerm(perm) — middleware-фабрика.
+ * Проходит если пользователь: admin+ по системной роли ИЛИ имеет кастомное право perm.
+ */
+function isAdminOrPerm(perm) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: 'Не авторизован' });
+    const level = ROLE_LEVEL[req.user.role] ?? 0;
+    if (level >= ROLE_LEVEL.admin) return next();
+    if (req.user.customPermissions?.has(perm)) return next();
+    return res.status(403).json({ error: 'Доступ запрещён' });
+  };
+}
+
+/**
+ * isEditorOrPerm(perm) — middleware-фабрика.
+ * Проходит если пользователь: editor+ по системной роли ИЛИ имеет кастомное право perm.
+ */
+function isEditorOrPerm(perm) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: 'Не авторизован' });
+    const level = ROLE_LEVEL[req.user.role] ?? 0;
+    if (level >= ROLE_LEVEL.editor) return next();
+    if (req.user.customPermissions?.has(perm)) return next();
+    return res.status(403).json({ error: 'Доступ запрещён' });
+  };
 }
 
 /**
@@ -104,4 +162,4 @@ function optionalAuth(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, isAdmin, isEditor, optionalAuth, ROLE_LEVEL };
+module.exports = { requireAuth, isAdmin, isEditor, hasPermission, isAdminOrPerm, isEditorOrPerm, optionalAuth, ROLE_LEVEL };

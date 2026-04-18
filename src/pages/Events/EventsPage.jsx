@@ -54,7 +54,7 @@ function EventsPage() {
     <main className="events-page">
       <div className="events-page__header">
         <h1 className="events-page__title">События</h1>
-        {user && ['editor','admin','creator'].includes(user.role) && (
+        {user && (['editor','admin','creator'].includes(user.role) || (user.customPermissions ?? []).includes('manage_events')) && (
           <Link to="/dashboard/events/create" className="events-page__create-btn">
             + Создать событие
           </Link>
