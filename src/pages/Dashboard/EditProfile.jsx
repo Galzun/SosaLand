@@ -286,7 +286,7 @@ function EditProfile() {
 
       updateUser({ coverUrl: data.coverUrl, backgroundUrl: data.backgroundUrl, bio: data.bio });
       setSuccess(true);
-      setTimeout(() => navigate(`/player/${user.username}`), 1500);
+      setTimeout(() => navigate(`/player/${user.minecraftName || user.username}`), 1500);
     } catch (err) {
       setError(err.response?.data?.error || 'Ошибка при сохранении профиля');
     } finally {
@@ -565,7 +565,7 @@ function EditProfile() {
             <button
               type="button"
               className="edit-profile__btn edit-profile__btn--cancel"
-              onClick={() => navigate(`/player/${user.username}`)}
+              onClick={() => navigate(`/player/${user.minecraftName || user.username}`)}
               disabled={saving}
             >
               Отмена

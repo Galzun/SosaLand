@@ -203,20 +203,20 @@ function ImageModal({ images, initialIndex = 0, onClose, commentType, commentId,
             <div className="image-modal__author">
               {current.author?.username && (
                 <img
-                  src={avatarUrl || getAvatarUrl(current.author.username, null)}
+                  src={avatarUrl || getAvatarUrl(current.author.minecraftName || current.author.username, null)}
                   className="image-modal__author-avatar"
-                  alt={current.author.username}
-                  onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(current.author.username, null); }}
+                  alt={current.author.minecraftName || current.author.username}
+                  onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(current.author.minecraftName || current.author.username, null); }}
                 />
               )}
               {current.author?.username && (
                 <div className="image-modal__author-text">
                   <Link
-                    to={`/player/${current.author.username}`}
+                    to={`/player/${current.author.minecraftName || current.author.username}`}
                     className="image-modal__author-name"
                     onClick={onClose}
                   >
-                    {current.author.username}
+                    {current.author.minecraftName || current.author.username}
                   </Link>
                   <span className="image-modal__author-date">
                     {timeAgo(current.createdAt * 1000)}
@@ -341,20 +341,20 @@ function ImageModal({ images, initialIndex = 0, onClose, commentType, commentId,
           <div className="image-modal__sidebar-author">
             {current.author?.username && (
               <img
-                src={avatarUrl || getAvatarUrl(current.author.username, null)}
+                src={avatarUrl || getAvatarUrl(current.author.minecraftName || current.author.username, null)}
                 className="image-modal__sidebar-avatar"
-                alt={current.author.username}
-                onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(current.author.username, null); }}
+                alt={current.author.minecraftName || current.author.username}
+                onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(current.author.minecraftName || current.author.username, null); }}
               />
             )}
             <div className="image-modal__sidebar-author-text">
               {current.author?.username && (
                 <Link
-                  to={`/player/${current.author.username}`}
+                  to={`/player/${current.author.minecraftName || current.author.username}`}
                   className="image-modal__sidebar-name"
                   onClick={onClose}
                 >
-                  {current.author.username}
+                  {current.author.minecraftName || current.author.username}
                 </Link>
               )}
               <span className="image-modal__sidebar-date">

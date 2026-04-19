@@ -120,6 +120,7 @@ async function fetchPosts(whereClause, whereParams, currentUserId, limit, offset
       u.id               AS "authorId",
       u.username         AS "authorUsername",
       u.minecraft_uuid   AS "authorMinecraftUuid",
+      (SELECT pl.name FROM players pl WHERE pl.uuid = u.minecraft_uuid LIMIT 1) AS "authorMinecraftName",
       CASE WHEN l.id IS NOT NULL THEN 1 ELSE 0 END AS liked,
       (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id)::INTEGER AS "commentsCount",
 
@@ -146,7 +147,8 @@ async function fetchPosts(whereClause, whereParams, currentUserId, limit, offset
         'imageUrl',           lc.image_url,
         'createdAt',          lc.created_at,
         'authorUsername',     lu.username,
-        'authorMinecraftUuid', lu.minecraft_uuid
+        'authorMinecraftUuid', lu.minecraft_uuid,
+        'authorMinecraftName', (SELECT pl.name FROM players pl WHERE pl.uuid = lu.minecraft_uuid LIMIT 1)
        )
        FROM comments lc
        JOIN users lu ON lu.id = lc.user_id
@@ -183,6 +185,7 @@ async function fetchPosts(whereClause, whereParams, currentUserId, limit, offset
         createdAt: lc.createdAt,
         author: {
           username:      lc.authorUsername,
+          minecraftName: lc.authorMinecraftName || null,
           minecraftUuid: lc.authorMinecraftUuid || null,
           avatarUrl:     avatarUrl(lc.authorMinecraftUuid, lc.authorUsername),
         },
@@ -206,6 +209,7 @@ async function fetchPosts(whereClause, whereParams, currentUserId, limit, offset
       author: {
         id:            row.authorId,
         username:      row.authorUsername,
+        minecraftName: row.authorMinecraftName || null,
         minecraftUuid: row.authorMinecraftUuid || null,
         avatarUrl:     avatarUrl(row.authorMinecraftUuid, row.authorUsername),
       },

@@ -110,6 +110,7 @@ function formatEvent(row, full = false) {
     obj.author = {
       id:            row.author_id,
       username:      row.author_username,
+      minecraftName: row.author_minecraft_name || null,
       minecraftUuid: row.author_minecraft_uuid || null,
       avatarUrl: avatarUrl(row.author_minecraft_uuid, row.author_username),
     };
@@ -160,6 +161,7 @@ router.get('/:slug', async (req, res) => {
          e.content_main, e.content_results,
          u.id AS author_id, u.username AS author_username,
          u.minecraft_uuid AS author_minecraft_uuid,
+         (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS author_minecraft_name,
          (SELECT COUNT(*) FROM comments c WHERE c.event_id = e.id) AS comments_count
        FROM events e
        JOIN users u ON u.id = e.author_id
@@ -228,6 +230,7 @@ router.post('/', requireAuth, async (req, res) => {
          e.content_main, e.content_results,
          u.id AS author_id, u.username AS author_username,
          u.minecraft_uuid AS author_minecraft_uuid,
+         (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS author_minecraft_name,
          0 AS comments_count
        FROM events e JOIN users u ON u.id = e.author_id
        WHERE e.id = ?`,
@@ -311,6 +314,7 @@ router.put('/:slug', requireAuth, async (req, res) => {
          e.content_main, e.content_results,
          u.id AS author_id, u.username AS author_username,
          u.minecraft_uuid AS author_minecraft_uuid,
+         (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS author_minecraft_name,
          (SELECT COUNT(*) FROM comments c WHERE c.event_id = e.id) AS comments_count
        FROM events e JOIN users u ON u.id = e.author_id
        WHERE e.id = ?`,

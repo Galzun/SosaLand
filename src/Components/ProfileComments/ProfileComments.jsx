@@ -175,22 +175,22 @@ function ProfileCommentItem({ comment, currentUser, onDelete }) {
 
   return (
     <div className="profile-comments__item">
-      <Link to={`/player/${comment.author.username}`} className="profile-comments__avatar-link">
+      <Link to={`/player/${comment.author.minecraftName || comment.author.username}`} className="profile-comments__avatar-link">
         <img
           className="profile-comments__avatar"
-          src={comment.author.avatarUrl || getAvatarUrl(comment.author.username, null)}
-          alt={comment.author.username}
-          onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(comment.author.username, null); }}
+          src={comment.author.avatarUrl || getAvatarUrl(comment.author.minecraftName || comment.author.username, null)}
+          alt={comment.author.minecraftName || comment.author.username}
+          onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(comment.author.minecraftName || comment.author.username, null); }}
         />
       </Link>
 
       <div className="profile-comments__item-content">
         <div className="profile-comments__item-meta">
           <Link
-            to={`/player/${comment.author.username}`}
+            to={`/player/${comment.author.minecraftName || comment.author.username}`}
             className="profile-comments__item-author"
           >
-            {comment.author.username}
+            {comment.author.minecraftName || comment.author.username}
           </Link>
           <span
             className="profile-comments__item-date"

@@ -204,11 +204,14 @@ router.post('/login', async (req, res) => {
       customPermissions = [...permSet];
     } catch { /* таблицы могут не существовать до миграции */ }
 
+    const mcPlayer = await db.get('SELECT name FROM players WHERE uuid = ?', [user.minecraft_uuid]);
+
     res.json({
       token,
       user: {
         id: user.id,
         username: user.username,
+        minecraftName: mcPlayer?.name || null,
         minecraftUuid: user.minecraft_uuid,
         role: user.role,
         isBanned: !!user.is_banned,
@@ -246,7 +249,9 @@ router.get('/me', async (req, res) => {
 
     const user = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id, username, minecraft_uuid, role, created_at, is_banned, ban_reason FROM users WHERE id = ?',
+        `SELECT u.id, u.username, u.minecraft_uuid, u.role, u.created_at, u.is_banned, u.ban_reason,
+                (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS minecraft_name
+         FROM users u WHERE u.id = ?`,
         [decoded.id],
         (err, row) => { if (err) reject(err); else resolve(row); }
       );
@@ -278,6 +283,7 @@ router.get('/me', async (req, res) => {
     res.json({
       id:                user.id,
       username:          user.username,
+      minecraftName:     user.minecraft_name || null,
       minecraftUuid:     user.minecraft_uuid,
       role:              user.role,
       createdAt:         user.created_at,

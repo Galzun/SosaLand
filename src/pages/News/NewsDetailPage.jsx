@@ -86,10 +86,10 @@ function NewsDetailPage() {
         <div className="news-detail__byline">
           {news.author && (
             <Link
-              to={`/player/${news.author.username}`}
+              to={`/player/${news.author.minecraftName || news.author.username}`}
               className="news-detail__author"
             >
-              {news.author.username}
+              {news.author.minecraftName || news.author.username}
             </Link>
           )}
           <div className="news-detail__byline-right">

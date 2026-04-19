@@ -230,7 +230,7 @@ function PlayerPage() {
 
   const handleRevokeRole = async (role) => {
     if (!profile) return;
-    const ok = await showConfirm(`Забрать роль «${role.name}» у ${profile.username}?`, { danger: true, confirmText: 'Забрать' });
+    const ok = await showConfirm(`Забрать роль «${role.name}» у ${username}?`, { danger: true, confirmText: 'Забрать' });
     if (!ok) return;
     try {
       await axios.delete(`/api/roles/${role.id}/users/${profile.id}`, {
@@ -307,7 +307,7 @@ function PlayerPage() {
     const labels = { posts: 'посты', images: 'фото/альбомы', profile: 'настройки профиля', chats: 'переписку' };
     const listStr = selected.map(s => labels[s]).join(', ');
     const ok = await showConfirm(
-      `Очистить у "${profile.username}": ${listStr}? Сам аккаунт останется.`,
+      `Очистить у "${username}": ${listStr}? Сам аккаунт останется.`,
       { confirmText: 'Очистить', danger: true }
     );
     if (!ok) return;
@@ -328,7 +328,7 @@ function PlayerPage() {
 
   const handleDeleteAccount = async () => {
     const ok = await showConfirm(
-      `Полностью удалить аккаунт "${profile.username}"? Это действие необратимо — аккаунт и все его данные исчезнут навсегда.`,
+      `Полностью удалить аккаунт "${username}"? Это действие необратимо — аккаунт и все его данные исчезнут навсегда.`,
       { confirmText: 'Удалить', danger: true }
     );
     if (!ok) return;

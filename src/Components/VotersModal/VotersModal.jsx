@@ -101,16 +101,16 @@ function VotersModal({ pollId, poll, mode, optionId, onClose, cssVars }) {
                         {voters.map(v => (
                           <Link
                             key={v.id}
-                            to={`/player/${v.username}`}
+                            to={`/player/${v.minecraftName || v.username}`}
                             className="voters-modal__voter"
                             onClick={onClose}
                           >
                             <img
                               className="voters-modal__voter-avatar"
                               src={v.avatarUrl}
-                              alt={v.username}
+                              alt={v.minecraftName || v.username}
                             />
-                            <span className="voters-modal__voter-name">{v.username}</span>
+                            <span className="voters-modal__voter-name">{v.minecraftName || v.username}</span>
                           </Link>
                         ))}
                       </div>

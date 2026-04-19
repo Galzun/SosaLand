@@ -169,18 +169,18 @@ function PostModal({ post, onClose, onLike, onDelete, onEdit, onCommentAdded, cs
         {/* Автор */}
         <div className="post-modal__author-block">
           <Link
-            to={`/player/${post.author?.username}`}
+            to={`/player/${post.author?.minecraftName || post.author?.username}`}
             className="post-modal__author"
             onClick={onClose}
           >
             <div className="post-modal__avatar">
               <img
-                src={avatarUrl || getAvatarUrl(post.author?.username, null)}
-                alt={post.author?.username}
-                onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(post.author?.username, null); }}
+                src={avatarUrl || getAvatarUrl(post.author?.minecraftName || post.author?.username, null)}
+                alt={post.author?.minecraftName || post.author?.username}
+                onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(post.author?.minecraftName || post.author?.username, null); }}
               />
             </div>
-            <span className="post-modal__author-name">{post.author?.username}</span>
+            <span className="post-modal__author-name">{post.author?.minecraftName || post.author?.username}</span>
           </Link>
 
           <div className="post-modal__header-actions">

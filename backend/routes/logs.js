@@ -9,7 +9,7 @@
 const express = require('express');
 const db      = require('../db');
 const { requireAuth, isAdminOrPerm } = require('../middleware/auth');
-const { logActivity } = require('../utils/logActivity');
+const { logActivity, markFileDeletedInLogs } = require('../utils/logActivity');
 const { deleteFile } = require('../utils/storage');
 const avatarUrl = require('../utils/avatarUrl');
 
@@ -41,6 +41,18 @@ const ACTION_LABEL = {
   event_update:   'Изменение события',
   event_delete:   'Удаление события',
   ticket_create:  'Заявка на регистрацию',
+  role_create:    'Создание роли',
+  role_update:    'Изменение роли',
+  role_delete:    'Удаление роли',
+  role_assign:    'Назначение роли',
+  role_revoke:    'Отзыв роли',
+  court_ticket_create:  'Жалоба подана',
+  court_ticket_review:  'Тикет взят в работу',
+  court_ticket_reject:  'Тикет отклонён',
+  court_ticket_close:   'Тикет закрыт',
+  court_case_create:    'Заседание создано',
+  court_case_update:    'Заседание изменено',
+  court_case_delete:    'Заседание удалено',
 };
 
 // ---------------------------------------------------------------------------
@@ -252,10 +264,12 @@ router.get('/', requireAuth, isAdminOrPerm('view_logs'), async (req, res) => {
 
 
 // ---------------------------------------------------------------------------
-// DELETE /api/logs/:id/file — удалить файл с диска.
+// DELETE /api/logs/:id/file — удалить медиа полностью через лог.
 //
-// Запись лога остаётся (для истории), но файл удаляется физически.
-// Обнуляем target_id в записи лога после удаления.
+// 1. Физически удаляет файл с диска / S3.
+// 2. Удаляет записи из images и post_attachments (медиа пропадает с сайта).
+// 3. Обнуляет target_id/file_size во ВСЕХ логах, ссылающихся на этот файл.
+// Сама запись лога остаётся для истории.
 // ---------------------------------------------------------------------------
 router.delete('/:id/file', requireAuth, isAdminOrPerm('view_logs'), async (req, res) => {
   const { id } = req.params;
@@ -270,16 +284,21 @@ router.delete('/:id/file', requireAuth, isAdminOrPerm('view_logs'), async (req, 
       return res.status(400).json({ error: 'У этой записи нет удаляемого файла' });
     }
 
+    // 1. Удалить физический файл
     await deleteFile(fileUrl);
 
-    // Обнуляем target_id и file_size — файл удалён, статистика уменьшится
-    await db.run(
-      `UPDATE activity_logs SET target_id = NULL, file_size = NULL WHERE id = ?`, [id]
-    );
+    // 2. Удалить из БД (медиа исчезает с сайта)
+    await Promise.all([
+      db.run(`DELETE FROM images          WHERE image_url = ?`, [fileUrl]),
+      db.run(`DELETE FROM post_attachments WHERE file_url  = ?`, [fileUrl]),
+    ]);
+
+    // 3. Обнулить target_id/file_size во ВСЕХ логах, ссылающихся на этот URL
+    await markFileDeletedInLogs(fileUrl);
 
     res.json({ ok: true, deleted: fileUrl });
 
-    // Логируем факт удаления файла
+    // Логируем факт удаления
     const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
     logActivity({
       userId:     req.user.id,
@@ -287,7 +306,7 @@ router.delete('/:id/file', requireAuth, isAdminOrPerm('view_logs'), async (req, 
       action:     'file_delete',
       targetType: 'file',
       targetId:   null,
-      fileName:   log.file_name || fileName,
+      fileName:   log.file_name || null,
       fileType:   log.file_type || null,
       fileSize:   log.file_size || null,
       fileCount:  1,

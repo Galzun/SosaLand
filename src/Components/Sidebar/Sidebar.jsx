@@ -246,18 +246,18 @@ function Sidebar({ serverIp, borderColor }) {
         <div className="sidebar__profile">
           {user ? (
             <Link
-              to={`/player/${user.username}`}
+              to={`/player/${user.minecraftName || user.username}`}
               className="sidebar__profile-link"
             >
               <div className="sidebar__profile-avatar">
                 <img
-                  src={getAvatarUrl(user.username, user.minecraftUuid, avatarError)}
-                  alt={user.username}
+                  src={getAvatarUrl(user.minecraftName || user.username, user.minecraftUuid, avatarError)}
+                  alt={user.minecraftName || user.username}
                   onError={() => setAvatarError(true)}
                 />
               </div>
               <div className="sidebar__profile-info">
-                <span className="sidebar__profile-name">{user.username}</span>
+                <span className="sidebar__profile-name">{user.minecraftName || user.username}</span>
                 {user.customRoles?.[0] && (
                   <span
                     className="sidebar__profile-role"
@@ -414,17 +414,17 @@ function Sidebar({ serverIp, borderColor }) {
                 onClick={() => setDropdownOpen(p => !p)}
               >
                 <img
-                  src={getAvatarUrl(user.username, user.minecraftUuid, avatarError)}
-                  alt={user.username}
+                  src={getAvatarUrl(user.minecraftName || user.username, user.minecraftUuid, avatarError)}
+                  alt={user.minecraftName || user.username}
                   className="sidebar__mobile-user-avatar"
                   onError={() => setAvatarError(true)}
                 />
-                <span>{user.username}</span>
+                <span>{user.minecraftName || user.username}</span>
                 <span className={`sidebar__mobile-user-arrow${dropdownOpen ? ' sidebar__mobile-user-arrow--open' : ''}`}>▾</span>
               </button>
               {dropdownOpen && (
                 <div className="sidebar__mobile-dropdown">
-                  <Link to={`/player/${user.username}`} className="sidebar__mobile-dropdown-item" onClick={() => { setDropdownOpen(false); setIsOpen(false); }}>
+                  <Link to={`/player/${user.minecraftName || user.username}`} className="sidebar__mobile-dropdown-item" onClick={() => { setDropdownOpen(false); setIsOpen(false); }}>
                     <span>👤</span> Профиль
                   </Link>
                   <Link to="/dashboard/profile" className="sidebar__mobile-dropdown-item" onClick={() => { setDropdownOpen(false); setIsOpen(false); }}>

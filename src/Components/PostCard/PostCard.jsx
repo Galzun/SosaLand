@@ -127,16 +127,16 @@ function PostCard({ post, onLike, onDelete, onEdit, onCommentAdded, cssVars, aut
   return (
     <article className="post-card" ref={articleRef}>
       <div className="post-card__header">
-        <Link to={`/player/${post.author?.username}`} className="post-card__author">
+        <Link to={`/player/${post.author?.minecraftName || post.author?.username}`} className="post-card__author">
           <div className="post-card__avatar">
             <img
-              src={post.author?.avatarUrl || getAvatarUrl(post.author?.username, null)}
-              alt={post.author?.username}
-              onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(post.author?.username, null); }}
+              src={post.author?.avatarUrl || getAvatarUrl(post.author?.minecraftName || post.author?.username, null)}
+              alt={post.author?.minecraftName || post.author?.username}
+              onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(post.author?.minecraftName || post.author?.username, null); }}
             />
           </div>
           <div className="post-card__author-info">
-            <span className="post-card__author-name">{post.author?.username || 'Неизвестный'}</span>
+            <span className="post-card__author-name">{post.author?.minecraftName || post.author?.username || 'Неизвестный'}</span>
             <span className="post-card__time" title={new Date(post.createdAt * 1000).toLocaleString()}>
               {timeText}
             </span>
@@ -528,27 +528,27 @@ function LastCommentPreview({ comment }) {
   return (
     <div className="post-card__last-comment-inner">
       <Link
-        to={`/player/${comment.author?.username}`}
+        to={`/player/${comment.author?.minecraftName || comment.author?.username}`}
         className="post-card__last-comment-avatar-link"
         onClick={(e) => e.stopPropagation()}
-        title={comment.author?.username}
+        title={comment.author?.minecraftName || comment.author?.username}
       >
         <img
           className="post-card__last-comment-avatar"
-          src={comment.author?.avatarUrl || getAvatarUrl(comment.author?.username, null)}
-          alt={comment.author?.username}
-          onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(comment.author?.username, null); }}
+          src={comment.author?.avatarUrl || getAvatarUrl(comment.author?.minecraftName || comment.author?.username, null)}
+          alt={comment.author?.minecraftName || comment.author?.username}
+          onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(comment.author?.minecraftName || comment.author?.username, null); }}
         />
       </Link>
 
       <div className="post-card__last-comment-body">
         <div className="post-card__last-comment-meta">
           <Link
-            to={`/player/${comment.author?.username}`}
+            to={`/player/${comment.author?.minecraftName || comment.author?.username}`}
             className="post-card__last-comment-author"
             onClick={(e) => e.stopPropagation()}
           >
-            {comment.author?.username}
+            {comment.author?.minecraftName || comment.author?.username}
           </Link>
           {text && (
             <span className="post-card__last-comment-text">

@@ -456,9 +456,9 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
       {/* Аватарка автора слева */}
       <div className="post-form__avatar">
         <img
-          src={getAvatarUrl(user.username, user.minecraftUuid)}
-          alt={user.username}
-          onError={(e) => { e.target.src = getAvatarUrl(user.username, null); }}
+          src={getAvatarUrl(user.minecraftName || user.username, user.minecraftUuid)}
+          alt={user.minecraftName || user.username}
+          onError={(e) => { e.target.src = getAvatarUrl(user.minecraftName || user.username, null); }}
         />
       </div>
 

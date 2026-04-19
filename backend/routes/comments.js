@@ -31,6 +31,7 @@ function formatComment(row) {
     author: {
       id:            row.author_id,
       username:      row.author_username,
+      minecraftName: row.author_minecraft_name || null,
       minecraftUuid: row.author_minecraft_uuid || null,
       avatarUrl: avatarUrl(row.author_minecraft_uuid, row.author_username),
     },
@@ -50,7 +51,8 @@ function fetchComments(whereField, whereValue, limit, offset) {
          c.created_at,
          u.id             AS author_id,
          u.username       AS author_username,
-         u.minecraft_uuid AS author_minecraft_uuid
+         u.minecraft_uuid AS author_minecraft_uuid,
+         (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS author_minecraft_name
        FROM comments c
        JOIN users u ON u.id = c.user_id
        WHERE c.${whereField} = ?

@@ -61,6 +61,7 @@ function formatAlbum(stub, items) {
     author: {
       id:            stub.author_id,
       username:      stub.author_username,
+      minecraftName: stub.author_minecraft_name || null,
       minecraftUuid: stub.author_minecraft_uuid || null,
       avatarUrl: avatarUrl(stub.author_minecraft_uuid, stub.author_username),
     },
@@ -93,7 +94,8 @@ async function getAlbums(whereClause, whereParams, limit, offset) {
       COUNT(DISTINCT c.id)        AS comments_count,
       u.id             AS author_id,
       u.username       AS author_username,
-      u.minecraft_uuid AS author_minecraft_uuid
+      u.minecraft_uuid AS author_minecraft_uuid,
+      (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS author_minecraft_name
     FROM images i
     JOIN users u ON u.id = i.user_id
     LEFT JOIN comments c ON c.image_id = i.id

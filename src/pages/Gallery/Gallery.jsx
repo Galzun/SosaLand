@@ -323,18 +323,18 @@ function Gallery() {
                 <div className="gallery__item-author">
                   {album.author?.username && (
                     <img
-                      src={album.author.avatarUrl || getAvatarUrl(album.author.username, null)}
-                      alt={album.author.username}
+                      src={album.author.avatarUrl || getAvatarUrl(album.author.minecraftName || album.author.username, null)}
+                      alt={album.author.minecraftName || album.author.username}
                       className="gallery__item-avatar"
-                      onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(album.author.username, null); }}
+                      onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(album.author.minecraftName || album.author.username, null); }}
                     />
                   )}
                   <Link
-                    to={`/player/${album.author?.username}`}
+                    to={`/player/${album.author?.minecraftName || album.author?.username}`}
                     className="gallery__item-username"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {album.author?.username}
+                    {album.author?.minecraftName || album.author?.username}
                   </Link>
                 </div>
                 <span className="gallery__item-date">{timeAgo(album.createdAt * 1000)}</span>

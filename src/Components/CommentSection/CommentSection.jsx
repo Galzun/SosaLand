@@ -422,19 +422,19 @@ function CommentItem({ comment, onDelete, currentUser }) {
 
   return (
     <div className="comment-section__item">
-      <Link to={`/player/${comment.author.username}`} className="comment-section__avatar-link">
+      <Link to={`/player/${comment.author.minecraftName || comment.author.username}`} className="comment-section__avatar-link">
         <img
           className="comment-section__avatar"
-          src={comment.author.avatarUrl || getAvatarUrl(comment.author.username, null)}
-          alt={comment.author.username}
-          onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(comment.author.username, null); }}
+          src={comment.author.avatarUrl || getAvatarUrl(comment.author.minecraftName || comment.author.username, null)}
+          alt={comment.author.minecraftName || comment.author.username}
+          onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(comment.author.minecraftName || comment.author.username, null); }}
         />
       </Link>
 
       <div className="comment-section__content">
         <div className="comment-section__meta">
-          <Link to={`/player/${comment.author.username}`} className="comment-section__author">
-            {comment.author.username}
+          <Link to={`/player/${comment.author.minecraftName || comment.author.username}`} className="comment-section__author">
+            {comment.author.minecraftName || comment.author.username}
           </Link>
           <span
             className="comment-section__date"

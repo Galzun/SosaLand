@@ -212,9 +212,9 @@ function ChatWindow({
           {!isOwn && (
             <div className="chat__msg-avatar">
               <img
-                src={senderAvatar || getAvatarUrl(msg.sender?.username, null)}
-                alt={msg.sender?.username}
-                onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(msg.sender?.username, null); }}
+                src={senderAvatar || getAvatarUrl(msg.sender?.minecraftName || msg.sender?.username, null)}
+                alt={msg.sender?.minecraftName || msg.sender?.username}
+                onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(msg.sender?.minecraftName || msg.sender?.username, null); }}
               />
             </div>
           )}
@@ -274,14 +274,14 @@ function ChatWindow({
         )}
         <div className="chat-window__header-avatar">
           {partnerAvatar ? (
-            <img src={partnerAvatar} alt={partner.username} />
+            <img src={partnerAvatar} alt={partner.minecraftName || partner.username} />
           ) : (
             <span>👤</span>
           )}
         </div>
         <div className="chat-window__header-info">
-          <Link to={`/player/${partner.username}`} className="chat-window__header-name">
-            {partner.username}
+          <Link to={`/player/${partner.minecraftName || partner.username}`} className="chat-window__header-name">
+            {partner.minecraftName || partner.username}
           </Link>
         </div>
       </div>

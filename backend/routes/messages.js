@@ -161,6 +161,7 @@ router.get('/', requireAuth, (req, res) => {
        u.id         AS partner_id,
        u.username   AS partner_username,
        u.minecraft_uuid AS partner_minecraft_uuid,
+       (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS partner_minecraft_name,
        -- Количество непрочитанных сообщений от собеседника
        (
          SELECT COUNT(*)
@@ -193,6 +194,7 @@ router.get('/', requireAuth, (req, res) => {
         partner: {
           id:           r.partner_id,
           username:     r.partner_username,
+          minecraftName: r.partner_minecraft_name || null,
           minecraftUuid: r.partner_minecraft_uuid,
           avatarUrl:    avatarUrl(r.partner_minecraft_uuid, r.partner_username),
         },
@@ -274,7 +276,8 @@ router.get('/:userId/messages', requireAuth, async (req, res) => {
              m.read_at,
              m.created_at,
              u.username       AS sender_username,
-             u.minecraft_uuid AS sender_minecraft_uuid
+             u.minecraft_uuid AS sender_minecraft_uuid,
+             (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS sender_minecraft_name
            FROM messages m
            JOIN users u ON u.id = m.sender_id
            WHERE m.conversation_id = ?
@@ -307,6 +310,7 @@ router.get('/:userId/messages', requireAuth, async (req, res) => {
                 sender: {
                   id:            m.sender_id,
                   username:      m.sender_username,
+                  minecraftName: m.sender_minecraft_name || null,
                   minecraftUuid: m.sender_minecraft_uuid,
                   avatarUrl:     avatarUrl(m.sender_minecraft_uuid, m.sender_username),
                 },

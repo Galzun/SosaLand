@@ -24,6 +24,11 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { requireAuth, isAdminOrPerm, ROLE_LEVEL } = require('../middleware/auth');
 const avatarUrl = require('../utils/avatarUrl');
+const { logActivity } = require('../utils/logActivity');
+
+function clientIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+}
 
 const router = express.Router();
 
@@ -73,6 +78,7 @@ router.post('/tickets', requireAuth, async (req, res) => {
     [id, req.user.id, accusedName.trim(), title.trim(), ts, ts]
   );
 
+  logActivity({ userId: req.user.id, username: req.user.username, action: 'court_ticket_create', targetId: id, ip: clientIp(req), details: { accusedName: accusedName.trim(), title: title.trim() } });
   res.status(201).json({ id });
 });
 
@@ -93,7 +99,8 @@ router.get('/tickets/my', requireAuth, async (req, res) => {
   const rows = await db.all(
     `SELECT ct.*,
             ru.username AS reviewer_username,
-            ru.minecraft_uuid AS reviewer_uuid
+            ru.minecraft_uuid AS reviewer_uuid,
+            (SELECT p.name FROM players p WHERE p.uuid = ru.minecraft_uuid LIMIT 1) AS reviewer_minecraft_name
      FROM court_tickets ct
      LEFT JOIN users ru ON ru.id = ct.reviewer_id
      WHERE ct.created_by = ?
@@ -121,8 +128,10 @@ router.get('/tickets', requireAuth, canManageCourt, async (req, res) => {
     `SELECT ct.*,
             cu.username AS creator_username,
             cu.minecraft_uuid AS creator_uuid,
+            (SELECT p.name FROM players p WHERE p.uuid = cu.minecraft_uuid LIMIT 1) AS creator_minecraft_name,
             ru.username AS reviewer_username,
-            ru.minecraft_uuid AS reviewer_uuid
+            ru.minecraft_uuid AS reviewer_uuid,
+            (SELECT p.name FROM players p WHERE p.uuid = ru.minecraft_uuid LIMIT 1) AS reviewer_minecraft_name
      FROM court_tickets ct
      LEFT JOIN users cu ON cu.id = ct.created_by
      LEFT JOIN users ru ON ru.id = ct.reviewer_id
@@ -141,9 +150,10 @@ router.get('/tickets', requireAuth, canManageCourt, async (req, res) => {
   res.json(rows.map(r => ({
     ...formatTicket(r),
     creator: {
-      id:        r.created_by,
-      username:  r.creator_username,
-      avatarUrl: avatarUrl(r.creator_uuid, r.creator_username),
+      id:           r.created_by,
+      username:     r.creator_username,
+      minecraftName: r.creator_minecraft_name || null,
+      avatarUrl:    avatarUrl(r.creator_uuid, r.creator_username),
     },
   })));
 });
@@ -156,8 +166,10 @@ router.get('/tickets/:id', requireAuth, async (req, res) => {
     `SELECT ct.*,
             cu.username AS creator_username,
             cu.minecraft_uuid AS creator_uuid,
+            (SELECT p.name FROM players p WHERE p.uuid = cu.minecraft_uuid LIMIT 1) AS creator_minecraft_name,
             ru.username AS reviewer_username,
-            ru.minecraft_uuid AS reviewer_uuid
+            ru.minecraft_uuid AS reviewer_uuid,
+            (SELECT p.name FROM players p WHERE p.uuid = ru.minecraft_uuid LIMIT 1) AS reviewer_minecraft_name
      FROM court_tickets ct
      LEFT JOIN users cu ON cu.id = ct.created_by
      LEFT JOIN users ru ON ru.id = ct.reviewer_id
@@ -177,7 +189,8 @@ router.get('/tickets/:id', requireAuth, async (req, res) => {
   const messages = await db.all(
     `SELECT ctm.*,
             u.username AS sender_username,
-            u.minecraft_uuid AS sender_uuid
+            u.minecraft_uuid AS sender_uuid,
+            (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS sender_minecraft_name
      FROM court_ticket_messages ctm
      LEFT JOIN users u ON u.id = ctm.sender_id
      WHERE ctm.ticket_id = ?
@@ -188,9 +201,10 @@ router.get('/tickets/:id', requireAuth, async (req, res) => {
   res.json({
     ...formatTicket(ticket),
     creator: {
-      id:        ticket.created_by,
-      username:  ticket.creator_username,
-      avatarUrl: avatarUrl(ticket.creator_uuid, ticket.creator_username),
+      id:           ticket.created_by,
+      username:     ticket.creator_username,
+      minecraftName: ticket.creator_minecraft_name || null,
+      avatarUrl:    avatarUrl(ticket.creator_uuid, ticket.creator_username),
     },
     messages: messages.map(m => ({
       id:        m.id,
@@ -204,9 +218,10 @@ router.get('/tickets/:id', requireAuth, async (req, res) => {
       files:     m.files_json ? (() => { try { return JSON.parse(m.files_json); } catch { return []; } })() : [],
       isRead:    true,
       sender: m.sender_id ? {
-        id:        m.sender_id,
-        username:  m.sender_username,
-        avatarUrl: avatarUrl(m.sender_uuid, m.sender_username),
+        id:           m.sender_id,
+        username:     m.sender_username,
+        minecraftName: m.sender_minecraft_name || null,
+        avatarUrl:    avatarUrl(m.sender_uuid, m.sender_username),
       } : null,
     })),
   });
@@ -234,6 +249,7 @@ router.post('/tickets/:id/review', requireAuth, canManageCourt, async (req, res)
   );
 
   await addSystemMessage(req.params.id, `⚖️ Тикет взят в рассмотрение модератором @${req.user.username}`);
+  logActivity({ userId: req.user.id, username: req.user.username, action: 'court_ticket_review', targetId: req.params.id, ip: clientIp(req) });
 
   res.json({ success: true });
 });
@@ -265,6 +281,7 @@ router.post('/tickets/:id/reject', requireAuth, canManageCourt, async (req, res)
     ? `❌ Тикет отклонён. Причина: ${reason.trim()}`
     : '❌ Тикет отклонён.';
   await addSystemMessage(req.params.id, msg);
+  logActivity({ userId: req.user.id, username: req.user.username, action: 'court_ticket_reject', targetId: req.params.id, ip: clientIp(req), details: reason?.trim() ? { reason: reason.trim() } : undefined });
 
   res.json({ success: true });
 });
@@ -291,6 +308,7 @@ router.post('/tickets/:id/close', requireAuth, canManageCourt, async (req, res) 
   );
 
   await addSystemMessage(req.params.id, `✅ Тикет закрыт модератором @${req.user.username}`);
+  logActivity({ userId: req.user.id, username: req.user.username, action: 'court_ticket_close', targetId: req.params.id, ip: clientIp(req) });
 
   res.json({ success: true });
 });
@@ -338,7 +356,12 @@ router.post('/tickets/:id/messages', requireAuth, async (req, res) => {
 
   await db.run(`UPDATE court_tickets SET updated_at = ? WHERE id = ?`, [ts, req.params.id]);
 
-  const u = await db.get(`SELECT username, minecraft_uuid FROM users WHERE id = ?`, [req.user.id]);
+  const u = await db.get(
+    `SELECT u.username, u.minecraft_uuid,
+            (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS minecraft_name
+     FROM users u WHERE u.id = ?`,
+    [req.user.id]
+  );
 
   const parsedFiles = (() => { try { return JSON.parse(filesJson || '[]'); } catch { return []; } })();
 
@@ -354,9 +377,10 @@ router.post('/tickets/:id/messages', requireAuth, async (req, res) => {
     files:     parsedFiles,
     isRead:    true,
     sender: {
-      id:        req.user.id,
-      username:  u.username,
-      avatarUrl: avatarUrl(u.minecraft_uuid, u.username),
+      id:           req.user.id,
+      username:     u.username,
+      minecraftName: u.minecraft_name || null,
+      avatarUrl:    avatarUrl(u.minecraft_uuid, u.username),
     },
   });
 });
@@ -379,6 +403,7 @@ router.get('/cases', requireAuth, async (req, res) => {
     `SELECT cc.*,
             u.username AS creator_username,
             u.minecraft_uuid AS creator_uuid,
+            (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS creator_minecraft_name,
             ct.title AS ticket_title,
             ct.accused_name AS ticket_accused
      FROM court_cases cc
@@ -402,9 +427,10 @@ router.get('/cases', requireAuth, async (req, res) => {
     ticketTitle:     r.ticket_title,
     ticketAccused:   r.ticket_accused,
     creator: {
-      id:        r.created_by,
-      username:  r.creator_username,
-      avatarUrl: avatarUrl(r.creator_uuid, r.creator_username),
+      id:           r.created_by,
+      username:     r.creator_username,
+      minecraftName: r.creator_minecraft_name || null,
+      avatarUrl:    avatarUrl(r.creator_uuid, r.creator_username),
     },
   })));
 });
@@ -435,6 +461,7 @@ router.post('/cases', requireAuth, canManageCourt, async (req, res) => {
     [id, ticketId || null, title.trim(), description?.trim() || null, verdict?.trim() || null, hearingAt || null, req.user.id, caseStatus, previewImageUrl?.trim() || null, previewVerdictImageUrl?.trim() || null, ts, ts]
   );
 
+  logActivity({ userId: req.user.id, username: req.user.username, action: 'court_case_create', targetId: id, ip: clientIp(req), details: { title: title.trim() } });
   res.status(201).json({ id });
 });
 
@@ -446,6 +473,7 @@ router.get('/cases/:id', requireAuth, async (req, res) => {
     `SELECT cc.*,
             u.username AS creator_username,
             u.minecraft_uuid AS creator_uuid,
+            (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS creator_minecraft_name,
             ct.title AS ticket_title,
             ct.accused_name AS ticket_accused
      FROM court_cases cc
@@ -472,9 +500,10 @@ router.get('/cases/:id', requireAuth, async (req, res) => {
     ticketTitle:     r.ticket_title,
     ticketAccused:   r.ticket_accused,
     creator: {
-      id:        r.created_by,
-      username:  r.creator_username,
-      avatarUrl: avatarUrl(r.creator_uuid, r.creator_username),
+      id:           r.created_by,
+      username:     r.creator_username,
+      minecraftName: r.creator_minecraft_name || null,
+      avatarUrl:    avatarUrl(r.creator_uuid, r.creator_username),
     },
   });
 });
@@ -525,6 +554,7 @@ router.put('/cases/:id', requireAuth, canManageCourt, async (req, res) => {
     ]
   );
 
+  logActivity({ userId: req.user.id, username: req.user.username, action: 'court_case_update', targetId: req.params.id, ip: clientIp(req), details: title?.trim() ? { title: title.trim() } : undefined });
   res.json({ success: true });
 });
 
@@ -532,10 +562,11 @@ router.put('/cases/:id', requireAuth, canManageCourt, async (req, res) => {
 // DELETE /api/court/cases/:id
 // ---------------------------------------------------------------------------
 router.delete('/cases/:id', requireAuth, canManageCourt, async (req, res) => {
-  const c = await db.get(`SELECT id FROM court_cases WHERE id = ?`, [req.params.id]);
+  const c = await db.get(`SELECT id, title FROM court_cases WHERE id = ?`, [req.params.id]);
   if (!c) return res.status(404).json({ error: 'Заседание не найдено' });
 
   await db.run(`DELETE FROM court_cases WHERE id = ?`, [req.params.id]);
+  logActivity({ userId: req.user.id, username: req.user.username, action: 'court_case_delete', targetId: req.params.id, ip: clientIp(req), details: { title: c.title } });
   res.json({ success: true });
 });
 
@@ -558,9 +589,10 @@ function formatTicket(r) {
     closedAt:        r.closed_at,
     rejectionReason: r.rejection_reason,
     reviewer: r.reviewer_id ? {
-      id:        r.reviewer_id,
-      username:  r.reviewer_username,
-      avatarUrl: avatarUrl(r.reviewer_uuid, r.reviewer_username),
+      id:           r.reviewer_id,
+      username:     r.reviewer_username,
+      minecraftName: r.reviewer_minecraft_name || null,
+      avatarUrl:    avatarUrl(r.reviewer_uuid, r.reviewer_username),
     } : null,
   };
 }

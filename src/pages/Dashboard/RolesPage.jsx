@@ -179,7 +179,7 @@ function RoleUsersPanel({ role, token, onRevoke }) {
   }, [role]);
 
   const handleRevoke = async (user) => {
-    const ok = await showConfirm(`Забрать роль «${role.name}» у ${user.username}?`, { danger: true, confirmText: 'Забрать' });
+    const ok = await showConfirm(`Забрать роль «${role.name}» у ${user.minecraftName || user.username}?`, { danger: true, confirmText: 'Забрать' });
     if (!ok) return;
     try {
       await axios.delete(`/api/roles/${role.id}/users/${user.id}`, {
@@ -206,12 +206,12 @@ function RoleUsersPanel({ role, token, onRevoke }) {
             <div key={u.id} className="roles-users__item">
               <div className="roles-users__avatar">
                 <img
-                  src={getAvatarUrl(u.username, u.minecraftUuid)}
-                  alt={u.username}
-                  onError={e => { e.target.src = getAvatarUrl(u.username, null); }}
+                  src={getAvatarUrl(u.minecraftName || u.username, u.minecraftUuid)}
+                  alt={u.minecraftName || u.username}
+                  onError={e => { e.target.src = getAvatarUrl(u.minecraftName || u.username, null); }}
                 />
               </div>
-              <span className="roles-users__name">{u.username}</span>
+              <span className="roles-users__name">{u.minecraftName || u.username}</span>
               <span className="roles-users__sys-role">{u.role}</span>
               <button
                 className="roles-users__revoke"

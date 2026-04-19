@@ -289,10 +289,10 @@ function EventDetailPage() {
         <div className="event-detail__byline">
           {event.author && (
             <Link
-              to={`/player/${event.author.username}`}
+              to={`/player/${event.author.minecraftName || event.author.username}`}
               className="event-detail__author"
             >
-              {event.author.username}
+              {event.author.minecraftName || event.author.username}
             </Link>
           )}
           <div className="event-detail__byline-right">

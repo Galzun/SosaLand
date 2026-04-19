@@ -54,13 +54,13 @@ function ConversationList({ conversations, activePartnerId, onSelect, onDelete, 
             >
               {/* Аватарка */}
               <div className="conv-list__avatar">
-                <img src={partner.avatarUrl} alt={partner.username} />
+                <img src={partner.avatarUrl} alt={partner.minecraftName || partner.username} />
               </div>
 
               {/* Информация */}
               <div className="conv-list__info">
                 <div className="conv-list__top">
-                  <span className="conv-list__name">{partner.username}</span>
+                  <span className="conv-list__name">{partner.minecraftName || partner.username}</span>
                   <span className="conv-list__time">{formatLastTime(lastMessageTime)}</span>
                 </div>
                 <div className="conv-list__bottom">

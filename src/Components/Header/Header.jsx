@@ -111,12 +111,12 @@ function Header({ serverIp, borderColor }) {
                 aria-expanded={dropdownOpen}
               >
                 <img
-                  src={getAvatarUrl(user.username, user.minecraftUuid, avatarError)}
-                  alt={user.username}
+                  src={getAvatarUrl(user.minecraftName || user.username, user.minecraftUuid, avatarError)}
+                  alt={user.minecraftName || user.username}
                   className="header__user-avatar"
                   onError={() => setAvatarError(true)}
                 />
-                <span className="header__user-name">{user.username}</span>
+                <span className="header__user-name">{user.minecraftName || user.username}</span>
                 <span className={`header__user-arrow ${dropdownOpen ? 'header__user-arrow--open' : ''}`}>
                   ▾
                 </span>
@@ -125,7 +125,7 @@ function Header({ serverIp, borderColor }) {
               {dropdownOpen && (
                 <div className="header__dropdown">
                   <Link
-                    to={`/player/${user.username}`}
+                    to={`/player/${user.minecraftName || user.username}`}
                     className="header__dropdown-item"
                     onClick={() => setDropdownOpen(false)}
                   >

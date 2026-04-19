@@ -14,6 +14,11 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { requireAuth, ROLE_LEVEL } = require('../middleware/auth');
 const { PERMISSION_IDS } = require('../utils/permissions');
+const { logActivity } = require('../utils/logActivity');
+
+function clientIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+}
 
 const router = express.Router();
 
@@ -45,12 +50,15 @@ router.get('/system/:role/users', async (req, res) => {
   }
   try {
     const users = await db.all(
-      `SELECT id, username, minecraft_uuid, role FROM users WHERE role = ? ORDER BY username ASC`,
+      `SELECT u.id, u.username, u.minecraft_uuid, u.role,
+              (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS minecraft_name
+       FROM users u WHERE u.role = ? ORDER BY u.username ASC`,
       [role]
     );
     res.json(users.map(u => ({
       id:            u.id,
       username:      u.username,
+      minecraftName: u.minecraft_name || null,
       minecraftUuid: u.minecraft_uuid,
       role:          u.role,
     })));
@@ -115,6 +123,7 @@ router.post('/', requireAuth, async (req, res) => {
       'INSERT INTO custom_roles (id, name, color, permissions, priority, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [id, name.trim(), color, JSON.stringify(validPerms), priority, req.user.id, now]
     );
+    logActivity({ userId: req.user.id, username: req.user.username, action: 'role_create', targetId: id, ip: clientIp(req), details: { roleName: name.trim(), color } });
     res.status(201).json({ id, name: name.trim(), color, priority, permissions: validPerms, createdAt: now });
   } catch (err) {
     if (err.message?.toLowerCase().includes('unique')) {
@@ -156,6 +165,7 @@ router.put('/:id', requireAuth, async (req, res) => {
       'UPDATE custom_roles SET name = ?, color = ?, permissions = ?, updated_at = ? WHERE id = ?',
       [newName, newColor, JSON.stringify(newPerms), now, id]
     );
+    logActivity({ userId: req.user.id, username: req.user.username, action: 'role_update', targetId: id, ip: clientIp(req), details: { roleName: newName } });
     res.json({ id, name: newName, color: newColor, permissions: newPerms, updatedAt: now });
   } catch (err) {
     console.error('PUT /api/roles/:id:', err);
@@ -176,7 +186,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
   if (!role) return res.status(404).json({ error: 'Роль не найдена' });
 
   // CASCADE в БД автоматически удаляет записи из user_custom_roles
+  const roleRow = await db.get('SELECT name FROM custom_roles WHERE id = ?', [id]);
   await db.run('DELETE FROM custom_roles WHERE id = ?', [id]);
+  logActivity({ userId: req.user.id, username: req.user.username, action: 'role_delete', targetId: id, ip: clientIp(req), details: { roleName: roleRow?.name } });
   res.json({ ok: true });
 });
 
@@ -224,6 +236,7 @@ router.get('/:id/users', async (req, res) => {
   try {
     const users = await db.all(
       `SELECT u.id, u.username, u.minecraft_uuid, u.role,
+              (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS minecraft_name,
               ucr.granted_at,
               gb.username AS granted_by_username
        FROM user_custom_roles ucr
@@ -236,6 +249,7 @@ router.get('/:id/users', async (req, res) => {
     res.json(users.map(u => ({
       id:                u.id,
       username:          u.username,
+      minecraftName:     u.minecraft_name || null,
       minecraftUuid:     u.minecraft_uuid,
       role:              u.role,
       grantedAt:         u.granted_at,
@@ -273,6 +287,11 @@ router.post('/:id/users', requireAuth, async (req, res) => {
       'INSERT INTO user_custom_roles (id, user_id, role_id, granted_by, granted_at) VALUES (?, ?, ?, ?, ?)',
       [assignId, userId, id, req.user.id, now]
     );
+    const [roleRow2, targetUser] = await Promise.all([
+      db.get('SELECT name FROM custom_roles WHERE id = ?', [id]),
+      db.get('SELECT username FROM users WHERE id = ?', [userId]),
+    ]);
+    logActivity({ userId: req.user.id, username: req.user.username, action: 'role_assign', targetId: userId, ip: clientIp(req), details: { roleName: roleRow2?.name, targetUsername: targetUser?.username } });
     res.status(201).json({ ok: true });
   } catch (err) {
     if (err.message?.toLowerCase().includes('unique')) {
@@ -292,7 +311,12 @@ router.delete('/:id/users/:userId', requireAuth, async (req, res) => {
   }
 
   const { id, userId } = req.params;
+  const [roleRow3, targetUser2] = await Promise.all([
+    db.get('SELECT name FROM custom_roles WHERE id = ?', [id]),
+    db.get('SELECT username FROM users WHERE id = ?', [userId]),
+  ]);
   await db.run('DELETE FROM user_custom_roles WHERE role_id = ? AND user_id = ?', [id, userId]);
+  logActivity({ userId: req.user.id, username: req.user.username, action: 'role_revoke', targetId: userId, ip: clientIp(req), details: { roleName: roleRow3?.name, targetUsername: targetUser2?.username } });
   res.json({ ok: true });
 });
 

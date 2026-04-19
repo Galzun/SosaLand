@@ -212,9 +212,9 @@ function TicketChat({ ticket, token, canManage }) {
           {!isOwn && (
             <div className="chat__msg-avatar">
               <img
-                src={msg.sender?.avatarUrl || getAvatarUrl(msg.sender?.username, null)}
-                alt={msg.sender?.username || '?'}
-                onError={e => { e.target.onerror = null; e.target.src = getAvatarUrl(msg.sender?.username, null); }}
+                src={msg.sender?.avatarUrl || getAvatarUrl(msg.sender?.minecraftName || msg.sender?.username, null)}
+                alt={msg.sender?.minecraftName || msg.sender?.username || '?'}
+                onError={e => { e.target.onerror = null; e.target.src = getAvatarUrl(msg.sender?.minecraftName || msg.sender?.username, null); }}
               />
             </div>
           )}
@@ -818,7 +818,7 @@ function TicketsTab({ canManage, token }) {
               <span className="court-ticket-card__title">{t.title}</span>
               <div className="court-ticket-card__meta">
                 ⚖️ <b>{t.accusedName}</b>
-                {canManage && t.creator && <> · {t.creator.username}</>}
+                {canManage && t.creator && <> · {t.creator.minecraftName || t.creator.username}</>}
               </div>
               <div className="court-ticket-card__time">{timeAgo(t.createdAt)}</div>
             </div>
@@ -838,7 +838,7 @@ function TicketsTab({ canManage, token }) {
               </div>
               <div className="court-tickets__detail-meta">
                 <span>⚖️ <b>{selected.accusedName}</b></span>
-                {selected.reviewer && <span>Рецензент: <b>{selected.reviewer.username}</b></span>}
+                {selected.reviewer && <span>Рецензент: <b>{selected.reviewer.minecraftName || selected.reviewer.username}</b></span>}
                 <span>{formatDatetime(selected.createdAt)}</span>
               </div>
               {selected.rejectionReason && (

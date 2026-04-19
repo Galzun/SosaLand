@@ -475,7 +475,8 @@ router.get('/:id/voters', async (req, res) => {
 
     // Публичный: возвращаем пользователей по каждому варианту
     const rows = await dbAll(
-      `SELECT pv.option_id, u.id, u.username, u.minecraft_uuid
+      `SELECT pv.option_id, u.id, u.username, u.minecraft_uuid,
+              (SELECT p.name FROM players p WHERE p.uuid = u.minecraft_uuid LIMIT 1) AS minecraft_name
        FROM poll_votes pv
        JOIN users u ON u.id = pv.user_id
        WHERE pv.poll_id = ?
@@ -490,6 +491,7 @@ router.get('/:id/voters', async (req, res) => {
       byOption[row.option_id].push({
         id:            row.id,
         username:      row.username,
+        minecraftName: row.minecraft_name || null,
         minecraftUuid: row.minecraft_uuid || null,
         avatarUrl:     avatarUrl(row.minecraft_uuid, row.username),
       });
