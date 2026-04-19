@@ -17,16 +17,23 @@ import '../Dashboard/EventCreate.scss';
 
 const ROLE_LEVEL = { user: 1, editor: 2, admin: 3, creator: 4 };
 
-function tsToDatetimeLocal(ts) {
+const pad = n => String(n).padStart(2, '0');
+
+function tsToDateStr(ts) {
   if (!ts) return '';
   const d = new Date(ts * 1000);
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function datetimeLocalToTs(str) {
-  if (!str) return null;
-  return Math.floor(new Date(str).getTime() / 1000);
+function tsToTimeStr(ts, approximate) {
+  if (!ts || approximate) return '';
+  const d = new Date(ts * 1000);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function dateTimeToTs(dateStr, timeStr) {
+  if (!dateStr) return null;
+  return Math.floor(new Date(`${dateStr}T${timeStr || '00:00'}`).getTime() / 1000);
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +112,8 @@ function CourtCaseCreate() {
   const [title,                 setTitle]                 = useState('');
   const [previewImageUrl,       setPreviewImageUrl]       = useState('');
   const [previewVerdictImageUrl, setPreviewVerdictImageUrl] = useState('');
-  const [hearingAt,      setHearingAt]      = useState('');
+  const [hearingDate,    setHearingDate]    = useState('');
+  const [hearingTime,    setHearingTime]    = useState('');
   const [status,         setStatus]         = useState('scheduled');
   const [ticketId,       setTicketId]       = useState('');
   const [tickets,        setTickets]        = useState([]);
@@ -160,7 +168,8 @@ function CourtCaseCreate() {
         setTitle(data.title || '');
         setPreviewImageUrl(data.previewImageUrl || '');
         setPreviewVerdictImageUrl(data.previewVerdictImageUrl || '');
-        setHearingAt(tsToDatetimeLocal(data.hearingAt));
+        setHearingDate(tsToDateStr(data.hearingAt));
+        setHearingTime(tsToTimeStr(data.hearingAt, data.hearingAtApproximate));
         setStatus(data.status || 'scheduled');
         setTicketId(data.ticketId || '');
         const desc    = data.description || '';
@@ -176,10 +185,10 @@ function CourtCaseCreate() {
 
   // Auto-switch to "in_progress" when hearing date has already passed
   useEffect(() => {
-    if (!hearingAt || status !== 'scheduled') return;
-    const ts = datetimeLocalToTs(hearingAt);
+    if (!hearingDate || status !== 'scheduled') return;
+    const ts = dateTimeToTs(hearingDate, hearingTime);
     if (ts && ts <= Math.floor(Date.now() / 1000)) setStatus('in_progress');
-  }, [hearingAt, status]);
+  }, [hearingDate, hearingTime, status]);
 
   const handleUploadImage = useCallback(async (file) => {
     const fd = new FormData();
@@ -204,10 +213,11 @@ function CourtCaseCreate() {
     setSaving(true);
     setError(null);
     const payload = {
-      title:                 title.trim(),
-      previewImageUrl:       previewImageUrl.trim()       || null,
+      title:                  title.trim(),
+      previewImageUrl:        previewImageUrl.trim()        || null,
       previewVerdictImageUrl: previewVerdictImageUrl.trim() || null,
-      hearingAt:      datetimeLocalToTs(hearingAt),
+      hearingAt:              dateTimeToTs(hearingDate, hearingTime),
+      hearingAtApproximate:   hearingDate ? !hearingTime : false,
       status,
       description:    finalDesc    || null,
       verdict:        finalVerdict || null,
@@ -313,12 +323,24 @@ function CourtCaseCreate() {
           <div className="event-create__dates">
             <div className="event-create__field">
               <label className="event-create__label">Дата заседания</label>
-              <input
-                type="datetime-local"
-                className="event-create__input event-create__input--datetime"
-                value={hearingAt}
-                onChange={e => setHearingAt(e.target.value)}
-              />
+              <div className="event-create__date-row">
+                <input
+                  type="date"
+                  className="event-create__input event-create__input--date"
+                  value={hearingDate}
+                  onChange={e => setHearingDate(e.target.value)}
+                />
+                <input
+                  type="time"
+                  className="event-create__input event-create__input--time"
+                  value={hearingTime}
+                  onChange={e => setHearingTime(e.target.value)}
+                  placeholder="--:--"
+                />
+              </div>
+              {!hearingTime && hearingDate && (
+                <p className="event-create__approximate-hint">Время не указано — будет отображаться «Примерно»</p>
+              )}
             </div>
             <div className="event-create__field">
               <label className="event-create__label">Статус</label>

@@ -6,11 +6,18 @@ import { Link } from 'react-router-dom';
 import '../../pages/Events/EventCard.scss';
 import './CourtPage.scss';
 
-function getDisplayStatus(status, hearingAt) {
+function formatDateOnly(ts) {
+  if (!ts) return '';
+  return new Date(ts * 1000).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function getDisplayStatus(status, hearingAt, approximate) {
   if (status === 'completed')   return { label: 'Завершено', cls: 'event-timer--completed' };
   if (status === 'in_progress') return { label: 'Идёт',      cls: 'event-timer--in-progress' };
 
   if (hearingAt) {
+    if (approximate) return { label: `Примерно ${formatDateOnly(hearingAt)}`, cls: 'event-timer--approximate' };
+
     const delta = hearingAt - Math.floor(Date.now() / 1000);
     if (delta > 0) {
       const d = Math.floor(delta / 86400);
@@ -22,7 +29,6 @@ function getDisplayStatus(status, hearingAt) {
       if (m > 0 || parts.length === 0) parts.push(`${m} мин`);
       return { label: `Через ${parts.join(' ')}`, cls: '' };
     }
-    // дата прошла — показываем как «Идёт»
     return { label: 'Идёт', cls: 'event-timer--in-progress' };
   }
 
@@ -35,15 +41,15 @@ function formatDate(ts) {
 }
 
 function CourtCaseCard({ courtCase }) {
-  const { id, title, hearingAt, status, ticketAccused, previewImageUrl, previewVerdictImageUrl } = courtCase;
-  const [badge, setBadge] = useState(() => getDisplayStatus(status, hearingAt));
+  const { id, title, hearingAt, hearingAtApproximate, status, ticketAccused, previewImageUrl, previewVerdictImageUrl } = courtCase;
+  const [badge, setBadge] = useState(() => getDisplayStatus(status, hearingAt, hearingAtApproximate));
 
   useEffect(() => {
-    setBadge(getDisplayStatus(status, hearingAt));
-    if (!hearingAt || status === 'completed') return;
-    const iid = setInterval(() => setBadge(getDisplayStatus(status, hearingAt)), 60_000);
+    setBadge(getDisplayStatus(status, hearingAt, hearingAtApproximate));
+    if (!hearingAt || status === 'completed' || hearingAtApproximate) return;
+    const iid = setInterval(() => setBadge(getDisplayStatus(status, hearingAt, hearingAtApproximate)), 60_000);
     return () => clearInterval(iid);
-  }, [hearingAt, status]);
+  }, [hearingAt, hearingAtApproximate, status]);
 
   return (
     <Link to={`/court/cases/${id}`} className="event-card">
@@ -63,7 +69,11 @@ function CourtCaseCard({ courtCase }) {
       <div className="event-card__content">
         <h3 className="event-card__title">{title}</h3>
         <div className="event-card__meta">
-          {hearingAt && <span className="event-card__date">📅 {formatDate(hearingAt)}</span>}
+          {hearingAt && (
+            <span className="event-card__date">
+              {hearingAtApproximate ? `📅 Примерно ${formatDateOnly(hearingAt)}` : `📅 ${formatDate(hearingAt)}`}
+            </span>
+          )}
           {ticketAccused && <span className="event-card__date">⚖️ {ticketAccused}</span>}
         </div>
       </div>

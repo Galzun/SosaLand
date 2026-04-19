@@ -29,6 +29,15 @@ function formatDate(ts) {
   });
 }
 
+function formatDateOnly(ts) {
+  if (!ts) return '';
+  return new Date(ts * 1000).toLocaleDateString('ru-RU', {
+    day:   '2-digit',
+    month: '2-digit',
+    year:  'numeric',
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Таймер до начала / статус события
 // ---------------------------------------------------------------------------
@@ -59,15 +68,24 @@ function getTimerLabel(startTime, endTime, status) {
   return { label: 'Идёт', cls: 'event-detail__timer--in-progress' };
 }
 
-function EventTimer({ startTime, endTime, status }) {
+function EventTimer({ startTime, endTime, status, approximate }) {
   const [timer, setTimer] = useState(() => getTimerLabel(startTime, endTime, status));
 
   useEffect(() => {
+    if (approximate) return;
     const id = setInterval(() => {
       setTimer(getTimerLabel(startTime, endTime, status));
     }, 60_000);
     return () => clearInterval(id);
-  }, [startTime, endTime, status]);
+  }, [startTime, endTime, status, approximate]);
+
+  if (approximate) {
+    return (
+      <span className="event-detail__timer event-detail__timer--approximate">
+        Примерно {formatDateOnly(startTime)}
+      </span>
+    );
+  }
 
   return (
     <span className={`event-detail__timer${timer.cls ? ` ${timer.cls}` : ''}`}>
@@ -302,12 +320,17 @@ function EventDetailPage() {
 
         <div className="event-detail__title-row">
           <h1 className="event-detail__title">{event.title}</h1>
-          <EventTimer startTime={event.startTime} endTime={event.endTime} status={event.status} />
+          <EventTimer startTime={event.startTime} endTime={event.endTime} status={event.status} approximate={event.startTimeApproximate} />
         </div>
 
         <div className="event-detail__start-info">
           <span className="event-detail__start-label">Начало:</span>
-          <span className="event-detail__start-date">{formatDate(event.startTime)}</span>
+          <span className="event-detail__start-date">
+            {event.startTimeApproximate
+              ? `Примерно ${formatDateOnly(event.startTime)}`
+              : formatDate(event.startTime)
+            }
+          </span>
           {event.endTime && (
             <>
               <span className="event-detail__start-label">Конец:</span>

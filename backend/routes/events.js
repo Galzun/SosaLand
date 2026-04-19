@@ -94,6 +94,7 @@ function formatEvent(row, full = false) {
     previewImageUrl:          row.preview_image_url || null,
     previewImageResultsUrl:   row.preview_image_results_url || null,
     startTime:                Number(row.start_time),
+    startTimeApproximate:     Number(row.start_time_approximate) === 1,
     endTime:                  row.end_time ? Number(row.end_time) : null,
     status:                   row.status || 'scheduled',
     isPublished:     Number(row.is_published) === 1,
@@ -129,7 +130,7 @@ router.get('/', async (req, res) => {
     const rows = await db.all(
       `SELECT
          e.id, e.title, e.slug, e.preview_image_url, e.preview_image_results_url, e.is_published,
-         e.start_time, e.end_time, e.status, e.published_at, e.updated_at,
+         e.start_time, e.start_time_approximate, e.end_time, e.status, e.published_at, e.updated_at,
          e.edited_count, e.views, e.created_at,
          (SELECT COUNT(*) FROM comments c WHERE c.event_id = e.id) AS comments_count
        FROM events e
@@ -156,7 +157,7 @@ router.get('/:slug', async (req, res) => {
     const row = await db.get(
       `SELECT
          e.id, e.title, e.slug, e.preview_image_url, e.preview_image_results_url, e.is_published,
-         e.start_time, e.end_time, e.status, e.published_at, e.updated_at,
+         e.start_time, e.start_time_approximate, e.end_time, e.status, e.published_at, e.updated_at,
          e.edited_count, e.views, e.created_at,
          e.content_main, e.content_results,
          u.id AS author_id, u.username AS author_username,
@@ -191,7 +192,7 @@ router.get('/:slug', async (req, res) => {
 // POST /api/events — создать событие (любой авторизованный)
 // ---------------------------------------------------------------------------
 router.post('/', requireAuth, async (req, res) => {
-  const { title, preview_image_url, preview_image_results_url, content_main, content_results, start_time, end_time, status } = req.body;
+  const { title, preview_image_url, preview_image_results_url, content_main, content_results, start_time, start_time_approximate, end_time, status } = req.body;
 
   if (!title || typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'Заголовок обязателен' });
@@ -205,6 +206,7 @@ router.post('/', requireAuth, async (req, res) => {
 
   const VALID_STATUSES = ['scheduled', 'in_progress', 'completed'];
   const eventStatus = VALID_STATUSES.includes(status) ? status : 'scheduled';
+  const isApproximate = start_time_approximate ? 1 : 0;
 
   try {
     const base = slugify(title.trim());
@@ -215,17 +217,17 @@ router.post('/', requireAuth, async (req, res) => {
     await db.run(
       `INSERT INTO events (id, author_id, title, slug, preview_image_url, preview_image_results_url,
                            content_main, content_results,
-                           start_time, end_time, status, is_published, published_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+                           start_time, start_time_approximate, end_time, status, is_published, published_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
       [id, req.user.id, title.trim(), slug, preview_image_url || null, preview_image_results_url || null,
        content_main || '', content_results || null,
-       start_time, end_time || null, eventStatus, now, now],
+       start_time, isApproximate, end_time || null, eventStatus, now, now],
     );
 
     const row = await db.get(
       `SELECT
          e.id, e.title, e.slug, e.preview_image_url, e.preview_image_results_url, e.is_published,
-         e.start_time, e.end_time, e.status, e.published_at, e.updated_at,
+         e.start_time, e.start_time_approximate, e.end_time, e.status, e.published_at, e.updated_at,
          e.edited_count, e.views, e.created_at,
          e.content_main, e.content_results,
          u.id AS author_id, u.username AS author_username,
@@ -260,7 +262,7 @@ router.post('/', requireAuth, async (req, res) => {
 // ---------------------------------------------------------------------------
 router.put('/:slug', requireAuth, async (req, res) => {
   const { slug } = req.params;
-  const { title, preview_image_url, preview_image_results_url, content_main, content_results, start_time, end_time, status } = req.body;
+  const { title, preview_image_url, preview_image_results_url, content_main, content_results, start_time, start_time_approximate, end_time, status } = req.body;
 
   if (!title || typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'Заголовок обязателен' });
@@ -274,6 +276,7 @@ router.put('/:slug', requireAuth, async (req, res) => {
 
   const VALID_STATUSES = ['scheduled', 'in_progress', 'completed'];
   const eventStatus = VALID_STATUSES.includes(status) ? status : null;
+  const isApproximate = start_time_approximate ? 1 : 0;
 
   try {
     const existing = await db.get(`SELECT id, title, author_id, status FROM events WHERE slug = ?`, [slug]);
@@ -297,19 +300,19 @@ router.put('/:slug', requireAuth, async (req, res) => {
     await db.run(
       `UPDATE events
        SET title = ?, slug = ?, preview_image_url = ?, preview_image_results_url = ?,
-           content_main = ?, content_results = ?, start_time = ?, end_time = ?,
+           content_main = ?, content_results = ?, start_time = ?, start_time_approximate = ?, end_time = ?,
            status = COALESCE(?, status),
            updated_at = ?, edited_count = edited_count + 1
        WHERE id = ?`,
       [title.trim(), newSlug, preview_image_url || null, preview_image_results_url || null,
        content_main || '', content_results || null,
-       start_time, end_time || null, eventStatus, now, existing.id],
+       start_time, isApproximate, end_time || null, eventStatus, now, existing.id],
     );
 
     const row = await db.get(
       `SELECT
          e.id, e.title, e.slug, e.preview_image_url, e.preview_image_results_url, e.is_published,
-         e.start_time, e.end_time, e.status, e.published_at, e.updated_at,
+         e.start_time, e.start_time_approximate, e.end_time, e.status, e.published_at, e.updated_at,
          e.edited_count, e.views, e.created_at,
          e.content_main, e.content_results,
          u.id AS author_id, u.username AS author_username,

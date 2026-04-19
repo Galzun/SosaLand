@@ -98,6 +98,12 @@
       color: #888;
       border-color: rgba(136, 136, 136, 0.25);
     }
+
+    &--approximate {
+      background: rgba(126, 184, 247, 0.1);
+      color: #7eb8f7;
+      border-color: rgba(126, 184, 247, 0.3);
+    }
   }
 
   &__start-info {

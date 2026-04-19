@@ -216,9 +216,11 @@ router.get('/', requireAuth, isAdminOrPerm('view_logs'), async (req, res) => {
           al.ip,
           al.details,
           al.created_at,
-          u.minecraft_uuid
+          u.minecraft_uuid,
+          p.name AS minecraft_name
         FROM activity_logs al
         LEFT JOIN users u ON u.id = al.user_id
+        LEFT JOIN players p ON p.uuid = u.minecraft_uuid
         ${mainWhereClause}
         ORDER BY al.created_at DESC
         LIMIT ? OFFSET ?
@@ -236,7 +238,8 @@ router.get('/', requireAuth, isAdminOrPerm('view_logs'), async (req, res) => {
     const logs = rows.map(r => ({
       id:           r.id,
       userId:       r.user_id,
-      username:     r.username,
+      username:      r.username,
+      minecraftName: r.minecraft_name || null,
       minecraftUuid: r.minecraft_uuid || null,
       avatarUrl:    avatarUrl(r.minecraft_uuid, r.username),
       action:       r.action,

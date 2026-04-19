@@ -24,11 +24,18 @@ function formatDatetime(ts) {
   });
 }
 
-function getDisplayStatus(status, hearingAt) {
+function formatDateOnly(ts) {
+  if (!ts) return '';
+  return new Date(ts * 1000).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function getDisplayStatus(status, hearingAt, approximate) {
   if (status === 'completed')   return { label: 'Завершено', cls: 'event-detail__timer--completed' };
   if (status === 'in_progress') return { label: 'Идёт',      cls: 'event-detail__timer--in-progress' };
 
   if (hearingAt) {
+    if (approximate) return { label: `Примерно ${formatDateOnly(hearingAt)}`, cls: 'event-detail__timer--approximate' };
+
     const delta = hearingAt - Math.floor(Date.now() / 1000);
     if (delta > 0) {
       const d = Math.floor(delta / 86400);
@@ -182,7 +189,7 @@ function CourtCaseDetailPage() {
     axios.get(`/api/court/cases/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => {
         setCourtCase(r.data);
-        setBadge(getDisplayStatus(r.data.status, r.data.hearingAt));
+        setBadge(getDisplayStatus(r.data.status, r.data.hearingAt, r.data.hearingAtApproximate));
         const hasVerdict = r.data.verdict && r.data.verdict.trim().length > 0;
         if (r.data.status === 'completed' && hasVerdict) setTab('verdict');
       })
@@ -191,8 +198,8 @@ function CourtCaseDetailPage() {
   }, [id, user, authLoading, token, navigate]);
 
   useEffect(() => {
-    if (!courtCase || !courtCase.hearingAt || courtCase.status === 'completed') return;
-    const iid = setInterval(() => setBadge(getDisplayStatus(courtCase.status, courtCase.hearingAt)), 60_000);
+    if (!courtCase || !courtCase.hearingAt || courtCase.status === 'completed' || courtCase.hearingAtApproximate) return;
+    const iid = setInterval(() => setBadge(getDisplayStatus(courtCase.status, courtCase.hearingAt, courtCase.hearingAtApproximate)), 60_000);
     return () => clearInterval(iid);
   }, [courtCase]);
 
@@ -253,7 +260,12 @@ function CourtCaseDetailPage() {
           {courtCase.hearingAt && (
             <>
               <span className="event-detail__start-label">Дата заседания:</span>
-              <span className="event-detail__start-date">{formatDatetime(courtCase.hearingAt)}</span>
+              <span className="event-detail__start-date">
+                {courtCase.hearingAtApproximate
+                  ? `Примерно ${formatDateOnly(courtCase.hearingAt)}`
+                  : formatDatetime(courtCase.hearingAt)
+                }
+              </span>
             </>
           )}
           {courtCase.ticketTitle && (

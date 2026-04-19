@@ -40,15 +40,33 @@ function getTimerLabel(startTime, endTime, status) {
   return { label: 'Идёт', cls: 'event-timer--in-progress' };
 }
 
-function EventTimer({ startTime, endTime, status }) {
+function formatDateOnly(ts) {
+  if (!ts) return '';
+  return new Date(ts * 1000).toLocaleDateString('ru-RU', {
+    day:   '2-digit',
+    month: '2-digit',
+    year:  'numeric',
+  });
+}
+
+function EventTimer({ startTime, endTime, status, approximate }) {
   const [timer, setTimer] = useState(() => getTimerLabel(startTime, endTime, status));
 
   useEffect(() => {
+    if (approximate) return;
     const id = setInterval(() => {
       setTimer(getTimerLabel(startTime, endTime, status));
     }, 60_000);
     return () => clearInterval(id);
-  }, [startTime, endTime, status]);
+  }, [startTime, endTime, status, approximate]);
+
+  if (approximate) {
+    return (
+      <span className="event-timer event-timer--approximate">
+        Примерно {formatDateOnly(startTime)}
+      </span>
+    );
+  }
 
   return (
     <span className={`event-timer${timer.cls ? ` ${timer.cls}` : ''}`}>
@@ -74,6 +92,7 @@ function EventCard({ event }) {
     previewImageResultsUrl,
     publishedAt,
     startTime,
+    startTimeApproximate,
     endTime,
     status,
     commentsCount,
@@ -88,12 +107,17 @@ function EventCard({ event }) {
           ? <img className="event-card__image" src={displayImage} alt={title} loading="lazy" />
           : <div className="event-card__image-placeholder">📅</div>
         }
-        <EventTimer startTime={startTime} endTime={endTime} status={status} />
+        <EventTimer startTime={startTime} endTime={endTime} status={status} approximate={startTimeApproximate} />
       </div>
       <div className="event-card__content">
         <h3 className="event-card__title">{title}</h3>
         <div className="event-card__meta">
-          <span className="event-card__date">📅 {formatEventDate(startTime)} · {timeAgo(startTime * 1000)}</span>
+          <span className="event-card__date">
+            {startTimeApproximate
+              ? `📅 Примерно ${formatDateOnly(startTime)}`
+              : `📅 ${formatEventDate(startTime)} · ${timeAgo(startTime * 1000)}`
+            }
+          </span>
           {commentsCount > 0 && (
             <span className="event-card__comments">💬 {commentsCount}</span>
           )}

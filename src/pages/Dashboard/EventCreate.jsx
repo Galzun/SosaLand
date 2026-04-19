@@ -17,18 +17,26 @@ import './EventCreate.scss';
 
 const TITLE_MAX = 200;
 
-// unix timestamp → строка для <input type="datetime-local"> (YYYY-MM-DDTHH:MM)
-function tsToDatetimeLocal(ts) {
+const pad = n => String(n).padStart(2, '0');
+
+// unix timestamp → YYYY-MM-DD
+function tsToDateStr(ts) {
   if (!ts) return '';
   const d = new Date(ts * 1000);
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-// строка datetime-local → unix timestamp (или null)
-function datetimeLocalToTs(str) {
-  if (!str) return null;
-  return Math.floor(new Date(str).getTime() / 1000);
+// unix timestamp → HH:MM (пустая строка если время было приблизительным)
+function tsToTimeStr(ts, approximate) {
+  if (!ts || approximate) return '';
+  const d = new Date(ts * 1000);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// дата + время → unix timestamp; если время пустое — используется полночь
+function dateTimeToTs(dateStr, timeStr) {
+  if (!dateStr) return null;
+  return Math.floor(new Date(`${dateStr}T${timeStr || '00:00'}`).getTime() / 1000);
 }
 
 // ---------------------------------------------------------------------------
@@ -44,8 +52,10 @@ function EventCreate() {
   const [title,                  setTitle]                  = useState('');
   const [previewUrl,             setPreviewUrl]             = useState('');
   const [previewResultsUrl,      setPreviewResultsUrl]      = useState('');
-  const [startTime,              setStartTime]              = useState('');
-  const [endTime,                setEndTime]                = useState('');
+  const [startDate,   setStartDate]   = useState('');
+  const [startTime,   setStartTime]   = useState(''); // HH:MM, опционально
+  const [endDate,     setEndDate]     = useState('');
+  const [endTime,     setEndTime]     = useState('');  // HH:MM, опционально
   const [eventStatus,            setEventStatus]            = useState('scheduled');
   const [contentMain,            setContentMain]            = useState('');
   const [contentResults,         setContentResults]         = useState('');
@@ -92,8 +102,10 @@ function EventCreate() {
         setTitle(data.title);
         setPreviewUrl(data.previewImageUrl || '');
         setPreviewResultsUrl(data.previewImageResultsUrl || '');
-        setStartTime(tsToDatetimeLocal(data.startTime));
-        setEndTime(tsToDatetimeLocal(data.endTime));
+        setStartDate(tsToDateStr(data.startTime));
+        setStartTime(tsToTimeStr(data.startTime, data.startTimeApproximate));
+        setEndDate(tsToDateStr(data.endTime));
+        setEndTime(tsToTimeStr(data.endTime, false));
         setEventStatus(data.status || 'scheduled');
         const main    = data.contentMain    || '';
         const results = data.contentResults || '';
@@ -129,7 +141,7 @@ function EventCreate() {
 
   const handleSave = async () => {
     if (!title.trim()) { setError('Введите заголовок'); return; }
-    const startTs = datetimeLocalToTs(startTime);
+    const startTs = dateTimeToTs(startDate, startTime);
     if (!startTs)  { setError('Укажите дату начала'); return; }
 
     const finalMain    = mainContentRef.current    || contentMain;
@@ -145,7 +157,8 @@ function EventCreate() {
         content_main:                 finalMain,
         content_results:              finalResults || null,
         start_time:                   startTs,
-        end_time:                     datetimeLocalToTs(endTime),
+        start_time_approximate:       !startTime, // нет времени → приблизительно
+        end_time:                     dateTimeToTs(endDate, endTime),
         status:                       eventStatus,
       };
       let saved;
@@ -255,21 +268,42 @@ function EventCreate() {
           <div className="event-create__dates">
             <div className="event-create__field">
               <label className="event-create__label">Дата начала *</label>
-              <input
-                type="datetime-local"
-                className="event-create__input event-create__input--datetime"
-                value={startTime}
-                onChange={e => setStartTime(e.target.value)}
-              />
+              <div className="event-create__date-row">
+                <input
+                  type="date"
+                  className="event-create__input event-create__input--date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                />
+                <input
+                  type="time"
+                  className="event-create__input event-create__input--time"
+                  value={startTime}
+                  onChange={e => setStartTime(e.target.value)}
+                  placeholder="--:--"
+                />
+              </div>
+              {!startTime && startDate && (
+                <p className="event-create__approximate-hint">Время не указано — будет отображаться «Примерно»</p>
+              )}
             </div>
             <div className="event-create__field">
               <label className="event-create__label">Дата окончания (необязательно)</label>
-              <input
-                type="datetime-local"
-                className="event-create__input event-create__input--datetime"
-                value={endTime}
-                onChange={e => setEndTime(e.target.value)}
-              />
+              <div className="event-create__date-row">
+                <input
+                  type="date"
+                  className="event-create__input event-create__input--date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                />
+                <input
+                  type="time"
+                  className="event-create__input event-create__input--time"
+                  value={endTime}
+                  onChange={e => setEndTime(e.target.value)}
+                  placeholder="--:--"
+                />
+              </div>
             </div>
           </div>
 

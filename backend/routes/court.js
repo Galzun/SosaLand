@@ -417,7 +417,8 @@ router.get('/cases', requireAuth, async (req, res) => {
     title:           r.title,
     description:     r.description,
     verdict:         r.verdict,
-    hearingAt:       r.hearing_at,
+    hearingAt:            r.hearing_at,
+    hearingAtApproximate: Number(r.hearing_at_approximate) === 1,
     status:          r.status,
     previewImageUrl:        r.preview_image_url         || null,
     previewVerdictImageUrl: r.preview_verdict_image_url || null,
@@ -439,7 +440,7 @@ router.get('/cases', requireAuth, async (req, res) => {
 // POST /api/court/cases — создать заседание
 // ---------------------------------------------------------------------------
 router.post('/cases', requireAuth, canManageCourt, async (req, res) => {
-  const { title, description, verdict, ticketId, hearingAt, status, previewImageUrl, previewVerdictImageUrl } = req.body;
+  const { title, description, verdict, ticketId, hearingAt, hearingAtApproximate, status, previewImageUrl, previewVerdictImageUrl } = req.body;
 
   if (!title?.trim()) return res.status(400).json({ error: 'Укажите название заседания' });
   if (title.trim().length > 200) return res.status(400).json({ error: 'Название слишком длинное (макс. 200)' });
@@ -456,9 +457,9 @@ router.post('/cases', requireAuth, canManageCourt, async (req, res) => {
   const ts = now();
 
   await db.run(
-    `INSERT INTO court_cases (id, ticket_id, title, description, verdict, hearing_at, created_by, status, preview_image_url, preview_verdict_image_url, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, ticketId || null, title.trim(), description?.trim() || null, verdict?.trim() || null, hearingAt || null, req.user.id, caseStatus, previewImageUrl?.trim() || null, previewVerdictImageUrl?.trim() || null, ts, ts]
+    `INSERT INTO court_cases (id, ticket_id, title, description, verdict, hearing_at, hearing_at_approximate, created_by, status, preview_image_url, preview_verdict_image_url, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, ticketId || null, title.trim(), description?.trim() || null, verdict?.trim() || null, hearingAt || null, hearingAtApproximate ? 1 : 0, req.user.id, caseStatus, previewImageUrl?.trim() || null, previewVerdictImageUrl?.trim() || null, ts, ts]
   );
 
   logActivity({ userId: req.user.id, username: req.user.username, action: 'court_case_create', targetId: id, ip: clientIp(req), details: { title: title.trim() } });
@@ -490,7 +491,8 @@ router.get('/cases/:id', requireAuth, async (req, res) => {
     title:           r.title,
     description:     r.description,
     verdict:         r.verdict,
-    hearingAt:       r.hearing_at,
+    hearingAt:            r.hearing_at,
+    hearingAtApproximate: Number(r.hearing_at_approximate) === 1,
     status:          r.status,
     previewImageUrl:        r.preview_image_url         || null,
     previewVerdictImageUrl: r.preview_verdict_image_url || null,
@@ -512,9 +514,9 @@ router.get('/cases/:id', requireAuth, async (req, res) => {
 // PUT /api/court/cases/:id
 // ---------------------------------------------------------------------------
 router.put('/cases/:id', requireAuth, canManageCourt, async (req, res) => {
-  const { title, description, verdict, hearingAt, status, ticketId, previewImageUrl, previewVerdictImageUrl } = req.body;
+  const { title, description, verdict, hearingAt, hearingAtApproximate, status, ticketId, previewImageUrl, previewVerdictImageUrl } = req.body;
 
-  const c = await db.get(`SELECT id, preview_image_url, preview_verdict_image_url, hearing_at FROM court_cases WHERE id = ?`, [req.params.id]);
+  const c = await db.get(`SELECT id, preview_image_url, preview_verdict_image_url, hearing_at, hearing_at_approximate FROM court_cases WHERE id = ?`, [req.params.id]);
   if (!c) return res.status(404).json({ error: 'Заседание не найдено' });
 
   const VALID_STATUS = ['scheduled', 'in_progress', 'completed'];
@@ -534,6 +536,7 @@ router.put('/cases/:id', requireAuth, canManageCourt, async (req, res) => {
          description       = ?,
          verdict           = ?,
          hearing_at        = ?,
+         hearing_at_approximate = ?,
          status            = COALESCE(?, status),
          ticket_id         = COALESCE(?, ticket_id),
          preview_image_url        = ?,
@@ -545,6 +548,7 @@ router.put('/cases/:id', requireAuth, canManageCourt, async (req, res) => {
       description?.trim() ?? null,
       verdict?.trim() ?? null,
       hearingAt !== undefined ? (hearingAt || null) : c.hearing_at,
+      hearingAtApproximate !== undefined ? (hearingAtApproximate ? 1 : 0) : c.hearing_at_approximate,
       status || null,
       ticketId || null,
       previewImageUrl !== undefined ? (previewImageUrl?.trim() || null) : c.preview_image_url,

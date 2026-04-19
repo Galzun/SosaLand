@@ -107,6 +107,11 @@
     color: #888;
     background: rgba(136, 136, 136, 0.12);
   }
+
+  &--approximate {
+    color: #7eb8f7;
+    background: rgba(126, 184, 247, 0.13);
+  }
 }
 
 @media (max-width: 480px) {

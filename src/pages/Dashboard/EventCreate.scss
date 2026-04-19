@@ -112,10 +112,30 @@
     &::placeholder { color: #444; }
     &--url { font-size: 0.9rem; }
 
-    &--datetime {
+    &--date {
       font-size: 0.95rem;
       color-scheme: dark;
+      flex: 1;
     }
+
+    &--time {
+      font-size: 0.95rem;
+      color-scheme: dark;
+      width: 110px;
+      flex-shrink: 0;
+    }
+  }
+
+  &__date-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  &__approximate-hint {
+    margin: 6px 0 0;
+    font-size: 0.8rem;
+    color: #7eb8f7;
   }
 
   // Два datetime-пикера в ряд

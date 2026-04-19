@@ -667,9 +667,9 @@ export default function LogsPage() {
                                 <button
                                   className="logs-page__username"
                                   onClick={() => filterByUser(log.username)}
-                                  title="Фильтровать по этому игроку"
+                                  title={`Логин: ${log.username}`}
                                 >
-                                  {log.username}
+                                  {log.minecraftName || log.username}
                                 </button>
                                 <Link
                                   to={`/player/${log.username}`}
@@ -801,7 +801,9 @@ export default function LogsPage() {
                                   onError={e => { e.target.onerror = null; e.target.src = getAvatarUrl(subLog.username, null); }}
                                 />
                               )}
-                              <span className="logs-page__username" style={{ cursor: 'default' }}>{subLog.username}</span>
+                              <span className="logs-page__username" style={{ cursor: 'default' }} title={`Логин: ${subLog.username}`}>
+                                {subLog.minecraftName || subLog.username}
+                              </span>
                             </div>
                           </td>
 
