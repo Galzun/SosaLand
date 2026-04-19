@@ -120,23 +120,30 @@ function logDescription(log) {
 }
 
 // ── Группировка дублей ───────────────────────────────────────────────────────
+// Группируем только настоящие дубли: одинаковые action + userId + fileName + fileSize
+// в окне GROUP_WINDOW_SEC. Если fileName или fileSize отсутствуют — строка не группируется.
 function groupLogs(logs) {
   const result = [];
   let i = 0;
   while (i < logs.length) {
     const cur = logs[i];
-    // _groupIds — все ID записей группы (нужны для batch-удаления)
     const groupIds = [cur.id];
     let j = i + 1;
-    while (j < logs.length) {
+
+    // Группируем только если есть имя файла И размер — иначе нельзя точно сравнить
+    const canGroup = cur.fileName != null && cur.fileSize != null;
+
+    while (canGroup && j < logs.length) {
       const next = logs[j];
       const same =
-        next.action     === cur.action &&
-        next.userId     === cur.userId &&
-        next.targetType === cur.targetType &&
+        next.action    === cur.action &&
+        next.userId    === cur.userId &&
+        next.fileName  === cur.fileName &&
+        next.fileSize  === cur.fileSize &&
         Math.abs(cur.createdAt - next.createdAt) < GROUP_WINDOW_SEC;
       if (same) { groupIds.push(next.id); j++; } else break;
     }
+
     result.push({ ...cur, _count: groupIds.length, _groupIds: groupIds });
     i = j;
   }
