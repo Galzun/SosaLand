@@ -1,7 +1,7 @@
 // pages/Dashboard/LogsPage.jsx
 // Страница логов активности — только для admin и creator.
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -127,7 +127,8 @@ function groupLogs(logs) {
   let i = 0;
   while (i < logs.length) {
     const cur = logs[i];
-    const groupIds = [cur.id];
+    const groupIds  = [cur.id];
+    const groupRows = [cur];
     let j = i + 1;
 
     // Группируем только если есть имя файла И размер — иначе нельзя точно сравнить
@@ -141,10 +142,10 @@ function groupLogs(logs) {
         next.fileName  === cur.fileName &&
         next.fileSize  === cur.fileSize &&
         Math.abs(cur.createdAt - next.createdAt) < GROUP_WINDOW_SEC;
-      if (same) { groupIds.push(next.id); j++; } else break;
+      if (same) { groupIds.push(next.id); groupRows.push(next); j++; } else break;
     }
 
-    result.push({ ...cur, _count: groupIds.length, _groupIds: groupIds });
+    result.push({ ...cur, _count: groupIds.length, _groupIds: groupIds, _groupRows: groupRows });
     i = j;
   }
   return result;
@@ -202,7 +203,8 @@ export default function LogsPage() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
 
-  const [topVisible, setTopVisible] = useState(TOP_STEP);
+  const [topVisible,      setTopVisible]      = useState(TOP_STEP);
+  const [expandedGroups,  setExpandedGroups]  = useState(new Set());
 
   // Автодополнение
   const [suggestions,     setSuggestions]     = useState([]);
@@ -272,6 +274,7 @@ export default function LogsPage() {
       });
       setLogs(groupLogs(r.data.logs));
       setTotal(r.data.total);
+      setExpandedGroups(new Set());
     } catch (e) {
       setError(e.response?.data?.error || 'Ошибка загрузки логов');
     } finally {
@@ -365,6 +368,37 @@ export default function LogsPage() {
       setLogs(prev => prev.map(l =>
         l.id === log.id ? { ...l, targetId: null, fileSize: null } : l
       ));
+      fetchStats();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Ошибка при удалении файла');
+    }
+  }
+
+  function toggleGroup(logId) {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(logId)) next.delete(logId); else next.add(logId);
+      return next;
+    });
+  }
+
+  async function handleDeleteSingleFile(subLog, parentLog) {
+    const ok = await showConfirm(
+      `Удалить медиа «${subLog.fileName || subLog.targetId}»?\n\nФайл будет удалён с диска и из галереи/постов. Восстановить невозможно.`,
+      { confirmText: 'Удалить', cancelText: 'Отмена' }
+    );
+    if (!ok) return;
+    try {
+      await axios.delete(`/api/logs/${subLog.id}/file`, { headers: { Authorization: `Bearer ${token}` } });
+      setLogs(prev => prev.map(l => {
+        if (l.id !== parentLog.id) return l;
+        const newGroupRows = l._groupRows.filter(r => r.id !== subLog.id);
+        const newGroupIds  = l._groupIds.filter(id => id !== subLog.id);
+        if (newGroupRows.length <= 1) {
+          setExpandedGroups(eg => { const s = new Set(eg); s.delete(l.id); return s; });
+        }
+        return { ...l, _count: newGroupRows.length, _groupRows: newGroupRows, _groupIds: newGroupIds };
+      }));
       fetchStats();
     } catch (e) {
       alert(e.response?.data?.error || 'Ошибка при удалении файла');
@@ -568,7 +602,7 @@ export default function LogsPage() {
           </div>
 
           {totalPages > 1 && (
-            <div className="logs-page__pagination">
+            <div className="logs-page__pagination logs-page__pagination--top">
               <button
                 className="logs-page__page-btn"
                 disabled={offset === 0}
@@ -604,150 +638,232 @@ export default function LogsPage() {
               </thead>
               <tbody>
                 {logs.map(log => {
+                  const isExpanded = expandedGroups.has(log.id);
                   const desc = logDescription(log);
                   return (
-                    <tr key={log.id} className="logs-page__row">
-                      <td className="logs-page__cell-user">
-                        <div className="logs-page__user">
-                          {log.action === 'ticket_create' ? (
+                    <Fragment key={log.id}>
+                      <tr className="logs-page__row">
+                        <td className="logs-page__cell-user">
+                          <div className="logs-page__user">
+                            {log.action === 'ticket_create' ? (
+                              <>
+                                <span className="logs-page__username logs-page__username--ip" title="IP-адрес заявителя">
+                                  🌐 {log.ip || '—'}
+                                </span>
+                                <span className="logs-page__username" style={{ color: '#888', fontSize: '11px' }}>
+                                  ({log.username})
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                {log.username && (
+                                  <img
+                                    className="logs-page__avatar"
+                                    src={log.avatarUrl || getAvatarUrl(log.username, null)}
+                                    alt={log.username}
+                                    onError={e => { e.target.onerror = null; e.target.src = getAvatarUrl(log.username, null); }}
+                                  />
+                                )}
+                                <button
+                                  className="logs-page__username"
+                                  onClick={() => filterByUser(log.username)}
+                                  title="Фильтровать по этому игроку"
+                                >
+                                  {log.username}
+                                </button>
+                                <Link
+                                  to={`/player/${log.username}`}
+                                  className="logs-page__profile-link"
+                                  title="Открыть профиль"
+                                >
+                                  ↗
+                                </Link>
+                              </>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="logs-page__cell-action">
+                          <span
+                            className="logs-page__badge"
+                            style={{ borderColor: actionColor(log.action), color: actionColor(log.action) }}
+                          >
+                            {log.actionLabel}
+                          </span>
+                          {log.targetType && (
+                            <span className="logs-page__target-type">{log.targetType}</span>
+                          )}
+                        </td>
+
+                        <td className="logs-page__cell-file">
+                          {desc ? (
+                            <span className="logs-page__preview">{desc}</span>
+                          ) : log.action === 'ticket_create' ? (
+                            <span className="logs-page__preview">
+                              Логин: <strong>{log.details?.requestedUsername || '—'}</strong>
+                              {log.details?.contact ? ` · ${log.details.contact}` : ''}
+                            </span>
+                          ) : log.fileName ? (
+                            log.targetId ? (
+                              <a
+                                className="logs-page__filename logs-page__filename--link"
+                                href={log.targetId}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`Открыть файл: ${log.fileName}`}
+                                onMouseEnter={e => showFilePreview(e, log)}
+                                onMouseLeave={hideFilePreview}
+                              >
+                                {fileTypeIcon(log.fileType)}&nbsp;{log.fileName}
+                              </a>
+                            ) : (
+                              <span className="logs-page__filename" title={log.fileName}>
+                                {fileTypeIcon(log.fileType)}&nbsp;{log.fileName}
+                              </span>
+                            )
+                          ) : log.details?.preview ? (
                             <>
-                              <span className="logs-page__username logs-page__username--ip" title="IP-адрес заявителя">
-                                🌐 {log.ip || '—'}
+                              <span className="logs-page__preview" title={log.details.preview}>
+                                «{log.details.preview.slice(0, 60)}{log.details.preview.length > 60 ? '…' : ''}»
                               </span>
-                              <span className="logs-page__username" style={{ color: '#888', fontSize: '11px' }}>
-                                ({log.username})
-                              </span>
+                              {(log.action === 'post_create' || log.action === 'post_delete') && log.targetId && (
+                                <Link to={`/post/${log.targetId}`} className="logs-page__post-link" title="Открыть пост">&nbsp;↗</Link>
+                              )}
+                              {['news_create', 'news_update', 'news_delete'].includes(log.action) && log.targetId && (
+                                <Link to={`/news/${log.targetId}`} className="logs-page__post-link" title="Открыть новость">&nbsp;↗</Link>
+                              )}
+                              {['event_create', 'event_update', 'event_delete'].includes(log.action) && log.targetId && (
+                                <Link to={`/events/${log.targetId}`} className="logs-page__post-link" title="Открыть событие">&nbsp;↗</Link>
+                              )}
                             </>
-                          ) : (
+                          ) : '—'}
+                        </td>
+
+                        <td
+                          className="logs-page__cell-size"
+                          style={{ color: sizeColor(log.fileSize) || undefined }}
+                        >
+                          {log.fileSize ? (
                             <>
-                              {log.username && (
+                              {fmtBytes(log.fileSize)}
+                              {log.fileSize > 100 * 1024 * 1024 && (
+                                <span className="logs-page__size-warn" title="Крупный файл"> ⚠️</span>
+                              )}
+                            </>
+                          ) : '—'}
+                        </td>
+
+                        <td className="logs-page__cell-type" title={log.fileType || ''}>
+                          {log.fileType
+                            ? log.fileType
+                                .replace('application/', '')
+                                .replace('image/', '')
+                                .replace('video/', 'vid/')
+                                .replace('audio/', 'aud/')
+                            : '—'}
+                        </td>
+
+                        <td className="logs-page__cell-date">
+                          {fmtDate(log.createdAt)}
+                          {log._count > 1 && (
+                            <button
+                              className="logs-page__group-badge"
+                              title={isExpanded ? 'Свернуть' : `${log._count} одинаковых записей — нажмите чтобы раскрыть`}
+                              onClick={() => toggleGroup(log.id)}
+                            >
+                              ×{log._count} {isExpanded ? '▲' : '▼'}
+                            </button>
+                          )}
+                        </td>
+
+                        <td className="logs-page__cell-actions">
+                          {log.action === 'file_upload' && log.targetId && (
+                            <button
+                              className="logs-page__delete-btn"
+                              onClick={() => handleDeleteFile(log)}
+                              title="Удалить все файлы группы с диска + из галереи/постов"
+                            >
+                              🗑
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+
+                      {isExpanded && log._groupRows.slice(1).map(subLog => (
+                        <tr key={subLog.id} className="logs-page__row logs-page__row--sub">
+                          <td className="logs-page__cell-user">
+                            <div className="logs-page__user">
+                              {subLog.username && (
                                 <img
                                   className="logs-page__avatar"
-                                  src={log.avatarUrl || getAvatarUrl(log.username, null)}
-                                  alt={log.username}
-                                  onError={e => { e.target.onerror = null; e.target.src = getAvatarUrl(log.username, null); }}
+                                  src={subLog.avatarUrl || getAvatarUrl(subLog.username, null)}
+                                  alt={subLog.username}
+                                  onError={e => { e.target.onerror = null; e.target.src = getAvatarUrl(subLog.username, null); }}
                                 />
                               )}
-                              <button
-                                className="logs-page__username"
-                                onClick={() => filterByUser(log.username)}
-                                title="Фильтровать по этому игроку"
-                              >
-                                {log.username}
-                              </button>
-                              <Link
-                                to={`/player/${log.username}`}
-                                className="logs-page__profile-link"
-                                title="Открыть профиль"
-                              >
-                                ↗
-                              </Link>
-                            </>
-                          )}
-                        </div>
-                      </td>
+                              <span className="logs-page__username" style={{ cursor: 'default' }}>{subLog.username}</span>
+                            </div>
+                          </td>
 
-                      <td className="logs-page__cell-action">
-                        <span
-                          className="logs-page__badge"
-                          style={{ borderColor: actionColor(log.action), color: actionColor(log.action) }}
-                        >
-                          {log.actionLabel}
-                        </span>
-                        {log.targetType && (
-                          <span className="logs-page__target-type">{log.targetType}</span>
-                        )}
-                      </td>
-
-                      <td className="logs-page__cell-file">
-                        {desc ? (
-                          <span className="logs-page__preview">{desc}</span>
-                        ) : log.action === 'ticket_create' ? (
-                          <span className="logs-page__preview">
-                            Логин: <strong>{log.details?.requestedUsername || '—'}</strong>
-                            {log.details?.contact ? ` · ${log.details.contact}` : ''}
-                          </span>
-                        ) : log.fileName ? (
-                          log.targetId ? (
-                            <a
-                              className="logs-page__filename logs-page__filename--link"
-                              href={log.targetId}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title={`Открыть файл: ${log.fileName}`}
-                              onMouseEnter={e => showFilePreview(e, log)}
-                              onMouseLeave={hideFilePreview}
+                          <td className="logs-page__cell-action">
+                            <span
+                              className="logs-page__badge"
+                              style={{ borderColor: actionColor(subLog.action), color: actionColor(subLog.action) }}
                             >
-                              {fileTypeIcon(log.fileType)}&nbsp;{log.fileName}
-                            </a>
-                          ) : (
-                            <span className="logs-page__filename" title={log.fileName}>
-                              {fileTypeIcon(log.fileType)}&nbsp;{log.fileName}
+                              {subLog.actionLabel}
                             </span>
-                          )
-                        ) : log.details?.preview ? (
-                          <>
-                            <span className="logs-page__preview" title={log.details.preview}>
-                              «{log.details.preview.slice(0, 60)}{log.details.preview.length > 60 ? '…' : ''}»
-                            </span>
-                            {(log.action === 'post_create' || log.action === 'post_delete') && log.targetId && (
-                              <Link to={`/post/${log.targetId}`} className="logs-page__post-link" title="Открыть пост">&nbsp;↗</Link>
-                            )}
-                            {['news_create', 'news_update', 'news_delete'].includes(log.action) && log.targetId && (
-                              <Link to={`/news/${log.targetId}`} className="logs-page__post-link" title="Открыть новость">&nbsp;↗</Link>
-                            )}
-                            {['event_create', 'event_update', 'event_delete'].includes(log.action) && log.targetId && (
-                              <Link to={`/events/${log.targetId}`} className="logs-page__post-link" title="Открыть событие">&nbsp;↗</Link>
-                            )}
-                          </>
-                        ) : '—'}
-                      </td>
+                          </td>
 
-                      <td
-                        className="logs-page__cell-size"
-                        style={{ color: sizeColor(log.fileSize) || undefined }}
-                      >
-                        {log.fileSize ? (
-                          <>
-                            {fmtBytes(log.fileSize)}
-                            {log.fileSize > 100 * 1024 * 1024 && (
-                              <span className="logs-page__size-warn" title="Крупный файл"> ⚠️</span>
+                          <td className="logs-page__cell-file">
+                            {subLog.fileName ? (
+                              subLog.targetId ? (
+                                <a
+                                  className="logs-page__filename logs-page__filename--link"
+                                  href={subLog.targetId}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={`Открыть файл: ${subLog.fileName}`}
+                                  onMouseEnter={e => showFilePreview(e, subLog)}
+                                  onMouseLeave={hideFilePreview}
+                                >
+                                  {fileTypeIcon(subLog.fileType)}&nbsp;{subLog.fileName}
+                                </a>
+                              ) : (
+                                <span className="logs-page__filename">{fileTypeIcon(subLog.fileType)}&nbsp;{subLog.fileName}</span>
+                              )
+                            ) : '—'}
+                          </td>
+
+                          <td className="logs-page__cell-size" style={{ color: sizeColor(subLog.fileSize) || undefined }}>
+                            {subLog.fileSize ? fmtBytes(subLog.fileSize) : '—'}
+                          </td>
+
+                          <td className="logs-page__cell-type" title={subLog.fileType || ''}>
+                            {subLog.fileType
+                              ? subLog.fileType
+                                  .replace('application/', '')
+                                  .replace('image/', '')
+                                  .replace('video/', 'vid/')
+                                  .replace('audio/', 'aud/')
+                              : '—'}
+                          </td>
+
+                          <td className="logs-page__cell-date">{fmtDate(subLog.createdAt)}</td>
+
+                          <td className="logs-page__cell-actions">
+                            {subLog.action === 'file_upload' && subLog.targetId && (
+                              <button
+                                className="logs-page__delete-btn"
+                                onClick={() => handleDeleteSingleFile(subLog, log)}
+                                title="Удалить только этот файл"
+                              >
+                                🗑
+                              </button>
                             )}
-                          </>
-                        ) : '—'}
-                      </td>
-
-                      <td className="logs-page__cell-type" title={log.fileType || ''}>
-                        {log.fileType
-                          ? log.fileType
-                              .replace('application/', '')
-                              .replace('image/', '')
-                              .replace('video/', 'vid/')
-                              .replace('audio/', 'aud/')
-                          : '—'}
-                      </td>
-
-                      <td className="logs-page__cell-date">
-                        {fmtDate(log.createdAt)}
-                        {log._count > 1 && (
-                          <span className="logs-page__group-badge" title={`${log._count} одинаковых записей объединены`}>
-                            ×{log._count}
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="logs-page__cell-actions">
-                        {log.action === 'file_upload' && log.targetId && (
-                          <button
-                            className="logs-page__delete-btn"
-                            onClick={() => handleDeleteFile(log)}
-                            title="Удалить медиа: файл с диска + запись из галереи/постов"
-                          >
-                            🗑
-                          </button>
-                        )}
-                      </td>
-                    </tr>
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -755,7 +871,7 @@ export default function LogsPage() {
           </div>
 
           {totalPages > 1 && (
-            <div className="logs-page__pagination">
+            <div className="logs-page__pagination logs-page__pagination--bottom">
               <button
                 className="logs-page__page-btn"
                 disabled={offset === 0}
