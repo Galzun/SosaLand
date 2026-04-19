@@ -13,7 +13,10 @@ import './EventCard.scss';
 //   { label: 'В процессе', started: true }              — идёт
 //   { label: 'Завершено', started: true }               — после end_time
 // ---------------------------------------------------------------------------
-function getTimerLabel(startTime, endTime) {
+function getTimerLabel(startTime, endTime, status) {
+  if (status === 'completed') return { label: 'Завершено', cls: 'event-timer--completed' };
+  if (status === 'in_progress') return { label: 'Идёт', cls: 'event-timer--in-progress' };
+
   const now   = Math.floor(Date.now() / 1000);
   const delta = startTime - now;
 
@@ -27,29 +30,28 @@ function getTimerLabel(startTime, endTime) {
     if (h > 0) parts.push(`${h} ч`);
     if (m > 0 || parts.length === 0) parts.push(`${m} мин`);
 
-    return { label: `Через ${parts.join(' ')}`, started: false };
+    return { label: `Через ${parts.join(' ')}`, cls: '' };
   }
 
   if (endTime && now > endTime) {
-    return { label: 'Завершено', started: true };
+    return { label: 'Завершено', cls: 'event-timer--completed' };
   }
 
-  return { label: 'В процессе', started: true };
+  return { label: 'Идёт', cls: 'event-timer--in-progress' };
 }
 
-function EventTimer({ startTime, endTime }) {
-  const [timer, setTimer] = useState(() => getTimerLabel(startTime, endTime));
+function EventTimer({ startTime, endTime, status }) {
+  const [timer, setTimer] = useState(() => getTimerLabel(startTime, endTime, status));
 
   useEffect(() => {
-    // Обновляем каждую минуту
     const id = setInterval(() => {
-      setTimer(getTimerLabel(startTime, endTime));
+      setTimer(getTimerLabel(startTime, endTime, status));
     }, 60_000);
     return () => clearInterval(id);
-  }, [startTime, endTime]);
+  }, [startTime, endTime, status]);
 
   return (
-    <span className={`event-timer${timer.started ? ' event-timer--started' : ''}`}>
+    <span className={`event-timer${timer.cls ? ` ${timer.cls}` : ''}`}>
       {timer.label}
     </span>
   );
@@ -73,13 +75,11 @@ function EventCard({ event }) {
     publishedAt,
     startTime,
     endTime,
+    status,
     commentsCount,
   } = event;
 
-  // Показываем шапку итогов, если событие завершено и шапка итогов задана
-  const now = Math.floor(Date.now() / 1000);
-  const isFinished = endTime && now > endTime;
-  const displayImage = isFinished && previewImageResultsUrl ? previewImageResultsUrl : previewImageUrl;
+  const displayImage = status === 'completed' && previewImageResultsUrl ? previewImageResultsUrl : previewImageUrl;
 
   return (
     <Link to={`/events/${slug}`} className="event-card">
@@ -88,7 +88,7 @@ function EventCard({ event }) {
           ? <img className="event-card__image" src={displayImage} alt={title} loading="lazy" />
           : <div className="event-card__image-placeholder">📅</div>
         }
-        <EventTimer startTime={startTime} endTime={endTime} />
+        <EventTimer startTime={startTime} endTime={endTime} status={status} />
       </div>
       <div className="event-card__content">
         <h3 className="event-card__title">{title}</h3>

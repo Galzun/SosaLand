@@ -7,6 +7,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { showConfirm } from '../../Components/Dialog/dialogManager';
+import { getAvatarUrl } from '../../utils/avatarUrl';
 import './LogsPage.scss';
 
 const ROLE_LEVEL = { user: 1, editor: 2, admin: 3, creator: 4 };
@@ -468,12 +469,12 @@ export default function LogsPage() {
                           </>
                         ) : (
                           <>
-                            {log.avatarUrl && (
+                            {log.username && (
                               <img
                                 className="logs-page__avatar"
-                                src={log.avatarUrl}
+                                src={log.avatarUrl || getAvatarUrl(log.username, null)}
                                 alt={log.username}
-                                onError={e => { e.target.style.display = 'none'; }}
+                                onError={e => { e.target.onerror = null; e.target.src = getAvatarUrl(log.username, null); }}
                               />
                             )}
                             <button

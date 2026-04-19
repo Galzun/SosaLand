@@ -16,6 +16,7 @@ const db = require('../db');
 const { requireAuth, ROLE_LEVEL } = require('../middleware/auth');
 const { logActivity, markFileDeletedInLogs } = require('../utils/logActivity');
 const { deleteFileAsync } = require('../utils/storage');
+const avatarUrl = require('../utils/avatarUrl');
 
 const router = express.Router();
 
@@ -219,9 +220,7 @@ router.get('/:id/images', async (req, res) => {
         id:            row.author_id,
         username:      row.author_username,
         minecraftUuid: row.author_mc_uuid || null,
-        avatarUrl:     row.author_mc_uuid
-          ? `https://crafatar.icehost.xyz/avatars/${row.author_mc_uuid}?size=64&overlay`
-          : null,
+        avatarUrl:     avatarUrl(row.author_mc_uuid, row.author_username),
       },
     })));
   } catch (err) {

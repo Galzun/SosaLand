@@ -10,6 +10,7 @@ import { usePlayer } from '../../context/PlayerContext';
 import { useAuth } from '../../context/AuthContext';
 import './Header.scss';
 
+
 function Header({ serverIp, borderColor }) {
   const [copied, setCopied]             = useState(false);
   // Флаг открытия дропдауна пользователя.
@@ -18,7 +19,9 @@ function Header({ serverIp, borderColor }) {
   // Ref на блок дропдауна — нужен чтобы закрывать его при клике вне.
   const dropdownRef = useRef(null);
 
-  const { onlineCount } = usePlayer();
+  const [avatarError, setAvatarError] = useState(false);
+
+  const { onlineCount, getAvatarUrl } = usePlayer();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -53,11 +56,6 @@ function Header({ serverIp, borderColor }) {
     setDropdownOpen(false);
     logout();
     navigate('/');
-  };
-
-  const getAvatarUrl = (uuid) => {
-    if (!uuid) return null;
-    return `https://crafatar.icehost.xyz/avatars/${uuid}?size=32&overlay`;
   };
 
   return (
@@ -112,14 +110,12 @@ function Header({ serverIp, borderColor }) {
                 onClick={() => setDropdownOpen(prev => !prev)}
                 aria-expanded={dropdownOpen}
               >
-                {getAvatarUrl(user.minecraftUuid) && (
-                  <img
-                    src={getAvatarUrl(user.minecraftUuid)}
-                    alt={user.username}
-                    className="header__user-avatar"
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                )}
+                <img
+                  src={getAvatarUrl(user.username, user.minecraftUuid, avatarError)}
+                  alt={user.username}
+                  className="header__user-avatar"
+                  onError={() => setAvatarError(true)}
+                />
                 <span className="header__user-name">{user.username}</span>
                 <span className={`header__user-arrow ${dropdownOpen ? 'header__user-arrow--open' : ''}`}>
                   ▾

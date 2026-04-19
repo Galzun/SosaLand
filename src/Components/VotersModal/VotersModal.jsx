@@ -105,18 +105,11 @@ function VotersModal({ pollId, poll, mode, optionId, onClose, cssVars }) {
                             className="voters-modal__voter"
                             onClick={onClose}
                           >
-                            {v.minecraftUuid ? (
-                              <img
-                                className="voters-modal__voter-avatar"
-                                src={`https://crafatar.icehost.xyz/avatars/${v.minecraftUuid}?size=32&overlay`}
-                                alt={v.username}
-                                onError={e => { e.target.style.display = 'none'; }}
-                              />
-                            ) : (
-                              <div className="voters-modal__voter-avatar voters-modal__voter-avatar--placeholder">
-                                {v.username[0].toUpperCase()}
-                              </div>
-                            )}
+                            <img
+                              className="voters-modal__voter-avatar"
+                              src={v.avatarUrl}
+                              alt={v.username}
+                            />
                             <span className="voters-modal__voter-name">{v.username}</span>
                           </Link>
                         ))}

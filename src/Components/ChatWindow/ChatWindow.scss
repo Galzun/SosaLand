@@ -52,6 +52,7 @@
   &__messages {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 16px;
     display: flex;
     flex-direction: column;
@@ -140,53 +141,6 @@
     flex-shrink: 0;
   }
 
-  // ── Лайтбокс для просмотра изображений ──
-  &__lightbox {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.9);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: zoom-out;
-  }
-
-  &__lightbox-inner {
-    position: relative;
-    cursor: default;
-    max-width: 90vw;
-    max-height: 90vh;
-
-    img {
-      max-width: 100%;
-      max-height: 90vh;
-      object-fit: contain;
-      border-radius: 8px;
-    }
-  }
-
-  &__lightbox-close {
-    position: absolute;
-    top: -12px;
-    right: -12px;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: #333;
-    border: 1px solid #555;
-    color: #fff;
-    font-size: 14px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s;
-
-    &:hover {
-      background: #ff4a4a;
-    }
-  }
 }
 
 // ── Обёртка сообщения (нужна для React key) ──
@@ -289,11 +243,19 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .chat__msg-bubble {
   padding: 8px 12px;
   max-width: 100%;
+
+  // Без паддингов когда только медиа-сетка (нет текста и нет других файлов)
+  &--media-only {
+    padding: 0;
+    overflow: hidden;
+  }
 }
 
 .chat__msg-text {
@@ -314,7 +276,7 @@
 
 // Изображение в сообщении
 .chat__msg-image {
-  max-width: 280px;
+  max-width: min(280px, 100%);
   max-height: 200px;
   border-radius: 8px;
   cursor: zoom-in;
@@ -329,7 +291,7 @@
 
 // Видео в сообщении
 .chat__msg-video {
-  max-width: 320px;
+  max-width: min(320px, 100%);
   max-height: 240px;
   width: 100%;
   border-radius: 8px;
@@ -357,7 +319,7 @@
   text-decoration: none;
   color: #ccc;
   transition: border-color 0.2s, color 0.2s;
-  max-width: 280px;
+  max-width: min(280px, 100%);
 
   &:hover {
     border-color: #4aff9e;
@@ -439,6 +401,103 @@
   &:hover { background: rgba(74, 255, 158, 0.1); }
 }
 
+// ── Медиа-сетка (пак изображений/видео) ──
+.chat__media-grid {
+  display: grid;
+  gap: 2px;
+  width: min(280px, 100%);
+  max-width: 100%;
+  overflow: hidden;
+  cursor: pointer;
+
+  // Скругление: у пузыря своя border-radius, bubble--media-only делает overflow:hidden
+  // Если пузырь имеет паддинг (есть текст) — сетка без скруглений сама по себе
+  .chat__msg-bubble--media-only & {
+    border-radius: inherit;
+  }
+
+  // 1 элемент — full width, ограниченная высота
+  &--1 {
+    grid-template-columns: 1fr;
+    .chat__media-grid-item { aspect-ratio: 4/3; }
+  }
+
+  // 2 элемента — два равных столбца
+  &--2 {
+    grid-template-columns: 1fr 1fr;
+    .chat__media-grid-item { aspect-ratio: 1; }
+  }
+
+  // 3 элемента — первый во всю ширину, следующие два рядом
+  &--3 {
+    grid-template-columns: 1fr 1fr;
+    .chat__media-grid-item {
+      aspect-ratio: 1;
+      &:first-child {
+        grid-column: 1 / -1;
+        aspect-ratio: 16 / 7;
+      }
+    }
+  }
+
+  // 4 элемента — сетка 2×2
+  &--4 {
+    grid-template-columns: 1fr 1fr;
+    .chat__media-grid-item { aspect-ratio: 1; }
+  }
+}
+
+.chat__media-grid-item {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  cursor: pointer;
+
+  img,
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  &:hover img,
+  &:hover video {
+    opacity: 0.88;
+  }
+}
+
+.chat__media-grid-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 22px;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+  pointer-events: none;
+}
+
+.chat__media-grid-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+// ── Скругление пузыря для медиа-only (наследует от .chat__msg) ──
+.chat__msg--other .chat__msg-bubble--media-only { border-radius: 0 12px 12px 12px; }
+.chat__msg--own .chat__msg-bubble--media-only   { border-radius: 12px 0 12px 12px; }
+
 @media (max-width: 768px) {
   .chat-window__back-btn {
     display: flex;
@@ -451,5 +510,10 @@
 
   .chat-window__messages {
     padding: 12px;
+    overflow-x: hidden;
+  }
+
+  .chat__msg {
+    max-width: 85%;
   }
 }

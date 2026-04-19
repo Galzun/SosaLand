@@ -46,6 +46,7 @@ function EventCreate() {
   const [previewResultsUrl,      setPreviewResultsUrl]      = useState('');
   const [startTime,              setStartTime]              = useState('');
   const [endTime,                setEndTime]                = useState('');
+  const [eventStatus,            setEventStatus]            = useState('scheduled');
   const [contentMain,            setContentMain]            = useState('');
   const [contentResults,         setContentResults]         = useState('');
 
@@ -54,9 +55,10 @@ function EventCreate() {
   // Активная вкладка — как в редакторе, так и в предпросмотре
   const [activeTab,  setActiveTab]  = useState('main'); // 'main' | 'results'
 
-  const [loading, setLoading] = useState(isEdit);
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState(null);
+  const [loading,  setLoading]  = useState(isEdit);
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState(null);
+  const [authorId, setAuthorId] = useState(null);
 
   const mainContentRef    = useRef('');
   const resultsContentRef = useRef('');
@@ -71,12 +73,14 @@ function EventCreate() {
     setContentResults(html);
   }, []);
 
-  // Перенаправляем тех, у кого нет прав редактора и выше
+  // Для редактирования: только автор или editor+/manage_events
   useEffect(() => {
+    if (!isEdit || loading || !user || authorId === null) return;
     const level = { creator: 4, admin: 3, editor: 2, user: 1 };
-    const hasEventsAccess = (level[user?.role] ?? 1) >= 2 || (user?.customPermissions ?? []).includes('manage_events');
-    if (user && !hasEventsAccess) navigate('/');
-  }, [user, navigate]);
+    const canEditAny = (level[user.role] ?? 1) >= 2 || (user.customPermissions ?? []).includes('manage_events');
+    const isAuthor   = authorId === user.id;
+    if (!isAuthor && !canEditAny) navigate('/');
+  }, [isEdit, loading, user, authorId, navigate]);
 
   // Загружаем данные для редактирования
   useEffect(() => {
@@ -84,11 +88,13 @@ function EventCreate() {
     setLoading(true);
     axios.get(`/api/events/${slug}`)
       .then(({ data }) => {
+        setAuthorId(data.author?.id ?? null);
         setTitle(data.title);
         setPreviewUrl(data.previewImageUrl || '');
         setPreviewResultsUrl(data.previewImageResultsUrl || '');
         setStartTime(tsToDatetimeLocal(data.startTime));
         setEndTime(tsToDatetimeLocal(data.endTime));
+        setEventStatus(data.status || 'scheduled');
         const main    = data.contentMain    || '';
         const results = data.contentResults || '';
         setContentMain(main);
@@ -140,6 +146,7 @@ function EventCreate() {
         content_results:              finalResults || null,
         start_time:                   startTs,
         end_time:                     datetimeLocalToTs(endTime),
+        status:                       eventStatus,
       };
       let saved;
       if (isEdit) {
@@ -264,6 +271,20 @@ function EventCreate() {
                 onChange={e => setEndTime(e.target.value)}
               />
             </div>
+          </div>
+
+          {/* Статус события */}
+          <div className="event-create__field">
+            <label className="event-create__label">Статус события</label>
+            <select
+              className="event-create__input"
+              value={eventStatus}
+              onChange={e => setEventStatus(e.target.value)}
+            >
+              <option value="scheduled">Запланировано</option>
+              <option value="in_progress">В процессе</option>
+              <option value="completed">Завершено</option>
+            </select>
           </div>
 
           {/* Переключение между редакторами */}

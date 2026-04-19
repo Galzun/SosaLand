@@ -16,6 +16,7 @@ const { requireAuth, ROLE_LEVEL } = require('../middleware/auth');
 const { postCommentsRouter } = require('./comments');
 const { logActivity, markFileDeletedInLogs } = require('../utils/logActivity');
 const { deleteFileAsync } = require('../utils/storage');
+const avatarUrl = require('../utils/avatarUrl');
 
 const router = express.Router();
 
@@ -183,9 +184,7 @@ async function fetchPosts(whereClause, whereParams, currentUserId, limit, offset
         author: {
           username:      lc.authorUsername,
           minecraftUuid: lc.authorMinecraftUuid || null,
-          avatarUrl:     lc.authorMinecraftUuid
-            ? `https://crafatar.icehost.xyz/avatars/${lc.authorMinecraftUuid}?size=64&overlay`
-            : null,
+          avatarUrl:     avatarUrl(lc.authorMinecraftUuid, lc.authorUsername),
         },
       };
     }
@@ -208,9 +207,7 @@ async function fetchPosts(whereClause, whereParams, currentUserId, limit, offset
         id:            row.authorId,
         username:      row.authorUsername,
         minecraftUuid: row.authorMinecraftUuid || null,
-        avatarUrl:     row.authorMinecraftUuid
-          ? `https://crafatar.icehost.xyz/avatars/${row.authorMinecraftUuid}?size=64&overlay`
-          : null,
+        avatarUrl:     avatarUrl(row.authorMinecraftUuid, row.authorUsername),
       },
     };
   });
@@ -286,9 +283,7 @@ router.post('/', requireAuth, async (req, res) => {
       id:            userId,
       username:      user?.username       || req.user.username,
       minecraftUuid: user?.minecraft_uuid || null,
-      avatarUrl:     user?.minecraft_uuid
-        ? `https://crafatar.icehost.xyz/avatars/${user.minecraft_uuid}?size=64&overlay`
-        : null,
+      avatarUrl:     avatarUrl(user?.minecraft_uuid, user?.username || req.user.username),
     };
 
     const responseAttachments = attachmentsToSave.map((att, i) => ({

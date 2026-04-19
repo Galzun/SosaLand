@@ -22,20 +22,28 @@ router.get('/', async (req, res) => {
   try {
     const rows = await db.all(
       `SELECT p.uuid, p.name, p.first_seen, p.last_seen, p.is_banned, p.ban_reason,
-              u.role AS user_role
+              u.role AS user_role,
+              (
+                SELECT json_agg(json_build_object('id', cr.id, 'name', cr.name, 'color', cr.color)
+                                ORDER BY cr.priority ASC)
+                FROM user_custom_roles ucr
+                JOIN custom_roles cr ON cr.id = ucr.role_id
+                WHERE ucr.user_id = u.id
+              ) AS custom_roles_json
        FROM players p
        LEFT JOIN users u ON u.minecraft_uuid = p.uuid
        ORDER BY p.last_seen DESC`
     );
 
     const players = rows.map(r => ({
-      uuid:      r.uuid,
-      name:      r.name,
-      firstSeen: r.first_seen,
-      lastSeen:  r.last_seen,
-      isBanned:  !!r.is_banned,
-      banReason: r.ban_reason || null,
-      role:      r.user_role || null,
+      uuid:        r.uuid,
+      name:        r.name,
+      firstSeen:   r.first_seen,
+      lastSeen:    r.last_seen,
+      isBanned:    !!r.is_banned,
+      banReason:   r.ban_reason || null,
+      role:        r.user_role || null,
+      customRoles: r.custom_roles_json || [],
     }));
 
     res.json(players);

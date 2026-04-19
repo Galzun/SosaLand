@@ -42,10 +42,6 @@ function ConversationList({ conversations, activePartnerId, onSelect, onDelete, 
         const { partner, lastMessage, lastMessageTime, unreadCount } = conv;
         const isActive = partner.id === activePartnerId;
 
-        const avatarUrl = partner.minecraftUuid
-          ? `https://crafatar.icehost.xyz/avatars/${partner.minecraftUuid}?size=64&overlay`
-          : null;
-
         return (
           <div
             key={conv.id}
@@ -58,11 +54,7 @@ function ConversationList({ conversations, activePartnerId, onSelect, onDelete, 
             >
               {/* Аватарка */}
               <div className="conv-list__avatar">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt={partner.username} />
-                ) : (
-                  <span className="conv-list__avatar-placeholder">👤</span>
-                )}
+                <img src={partner.avatarUrl} alt={partner.username} />
               </div>
 
               {/* Информация */}

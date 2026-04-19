@@ -1,12 +1,4 @@
 // Components/ChatWindow/ChatWindow.jsx
-// Окно чата с конкретным собеседником.
-//
-// Показывает историю сообщений, поддерживает:
-//   — автоскролл вниз при новых сообщениях
-//   — подгрузку старых сообщений при скролле вверх
-//   — отправку текста и файлов
-//   — удаление своих сообщений
-//   — просмотр изображений через клик
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
@@ -14,9 +6,10 @@ import { useAuth } from '../../context/AuthContext';
 import { renderWithMentions } from '../CommentSection/CommentSection';
 import MessageInput from '../MessageInput/MessageInput';
 import FileIcon from '../FileIcon/FileIcon';
+import ImageModal from '../ImageModal/ImageModal';
+import { getAvatarUrl } from '../../utils/avatarUrl';
 import './ChatWindow.scss';
 
-// Форматирует unix timestamp в читаемое время
 function formatTime(ts) {
   if (!ts) return '';
   const d = new Date(ts * 1000);
@@ -28,7 +21,6 @@ function formatTime(ts) {
   return `${date}, ${time}`;
 }
 
-// Группирует сообщения по дате для разделителей
 function getDateLabel(ts) {
   if (!ts) return '';
   const d = new Date(ts * 1000);
@@ -43,81 +35,74 @@ function getDateLabel(ts) {
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+// Собирает все файлы сообщения в единый массив
+function getMessageFiles(msg) {
+  const files = [];
+  if (msg.fileUrl) files.push({ fileUrl: msg.fileUrl, fileType: msg.fileType || '', fileName: msg.fileName || '' });
+  if (msg.files?.length) files.push(...msg.files);
+  return files;
+}
+
+function isMediaAtt(att) {
+  return att.fileType?.startsWith('image/') || att.fileType?.startsWith('video/');
+}
+
+// Конвертирует файл-вложение в формат, понятный ImageModal
+function toImageModalItem(att, idx) {
+  return {
+    id: att.fileUrl || `chat-media-${idx}`, // нужен как React key в стрипе
+    fileUrl:  att.fileUrl,
+    fileType: att.fileType,
+    fileName: att.fileName,
+  };
+}
+
 function ChatWindow({
-  partner,          // { id, username, minecraftUuid }
+  partner,
   messages,
   loading,
   hasMore,
   onSend,
   onDelete,
   onLoadOlder,
-  onBack,           // мобильная кнопка «Назад»
+  onBack,
 }) {
   const { user } = useAuth();
-  const messagesEndRef   = useRef(null);  // для автоскролла вниз
-  const messagesAreaRef  = useRef(null);  // контейнер сообщений
-  const [lightboxUrl, setLightboxUrl] = useState(null); // просмотр изображения
+  const messagesEndRef   = useRef(null);
+  const messagesAreaRef  = useRef(null);
+  // { items: ImageModal-совместимые объекты, index }
+  const [lightbox, setLightbox] = useState(null);
 
-  // Аватарка собеседника через Crafatar
-  const partnerAvatar = partner?.minecraftUuid
-    ? `https://crafatar.icehost.xyz/avatars/${partner.minecraftUuid}?size=64&overlay`
-    : null;
+  const partnerAvatar = partner?.avatarUrl ?? null;
 
-  // Автоскролл вниз при появлении новых сообщений
   const prevMsgCountRef = useRef(0);
   useEffect(() => {
     const area = messagesAreaRef.current;
     if (!area) return;
-
     const count = messages.length;
     if (count === 0) return;
-
-    // Если сообщений стало больше снизу (новое) — скроллим вниз
-    // Если стало больше сверху (загрузка старых) — не скроллим
     const wasAtBottom = area.scrollHeight - area.scrollTop - area.clientHeight < 100;
-
     if (wasAtBottom || prevMsgCountRef.current === 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-
     prevMsgCountRef.current = count;
   }, [messages]);
 
-  // Обработка скролла: при достижении верха загружаем старые сообщения
   const handleScroll = useCallback(() => {
     const area = messagesAreaRef.current;
     if (!area || !hasMore || loading) return;
-    if (area.scrollTop < 80) {
-      onLoadOlder();
-    }
+    if (area.scrollTop < 80) onLoadOlder();
   }, [hasMore, loading, onLoadOlder]);
 
-  // Рендер одного вложения (используется для msg.files)
-  const renderAttachment = (att, key) => {
-    if (att.fileType?.startsWith('image/')) {
-      return (
-        <img
-          key={key}
-          className="chat__msg-image"
-          src={att.fileUrl}
-          alt={att.fileName || 'Изображение'}
-          onClick={() => setLightboxUrl(att.fileUrl)}
-          loading="lazy"
-        />
-      );
-    }
-    if (att.fileType?.startsWith('video/')) {
-      return (
-        <video
-          key={key}
-          className="chat__msg-video"
-          src={att.fileUrl}
-          controls
-          playsInline
-          style={{ colorScheme: 'dark' }}
-        />
-      );
-    }
+  const openLightbox = (mediaFiles, index) => {
+    setLightbox({
+      items: mediaFiles.map(toImageModalItem),
+      index,
+    });
+  };
+
+  // Рендер не-медиа вложения (аудио / документ)
+  const renderNonMediaAtt = (att, key) => {
     if (att.fileType?.startsWith('audio/')) {
       return (
         <audio
@@ -145,21 +130,78 @@ function ChatWindow({
     );
   };
 
-  // Рендер одного сообщения
+  // Рендер одиночного медиа (прежнее поведение — клик открывает лайтбокс)
+  const renderSingleMedia = (att, mediaFiles) => {
+    if (att.fileType?.startsWith('image/')) {
+      return (
+        <img
+          className="chat__msg-image"
+          src={att.fileUrl}
+          alt={att.fileName || ''}
+          onClick={() => openLightbox(mediaFiles, 0)}
+          loading="lazy"
+        />
+      );
+    }
+    // одиночное видео — нативный плеер (можно кликнуть)
+    return (
+      <video
+        className="chat__msg-video"
+        src={att.fileUrl}
+        controls
+        playsInline
+        style={{ colorScheme: 'dark' }}
+      />
+    );
+  };
+
+  // Рендер медиа-сетки (пак из 2+ файлов)
+  const renderMediaGrid = (mediaFiles) => {
+    const total = mediaFiles.length;
+    const visibleCount = Math.min(total, 4);
+    const extra = total - visibleCount;
+
+    return (
+      <div className={`chat__media-grid chat__media-grid--${visibleCount}`}>
+        {mediaFiles.slice(0, visibleCount).map((item, i) => {
+          const isLastVisible = i === visibleCount - 1 && extra > 0;
+          const isVideo = item.fileType?.startsWith('video/');
+          return (
+            <div
+              key={i}
+              className="chat__media-grid-item"
+              onClick={() => openLightbox(mediaFiles, i)}
+            >
+              {isVideo ? (
+                <video src={`${item.fileUrl}#t=0.1`} preload="metadata" muted />
+              ) : (
+                <img src={item.fileUrl} alt={item.fileName || ''} loading="lazy" />
+              )}
+              {isVideo && !isLastVisible && (
+                <span className="chat__media-grid-play">▶</span>
+              )}
+              {isLastVisible && (
+                <div className="chat__media-grid-overlay">+{extra}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderMessage = (msg, prevMsg) => {
     const isOwn    = msg.senderId === user?.id || msg.sender?.id === user?.id;
     const showDate = !prevMsg || getDateLabel(msg.createdAt) !== getDateLabel(prevMsg.createdAt);
+    const senderAvatar = !isOwn ? (msg.sender?.avatarUrl ?? null) : null;
 
-    // Аватарка отправителя (только для чужих)
-    const senderAvatar = !isOwn && msg.sender?.minecraftUuid
-      ? `https://crafatar.icehost.xyz/avatars/${msg.sender.minecraftUuid}?size=32&overlay`
-      : null;
+    const allFiles   = getMessageFiles(msg);
+    const mediaFiles = allFiles.filter(isMediaAtt);
+    const otherFiles = allFiles.filter(f => !isMediaAtt(f));
+    const mediaOnly  = mediaFiles.length >= 2 && otherFiles.length === 0 && !msg.content;
 
     return (
-      // Обёртка нужна для ключа React. Также задаём ей flex-выравнивание,
-      // чтобы align-self на .chat__msg работал корректно внутри flex-колонки.
       <div key={msg.id} className={`chat__msg-wrapper${isOwn ? ' chat__msg-wrapper--own' : ''}`}>
-        {/* Разделитель по дате */}
         {showDate && (
           <div className="chat__date-divider">
             <span>{getDateLabel(msg.createdAt)}</span>
@@ -167,33 +209,33 @@ function ChatWindow({
         )}
 
         <div className={`chat__msg${isOwn ? ' chat__msg--own' : ' chat__msg--other'}${msg._pending ? ' chat__msg--pending' : ''}`}>
-          {/* Аватарка собеседника */}
           {!isOwn && (
             <div className="chat__msg-avatar">
-              {senderAvatar ? (
-                <img src={senderAvatar} alt={msg.sender?.username} />
-              ) : (
-                <span className="chat__msg-avatar-placeholder">👤</span>
-              )}
+              <img
+                src={senderAvatar || getAvatarUrl(msg.sender?.username, null)}
+                alt={msg.sender?.username}
+                onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(msg.sender?.username, null); }}
+              />
             </div>
           )}
 
           <div className="chat__msg-body">
-            {/* Контент сообщения: изображение, файл или текст */}
-            <div className="chat__msg-bubble">
-              {/* Первый файл (legacy поле) */}
-              {msg.fileUrl && renderAttachment({ fileUrl: msg.fileUrl, fileType: msg.fileType, fileName: msg.fileName }, 'f0')}
-
-              {/* Дополнительные файлы (files_json) */}
-              {msg.files?.map((att, i) => renderAttachment(att, `f${i + 1}`))}
-
-              {/* Текст сообщения */}
+            <div className={`chat__msg-bubble${mediaOnly ? ' chat__msg-bubble--media-only' : ''}`}>
+              {/* Медиа: сетка для 2+, одиночное для 1 */}
+              {mediaFiles.length >= 2
+                ? renderMediaGrid(mediaFiles)
+                : mediaFiles.length === 1
+                  ? renderSingleMedia(mediaFiles[0], mediaFiles)
+                  : null
+              }
+              {/* Не-медиа файлы */}
+              {otherFiles.map((att, i) => renderNonMediaAtt(att, `nm${i}`))}
+              {/* Текст */}
               {msg.content && (
                 <p className="chat__msg-text">{renderWithMentions(msg.content)}</p>
               )}
             </div>
 
-            {/* Метаданные: время + статус прочтения */}
             <div className="chat__msg-meta">
               <span className="chat__msg-time">{formatTime(msg.createdAt)}</span>
               {isOwn && (
@@ -204,7 +246,6 @@ function ChatWindow({
                   {msg.isRead ? '✓✓' : '✓'}
                 </span>
               )}
-              {/* Кнопка удаления своего сообщения */}
               {isOwn && !msg._pending && (
                 <button
                   className="chat__msg-delete"
@@ -224,7 +265,7 @@ function ChatWindow({
 
   return (
     <div className="chat-window">
-      {/* Шапка: аватарка + имя собеседника */}
+      {/* Шапка */}
       <div className="chat-window__header">
         {onBack && (
           <button className="chat-window__back-btn" onClick={onBack} aria-label="Назад">
@@ -239,10 +280,7 @@ function ChatWindow({
           )}
         </div>
         <div className="chat-window__header-info">
-          <Link
-            to={`/player/${partner.username}`}
-            className="chat-window__header-name"
-          >
+          <Link to={`/player/${partner.username}`} className="chat-window__header-name">
             {partner.username}
           </Link>
         </div>
@@ -254,14 +292,12 @@ function ChatWindow({
         ref={messagesAreaRef}
         onScroll={handleScroll}
       >
-        {/* Загрузка старых сообщений */}
         {loading && messages.length > 0 && (
           <div className="chat-window__loading-top">
             <span className="chat-window__spinner" /> Загрузка...
           </div>
         )}
 
-        {/* Кнопка «Загрузить ещё» если есть история */}
         {hasMore && !loading && (
           <button
             className="chat-window__load-more"
@@ -272,7 +308,6 @@ function ChatWindow({
           </button>
         )}
 
-        {/* Начальная загрузка */}
         {loading && messages.length === 0 && (
           <div className="chat-window__loading-center">
             <span className="chat-window__spinner" />
@@ -280,17 +315,14 @@ function ChatWindow({
           </div>
         )}
 
-        {/* Пустой чат */}
         {!loading && messages.length === 0 && (
           <div className="chat-window__empty">
             Нет сообщений. Напишите первым!
           </div>
         )}
 
-        {/* Список сообщений */}
         {messages.map((msg, i) => renderMessage(msg, messages[i - 1] || null))}
 
-        {/* Якорь для автоскролла */}
         <div ref={messagesEndRef} />
       </div>
 
@@ -299,23 +331,16 @@ function ChatWindow({
         <MessageInput onSend={onSend} disabled={false} />
       </div>
 
-      {/* Лайтбокс для просмотра изображений */}
-      {lightboxUrl && (
-        <div
-          className="chat-window__lightbox"
-          onClick={() => setLightboxUrl(null)}
-        >
-          <div className="chat-window__lightbox-inner" onClick={e => e.stopPropagation()}>
-            <img src={lightboxUrl} alt="Просмотр" />
-            <button
-              className="chat-window__lightbox-close"
-              onClick={() => setLightboxUrl(null)}
-              type="button"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+      {/* Лайтбокс — используем ImageModal как в галерее */}
+      {lightbox && (
+        <ImageModal
+          images={lightbox.items}
+          initialIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
+          showSidebar={false}
+          showShare={false}
+          albumRanges={[{ startIndex: 0, items: lightbox.items }]}
+        />
       )}
     </div>
   );

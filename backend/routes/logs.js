@@ -11,6 +11,7 @@ const db      = require('../db');
 const { requireAuth, isAdminOrPerm } = require('../middleware/auth');
 const { logActivity } = require('../utils/logActivity');
 const { deleteFile } = require('../utils/storage');
+const avatarUrl = require('../utils/avatarUrl');
 
 const router = express.Router();
 
@@ -225,9 +226,7 @@ router.get('/', requireAuth, isAdminOrPerm('view_logs'), async (req, res) => {
       userId:       r.user_id,
       username:     r.username,
       minecraftUuid: r.minecraft_uuid || null,
-      avatarUrl:    r.minecraft_uuid
-        ? `https://crafatar.icehost.xyz/avatars/${r.minecraft_uuid}?size=64&overlay`
-        : null,
+      avatarUrl:    avatarUrl(r.minecraft_uuid, r.username),
       action:       r.action,
       actionLabel:  ACTION_LABEL[r.action] || r.action,
       targetType:   r.target_type,

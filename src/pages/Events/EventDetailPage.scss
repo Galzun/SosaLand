@@ -87,10 +87,16 @@
     border-radius: 20px;
     white-space: nowrap;
 
-    &--started {
-      background: rgba(255, 204, 68, 0.12);
-      color: #ffcc44;
-      border-color: rgba(255, 204, 68, 0.3);
+    &--in-progress {
+      background: rgba(255, 153, 0, 0.12);
+      color: #ff9900;
+      border-color: rgba(255, 153, 0, 0.3);
+    }
+
+    &--completed {
+      background: rgba(136, 136, 136, 0.1);
+      color: #888;
+      border-color: rgba(136, 136, 136, 0.25);
     }
   }
 

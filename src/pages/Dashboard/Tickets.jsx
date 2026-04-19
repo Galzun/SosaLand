@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import { getAvatarUrl } from '../../utils/avatarUrl';
 import './Tickets.scss';
 
 const ROLE_LEVEL = { user: 1, editor: 2, admin: 3, creator: 4 };
@@ -173,9 +174,9 @@ function Tickets() {
                     <div className="tickets__card" key={ticket.id}>
                       <div className="tickets__card-avatar">
                         <img
-                          src={`https://crafatar.icehost.xyz/avatars/${ticket.minecraftUuid}?overlay`}
+                          src={getAvatarUrl(ticket.minecraftName, ticket.minecraftUuid)}
                           alt={ticket.minecraftName}
-                          onError={e => { e.target.style.display = 'none'; }}
+                          onError={e => { e.target.src = getAvatarUrl(ticket.minecraftName, null); }}
                         />
                       </div>
                       <div className="tickets__card-info">
@@ -239,9 +240,9 @@ function Tickets() {
                   >
                     <div className="tickets__card-avatar">
                       <img
-                        src={`https://crafatar.icehost.xyz/avatars/${ticket.minecraftUuid}?overlay`}
+                        src={getAvatarUrl(ticket.minecraftName, ticket.minecraftUuid)}
                         alt={ticket.minecraftName}
-                        onError={e => { e.target.style.display = 'none'; }}
+                        onError={e => { e.target.src = getAvatarUrl(ticket.minecraftName, null); }}
                       />
                     </div>
                     <div className="tickets__card-info">

@@ -19,15 +19,19 @@ function roleLevel(role) {
 }
 
 function Sidebar({ serverIp, borderColor }) {
-  const [isOpen,       setIsOpen]       = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [unreadCount,  setUnreadCount]  = useState(0);
-  const [copied,       setCopied]       = useState(false);
+  const [isOpen,            setIsOpen]            = useState(false);
+  const [pendingCount,      setPendingCount]      = useState(0);
+  const [unreadCount,       setUnreadCount]       = useState(0);
+  const [courtPendingCount, setCourtPendingCount] = useState(0);
+  const [newsCount,         setNewsCount]         = useState(0);
+  const [eventsCount,       setEventsCount]       = useState(0);
+  const [copied,            setCopied]            = useState(false);
+  const [avatarError,       setAvatarError]       = useState(false);
 
   const location = useLocation();
   const navigate  = useNavigate();
   const { user, token, logout } = useAuth();
-  const { onlineCount } = usePlayer();
+  const { onlineCount, getAvatarUrl } = usePlayer();
   const dropdownRef = useRef(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -78,6 +82,27 @@ function Sidebar({ serverIp, borderColor }) {
     return () => clearInterval(id);
   }, [user, token]);
 
+  // Загружаем pending-тикеты суда (для manage_court или admin+)
+  useEffect(() => {
+    const perms = user?.customPermissions ?? [];
+    const canManage = user && (
+      roleLevel(user.role) >= roleLevel('admin') ||
+      perms.includes('manage_court')
+    );
+    if (!canManage || !token) { setCourtPendingCount(0); return; }
+    const fetch = async () => {
+      try {
+        const r = await axios.get('/api/court/tickets/pending-count', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCourtPendingCount(r.data.count ?? 0);
+      } catch {}
+    };
+    fetch();
+    const id = setInterval(fetch, 60_000);
+    return () => clearInterval(id);
+  }, [user, token]);
+
   // Загружаем непрочитанные сообщения
   useEffect(() => {
     if (!user || !token) { setUnreadCount(0); return; }
@@ -94,9 +119,64 @@ function Sidebar({ serverIp, borderColor }) {
     return () => clearInterval(id);
   }, [user, token]);
 
-  // Сбрасываем счётчик при открытии сообщений
+  // Проверяем новые новости (через localStorage «последнего просмотра»)
   useEffect(() => {
-    if (location.pathname === '/messages') setUnreadCount(0);
+    const check = async () => {
+      try {
+        const stored = localStorage.getItem('sosaland:lastSeenNews');
+        if (!stored) {
+          localStorage.setItem('sosaland:lastSeenNews', String(Date.now()));
+          return;
+        }
+        const lastSeen = Number(stored);
+        const r = await axios.get('/api/news?limit=20');
+        const items = Array.isArray(r.data) ? r.data : [];
+        const count = items.filter(n => (n.publishedAt ?? 0) * 1000 > lastSeen).length;
+        setNewsCount(count);
+      } catch {}
+    };
+    check();
+    const id = setInterval(check, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Проверяем новые события (через localStorage «последнего просмотра»)
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const stored = localStorage.getItem('sosaland:lastSeenEvents');
+        if (!stored) {
+          localStorage.setItem('sosaland:lastSeenEvents', String(Date.now()));
+          return;
+        }
+        const lastSeen = Number(stored);
+        const r = await axios.get('/api/events?limit=20');
+        const items = Array.isArray(r.data) ? r.data : [];
+        const count = items.filter(e => (e.createdAt ?? 0) * 1000 > lastSeen).length;
+        setEventsCount(count);
+      } catch {}
+    };
+    check();
+    const id = setInterval(check, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Сбрасываем счётчики при переходе на соответствующую страницу
+  useEffect(() => {
+    if (location.pathname === '/messages') {
+      setUnreadCount(0);
+    }
+    if (location.pathname === '/news') {
+      localStorage.setItem('sosaland:lastSeenNews', String(Date.now()));
+      setNewsCount(0);
+    }
+    if (location.pathname === '/events') {
+      localStorage.setItem('sosaland:lastSeenEvents', String(Date.now()));
+      setEventsCount(0);
+    }
+    if (location.pathname === '/dashboard/tickets') {
+      setPendingCount(0);
+    }
   }, [location.pathname]);
 
   const copyToClipboard = async () => {
@@ -114,19 +194,14 @@ function Sidebar({ serverIp, borderColor }) {
     navigate('/');
   };
 
-  const avatarUrl = user?.minecraftUuid
-    ? `https://crafatar.icehost.xyz/avatars/${user.minecraftUuid}?overlay`
-    : null;
-
-  const getAvatarUrl32 = (uuid) =>
-    uuid ? `https://crafatar.icehost.xyz/avatars/${uuid}?overlay` : null;
-
-  const navItems = [
+  const navItemsBefore = [
     { to: '/',        icon: '🏠', label: 'Главная', exact: true },
     { to: '/feed',    icon: '📋', label: 'Лента' },
-    { to: '/news',    icon: '📰', label: 'Новости' },
     { to: '/gallery', icon: '📸', label: 'Галерея' },
-    { to: '/events',  icon: '📅', label: 'События' },
+    { to: '/news',    icon: '📰', label: 'Новости',  badge: newsCount },
+    { to: '/events',  icon: '📅', label: 'События',  badge: eventsCount },
+  ];
+  const navItemsAfter = [
     { to: '/messages',icon: '💬', label: 'Сообщения', requireAuth: true },
   ];
 
@@ -135,6 +210,7 @@ function Sidebar({ serverIp, borderColor }) {
   const canSeeTickets = isAdmin || perms.includes('manage_tickets');
   const canSeeRoles   = isAdmin || perms.includes('manage_custom_roles') || perms.includes('assign_custom_roles');
   const canSeeLogs    = isAdmin || perms.includes('view_logs');
+  const canManageCourt = isAdmin || perms.includes('manage_court');
 
   return (
     <>
@@ -174,10 +250,11 @@ function Sidebar({ serverIp, borderColor }) {
               className="sidebar__profile-link"
             >
               <div className="sidebar__profile-avatar">
-                {avatarUrl
-                  ? <img src={avatarUrl} alt={user.username} onError={(e) => { e.target.style.display = 'none'; }} />
-                  : <span className="sidebar__profile-avatar-placeholder">👤</span>
-                }
+                <img
+                  src={getAvatarUrl(user.username, user.minecraftUuid, avatarError)}
+                  alt={user.username}
+                  onError={() => setAvatarError(true)}
+                />
               </div>
               <div className="sidebar__profile-info">
                 <span className="sidebar__profile-name">{user.username}</span>
@@ -201,17 +278,48 @@ function Sidebar({ serverIp, borderColor }) {
 
         {/* ── Навигация ── */}
         <div className="sidebar__nav">
-          {navItems
+          {navItemsBefore.map(({ to, icon, label, exact, badge }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={exact}
+              className={({ isActive }) =>
+                `sidebar__item${isActive ? ' sidebar__item--active' : ''}${badge > 0 ? ' sidebar__item--pending' : ''}`
+              }
+            >
+              <span className="sidebar__item-icon">{icon}</span>
+              <span className="sidebar__item-label">{label}</span>
+              {badge > 0 && (
+                <span className="sidebar__item-badge">{badge > 99 ? '99+' : badge}</span>
+              )}
+            </NavLink>
+          ))}
+
+          {/* Суд — все пользователи */}
+          <NavLink
+            to="/court"
+            className={({ isActive }) =>
+              `sidebar__item${isActive ? ' sidebar__item--active' : ''}${canManageCourt && courtPendingCount > 0 ? ' sidebar__item--pending' : ''}`
+            }
+          >
+            <span className="sidebar__item-icon">⚖️</span>
+            <span className="sidebar__item-label">Суд</span>
+            {canManageCourt && courtPendingCount > 0 && (
+              <span className="sidebar__item-badge">
+                {courtPendingCount > 99 ? '99+' : courtPendingCount}
+              </span>
+            )}
+          </NavLink>
+
+          {navItemsAfter
             .filter(item => !item.requireAuth || user)
-            .map(({ to, icon, label, exact }) => {
+            .map(({ to, icon, label }) => {
               const isMessages = to === '/messages';
               const showBadge  = isMessages && unreadCount > 0;
-
               return (
                 <NavLink
                   key={to}
                   to={to}
-                  end={exact}
                   className={({ isActive }) =>
                     `sidebar__item${isActive ? ' sidebar__item--active' : ''}${showBadge ? ' sidebar__item--pending' : ''}`
                   }
@@ -236,6 +344,9 @@ function Sidebar({ serverIp, borderColor }) {
             >
               <span className="sidebar__item-icon">🎫</span>
               <span className="sidebar__item-label">Заявки</span>
+              {pendingCount > 0 && (
+                <span className="sidebar__item-badge">{pendingCount > 99 ? '99+' : pendingCount}</span>
+              )}
             </NavLink>
           )}
 
@@ -302,14 +413,12 @@ function Sidebar({ serverIp, borderColor }) {
                 className="sidebar__mobile-user-trigger"
                 onClick={() => setDropdownOpen(p => !p)}
               >
-                {getAvatarUrl32(user.minecraftUuid) && (
-                  <img
-                    src={getAvatarUrl32(user.minecraftUuid)}
-                    alt={user.username}
-                    className="sidebar__mobile-user-avatar"
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                )}
+                <img
+                  src={getAvatarUrl(user.username, user.minecraftUuid, avatarError)}
+                  alt={user.username}
+                  className="sidebar__mobile-user-avatar"
+                  onError={() => setAvatarError(true)}
+                />
                 <span>{user.username}</span>
                 <span className={`sidebar__mobile-user-arrow${dropdownOpen ? ' sidebar__mobile-user-arrow--open' : ''}`}>▾</span>
               </button>

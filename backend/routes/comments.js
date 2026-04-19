@@ -15,6 +15,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { requireAuth, ROLE_LEVEL } = require('../middleware/auth');
+const avatarUrl = require('../utils/avatarUrl');
 
 const LIMIT = 20;
 
@@ -31,9 +32,7 @@ function formatComment(row) {
       id:            row.author_id,
       username:      row.author_username,
       minecraftUuid: row.author_minecraft_uuid || null,
-      avatarUrl: row.author_minecraft_uuid
-        ? `https://crafatar.icehost.xyz/avatars/${row.author_minecraft_uuid}?size=64&overlay`
-        : null,
+      avatarUrl: avatarUrl(row.author_minecraft_uuid, row.author_username),
     },
   };
 }

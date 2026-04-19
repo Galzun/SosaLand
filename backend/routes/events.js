@@ -16,9 +16,10 @@ const multer  = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { uploadFile, generateFilename } = require('../utils/storage');
 const db      = require('../db');
-const { requireAuth, isAdminOrPerm, isEditorOrPerm } = require('../middleware/auth');
+const { requireAuth, isAdminOrPerm, isEditorOrPerm, ROLE_LEVEL } = require('../middleware/auth');
 const { eventCommentsRouter } = require('./comments');
 const { logActivity } = require('../utils/logActivity');
+const avatarUrl = require('../utils/avatarUrl');
 
 const router = express.Router();
 
@@ -94,6 +95,7 @@ function formatEvent(row, full = false) {
     previewImageResultsUrl:   row.preview_image_results_url || null,
     startTime:                Number(row.start_time),
     endTime:                  row.end_time ? Number(row.end_time) : null,
+    status:                   row.status || 'scheduled',
     isPublished:     Number(row.is_published) === 1,
     publishedAt:     row.published_at ? Number(row.published_at) : null,
     updatedAt:       row.updated_at   ? Number(row.updated_at)   : null,
@@ -109,9 +111,7 @@ function formatEvent(row, full = false) {
       id:            row.author_id,
       username:      row.author_username,
       minecraftUuid: row.author_minecraft_uuid || null,
-      avatarUrl: row.author_minecraft_uuid
-        ? `https://crafatar.icehost.xyz/avatars/${row.author_minecraft_uuid}?size=64&overlay`
-        : null,
+      avatarUrl: avatarUrl(row.author_minecraft_uuid, row.author_username),
     };
   }
   return obj;
@@ -128,7 +128,7 @@ router.get('/', async (req, res) => {
     const rows = await db.all(
       `SELECT
          e.id, e.title, e.slug, e.preview_image_url, e.preview_image_results_url, e.is_published,
-         e.start_time, e.end_time, e.published_at, e.updated_at,
+         e.start_time, e.end_time, e.status, e.published_at, e.updated_at,
          e.edited_count, e.views, e.created_at,
          (SELECT COUNT(*) FROM comments c WHERE c.event_id = e.id) AS comments_count
        FROM events e
@@ -155,7 +155,7 @@ router.get('/:slug', async (req, res) => {
     const row = await db.get(
       `SELECT
          e.id, e.title, e.slug, e.preview_image_url, e.preview_image_results_url, e.is_published,
-         e.start_time, e.end_time, e.published_at, e.updated_at,
+         e.start_time, e.end_time, e.status, e.published_at, e.updated_at,
          e.edited_count, e.views, e.created_at,
          e.content_main, e.content_results,
          u.id AS author_id, u.username AS author_username,
@@ -186,10 +186,10 @@ router.get('/:slug', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/events — создать событие (editor и выше)
+// POST /api/events — создать событие (любой авторизованный)
 // ---------------------------------------------------------------------------
-router.post('/', requireAuth, isEditorOrPerm('manage_events'), async (req, res) => {
-  const { title, preview_image_url, preview_image_results_url, content_main, content_results, start_time, end_time } = req.body;
+router.post('/', requireAuth, async (req, res) => {
+  const { title, preview_image_url, preview_image_results_url, content_main, content_results, start_time, end_time, status } = req.body;
 
   if (!title || typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'Заголовок обязателен' });
@@ -201,6 +201,9 @@ router.post('/', requireAuth, isEditorOrPerm('manage_events'), async (req, res) 
     return res.status(400).json({ error: 'Дата начала обязательна' });
   }
 
+  const VALID_STATUSES = ['scheduled', 'in_progress', 'completed'];
+  const eventStatus = VALID_STATUSES.includes(status) ? status : 'scheduled';
+
   try {
     const base = slugify(title.trim());
     const slug = await uniqueSlug(base);
@@ -210,17 +213,17 @@ router.post('/', requireAuth, isEditorOrPerm('manage_events'), async (req, res) 
     await db.run(
       `INSERT INTO events (id, author_id, title, slug, preview_image_url, preview_image_results_url,
                            content_main, content_results,
-                           start_time, end_time, is_published, published_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+                           start_time, end_time, status, is_published, published_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
       [id, req.user.id, title.trim(), slug, preview_image_url || null, preview_image_results_url || null,
        content_main || '', content_results || null,
-       start_time, end_time || null, now, now],
+       start_time, end_time || null, eventStatus, now, now],
     );
 
     const row = await db.get(
       `SELECT
          e.id, e.title, e.slug, e.preview_image_url, e.preview_image_results_url, e.is_published,
-         e.start_time, e.end_time, e.published_at, e.updated_at,
+         e.start_time, e.end_time, e.status, e.published_at, e.updated_at,
          e.edited_count, e.views, e.created_at,
          e.content_main, e.content_results,
          u.id AS author_id, u.username AS author_username,
@@ -250,11 +253,11 @@ router.post('/', requireAuth, isEditorOrPerm('manage_events'), async (req, res) 
 });
 
 // ---------------------------------------------------------------------------
-// PUT /api/events/:slug — обновить событие (editor и выше)
+// PUT /api/events/:slug — обновить событие (автор или editor и выше)
 // ---------------------------------------------------------------------------
-router.put('/:slug', requireAuth, isEditorOrPerm('manage_events'), async (req, res) => {
+router.put('/:slug', requireAuth, async (req, res) => {
   const { slug } = req.params;
-  const { title, preview_image_url, preview_image_results_url, content_main, content_results, start_time, end_time } = req.body;
+  const { title, preview_image_url, preview_image_results_url, content_main, content_results, start_time, end_time, status } = req.body;
 
   if (!title || typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'Заголовок обязателен' });
@@ -266,9 +269,19 @@ router.put('/:slug', requireAuth, isEditorOrPerm('manage_events'), async (req, r
     return res.status(400).json({ error: 'Дата начала обязательна' });
   }
 
+  const VALID_STATUSES = ['scheduled', 'in_progress', 'completed'];
+  const eventStatus = VALID_STATUSES.includes(status) ? status : null;
+
   try {
-    const existing = await db.get(`SELECT id, title FROM events WHERE slug = ?`, [slug]);
+    const existing = await db.get(`SELECT id, title, author_id, status FROM events WHERE slug = ?`, [slug]);
     if (!existing) return res.status(404).json({ error: 'Событие не найдено' });
+
+    const callerLevel = ROLE_LEVEL[req.user.role] ?? 1;
+    const canEditAny  = callerLevel >= ROLE_LEVEL.editor || req.user.customPermissions?.has('manage_events');
+    const isAuthor    = existing.author_id === req.user.id;
+    if (!isAuthor && !canEditAny) {
+      return res.status(403).json({ error: 'Нет доступа' });
+    }
 
     let newSlug = slug;
     if (existing.title !== title.trim()) {
@@ -282,17 +295,18 @@ router.put('/:slug', requireAuth, isEditorOrPerm('manage_events'), async (req, r
       `UPDATE events
        SET title = ?, slug = ?, preview_image_url = ?, preview_image_results_url = ?,
            content_main = ?, content_results = ?, start_time = ?, end_time = ?,
+           status = COALESCE(?, status),
            updated_at = ?, edited_count = edited_count + 1
        WHERE id = ?`,
       [title.trim(), newSlug, preview_image_url || null, preview_image_results_url || null,
        content_main || '', content_results || null,
-       start_time, end_time || null, now, existing.id],
+       start_time, end_time || null, eventStatus, now, existing.id],
     );
 
     const row = await db.get(
       `SELECT
          e.id, e.title, e.slug, e.preview_image_url, e.preview_image_results_url, e.is_published,
-         e.start_time, e.end_time, e.published_at, e.updated_at,
+         e.start_time, e.end_time, e.status, e.published_at, e.updated_at,
          e.edited_count, e.views, e.created_at,
          e.content_main, e.content_results,
          u.id AS author_id, u.username AS author_username,
@@ -322,16 +336,23 @@ router.put('/:slug', requireAuth, isEditorOrPerm('manage_events'), async (req, r
 });
 
 // ---------------------------------------------------------------------------
-// DELETE /api/events/:slug — удалить событие (только admin)
+// DELETE /api/events/:slug — удалить событие (автор или admin+/manage_events)
 // ---------------------------------------------------------------------------
-router.delete('/:slug', requireAuth, isAdminOrPerm('manage_events'), async (req, res) => {
+router.delete('/:slug', requireAuth, async (req, res) => {
   const { slug } = req.params;
 
   try {
     const row = await db.get(
-      `SELECT id, title FROM events WHERE slug = ?`, [slug]
+      `SELECT id, title, author_id FROM events WHERE slug = ?`, [slug]
     );
     if (!row) return res.status(404).json({ error: 'Событие не найдено' });
+
+    const callerLevel = ROLE_LEVEL[req.user.role] ?? 1;
+    const canDeleteAny = callerLevel >= ROLE_LEVEL.admin || req.user.customPermissions?.has('manage_events');
+    const isAuthor     = row.author_id === req.user.id;
+    if (!isAuthor && !canDeleteAny) {
+      return res.status(403).json({ error: 'Нет доступа' });
+    }
 
     await db.run(`DELETE FROM events WHERE id = ?`, [row.id]);
 
@@ -354,9 +375,9 @@ router.delete('/:slug', requireAuth, isAdminOrPerm('manage_events'), async (req,
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/events/upload-image — загрузить изображение для редактора (editor и выше)
+// POST /api/events/upload-image — загрузить изображение для редактора (любой авторизованный)
 // ---------------------------------------------------------------------------
-router.post('/upload-image', requireAuth, isEditorOrPerm('manage_events'), (req, res) => {
+router.post('/upload-image', requireAuth, (req, res) => {
   uploadMiddleware(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });

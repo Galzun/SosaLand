@@ -19,9 +19,10 @@ import { showConfirm } from '../Dialog/dialogManager';
 import { Link } from 'react-router-dom';
 import { timeAgo } from '../../utils/timeFormatter';
 import CommentSection from '../CommentSection/CommentSection';
+import { getAvatarUrl } from '../../utils/avatarUrl';
 import './ImageModal.scss';
 
-function ImageModal({ images, initialIndex = 0, onClose, commentType, commentId, cssVars, albumRanges, onDeleteItem, showAlbumTag = true, showSidebar = true }) {
+function ImageModal({ images, initialIndex = 0, onClose, commentType, commentId, cssVars, albumRanges, onDeleteItem, showAlbumTag = true, showSidebar = true, showShare = true }) {
   const [currentIndex,    setCurrentIndex]    = useState(initialIndex);
   const [sidebarVisible,  setSidebarVisible]  = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -150,9 +151,7 @@ function ImageModal({ images, initialIndex = 0, onClose, commentType, commentId,
 
   if (!current) return null;
 
-  const avatarUrl = current.author?.minecraftUuid
-    ? `https://crafatar.icehost.xyz/avatars/${current.author.minecraftUuid}?size=32&overlay`
-    : null;
+  const avatarUrl = current.author?.avatarUrl ?? null;
 
   const resolvedCommentType = commentType || 'image';
   const resolvedCommentId   = commentId   || current.id;
@@ -202,12 +201,12 @@ function ImageModal({ images, initialIndex = 0, onClose, commentType, commentId,
           {/* Верхняя полоса: автор + действия */}
           <div className="image-modal__top-bar" onClick={(e) => e.stopPropagation()}>
             <div className="image-modal__author">
-              {avatarUrl && (
+              {current.author?.username && (
                 <img
-                  src={avatarUrl}
+                  src={avatarUrl || getAvatarUrl(current.author.username, null)}
                   className="image-modal__author-avatar"
-                  alt=""
-                  onError={(e) => { e.target.style.display = 'none'; }}
+                  alt={current.author.username}
+                  onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(current.author.username, null); }}
                 />
               )}
               {current.author?.username && (
@@ -240,7 +239,7 @@ function ImageModal({ images, initialIndex = 0, onClose, commentType, commentId,
             </div>
 
             <div className="image-modal__actions">
-              {current?.id && (
+              {current?.id && showShare && (
                 <button
                   className="image-modal__btn image-modal__btn--share"
                   onClick={(e) => {
@@ -340,12 +339,12 @@ function ImageModal({ images, initialIndex = 0, onClose, commentType, commentId,
         <div className="image-modal__sidebar-inner">
 
           <div className="image-modal__sidebar-author">
-            {avatarUrl && (
+            {current.author?.username && (
               <img
-                src={avatarUrl}
+                src={avatarUrl || getAvatarUrl(current.author.username, null)}
                 className="image-modal__sidebar-avatar"
-                alt={current.author?.username}
-                onError={(e) => { e.target.style.display = 'none'; }}
+                alt={current.author.username}
+                onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(current.author.username, null); }}
               />
             )}
             <div className="image-modal__sidebar-author-text">

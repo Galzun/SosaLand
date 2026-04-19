@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { usePlayer } from '../../context/PlayerContext';
+import { getAvatarUrl } from '../../utils/avatarUrl';
 import { timeAgo } from '../../utils/timeFormatter';
 import { getMentionAtCursor } from '../../utils/mentionUtils';
 import useComments from '../../hooks/useComments';
@@ -405,7 +406,6 @@ function CommentSection({ type, id, autoLoad = false, stickyForm = false, sticky
 const TRUNCATE_LEN = 250;
 
 function CommentItem({ comment, onDelete, currentUser }) {
-  const [avatarError, setAvatarError] = useState(false);
   const [expanded,    setExpanded]    = useState(false);
 
   const isOwner = currentUser && currentUser.id === comment.author.id;
@@ -423,18 +423,12 @@ function CommentItem({ comment, onDelete, currentUser }) {
   return (
     <div className="comment-section__item">
       <Link to={`/player/${comment.author.username}`} className="comment-section__avatar-link">
-        {comment.author.avatarUrl && !avatarError ? (
-          <img
-            className="comment-section__avatar"
-            src={comment.author.avatarUrl}
-            alt={comment.author.username}
-            onError={() => setAvatarError(true)}
-          />
-        ) : (
-          <div className="comment-section__avatar-placeholder">
-            {(comment.author.username?.[0] || '?').toUpperCase()}
-          </div>
-        )}
+        <img
+          className="comment-section__avatar"
+          src={comment.author.avatarUrl || getAvatarUrl(comment.author.username, null)}
+          alt={comment.author.username}
+          onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(comment.author.username, null); }}
+        />
       </Link>
 
       <div className="comment-section__content">

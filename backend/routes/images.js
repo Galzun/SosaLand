@@ -17,6 +17,7 @@ const { requireAuth, ROLE_LEVEL } = require('../middleware/auth');
 const { imageCommentsRouter } = require('./comments');
 const { logActivity, markFileDeletedInLogs } = require('../utils/logActivity');
 const { deleteFileAsync } = require('../utils/storage');
+const avatarUrl = require('../utils/avatarUrl');
 
 const router = express.Router();
 
@@ -61,9 +62,7 @@ function formatAlbum(stub, items) {
       id:            stub.author_id,
       username:      stub.author_username,
       minecraftUuid: stub.author_minecraft_uuid || null,
-      avatarUrl: stub.author_minecraft_uuid
-        ? `https://crafatar.icehost.xyz/avatars/${stub.author_minecraft_uuid}?size=64&overlay`
-        : null,
+      avatarUrl: avatarUrl(stub.author_minecraft_uuid, stub.author_username),
     },
     items: items.map(row => ({
       id:                  row.id,
@@ -183,9 +182,7 @@ router.get('/item/:id', async (req, res) => {
         id:            row.author_id,
         username:      row.author_username,
         minecraftUuid: row.author_minecraft_uuid || null,
-        avatarUrl: row.author_minecraft_uuid
-          ? `https://crafatar.icehost.xyz/avatars/${row.author_minecraft_uuid}?size=64&overlay`
-          : null,
+        avatarUrl: avatarUrl(row.author_minecraft_uuid, row.author_username),
       },
     });
   } catch (err) {

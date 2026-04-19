@@ -17,6 +17,7 @@ import PostForm from '../PostForm/PostForm';
 import PollViewer from '../PollViewer/PollViewer';
 import ReactionsBar from '../ReactionsBar/ReactionsBar';
 import { showConfirm } from '../Dialog/dialogManager';
+import { getAvatarUrl } from '../../utils/avatarUrl';
 import './PostModal.scss';
 
 // Безопасно рендерит HTML-контент поста: допускает <a>, <br>, блочные теги.
@@ -173,17 +174,11 @@ function PostModal({ post, onClose, onLike, onDelete, onEdit, onCommentAdded, cs
             onClick={onClose}
           >
             <div className="post-modal__avatar">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={post.author?.username}
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
-              ) : (
-                <div className="post-modal__avatar-placeholder">
-                  {(post.author?.username?.[0] || '?').toUpperCase()}
-                </div>
-              )}
+              <img
+                src={avatarUrl || getAvatarUrl(post.author?.username, null)}
+                alt={post.author?.username}
+                onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(post.author?.username, null); }}
+              />
             </div>
             <span className="post-modal__author-name">{post.author?.username}</span>
           </Link>

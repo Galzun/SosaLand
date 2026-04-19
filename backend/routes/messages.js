@@ -15,6 +15,7 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { deleteFileAsync } = require('../utils/storage');
+const avatarUrl = require('../utils/avatarUrl');
 
 const router = express.Router();
 
@@ -193,6 +194,7 @@ router.get('/', requireAuth, (req, res) => {
           id:           r.partner_id,
           username:     r.partner_username,
           minecraftUuid: r.partner_minecraft_uuid,
+          avatarUrl:    avatarUrl(r.partner_minecraft_uuid, r.partner_username),
         },
       }));
 
@@ -306,6 +308,7 @@ router.get('/:userId/messages', requireAuth, async (req, res) => {
                   id:            m.sender_id,
                   username:      m.sender_username,
                   minecraftUuid: m.sender_minecraft_uuid,
+                  avatarUrl:     avatarUrl(m.sender_minecraft_uuid, m.sender_username),
                 },
               };
             });

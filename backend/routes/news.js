@@ -19,6 +19,7 @@ const db      = require('../db');
 const { requireAuth, isAdminOrPerm, isEditorOrPerm } = require('../middleware/auth');
 const { newsCommentsRouter } = require('./comments');
 const { logActivity } = require('../utils/logActivity');
+const avatarUrl = require('../utils/avatarUrl');
 
 const router = express.Router();
 
@@ -137,9 +138,7 @@ function formatNews(row, full = false) {
       id:            row.author_id,
       username:      row.author_username,
       minecraftUuid: row.author_minecraft_uuid || null,
-      avatarUrl: row.author_minecraft_uuid
-        ? `https://crafatar.icehost.xyz/avatars/${row.author_minecraft_uuid}?size=64&overlay`
-        : null,
+      avatarUrl: avatarUrl(row.author_minecraft_uuid, row.author_username),
     };
   }
   return obj;

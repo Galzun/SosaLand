@@ -16,6 +16,7 @@ import ProfileCommentsModal from './ProfileCommentsModal';
 import axios from 'axios';
 import { showConfirm, showAlert } from '../Dialog/dialogManager';
 import { renderWithMentions } from '../CommentSection/CommentSection';
+import { getAvatarUrl } from '../../utils/avatarUrl';
 import './ProfileComments.scss';
 
 const PREVIEW_LIMIT = 3;
@@ -168,7 +169,6 @@ function ProfileComments({ userId, username }) {
 // ProfileCommentItem — один комментарий в превью.
 // ---------------------------------------------------------------------------
 function ProfileCommentItem({ comment, currentUser, onDelete }) {
-  const [avatarError, setAvatarError] = useState(false);
 
   const isOwner = currentUser && currentUser.id === comment.author.id;
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'creator';
@@ -176,18 +176,12 @@ function ProfileCommentItem({ comment, currentUser, onDelete }) {
   return (
     <div className="profile-comments__item">
       <Link to={`/player/${comment.author.username}`} className="profile-comments__avatar-link">
-        {comment.author.avatarUrl && !avatarError ? (
-          <img
-            className="profile-comments__avatar"
-            src={comment.author.avatarUrl}
-            alt={comment.author.username}
-            onError={() => setAvatarError(true)}
-          />
-        ) : (
-          <div className="profile-comments__avatar-placeholder">
-            {(comment.author.username?.[0] || '?').toUpperCase()}
-          </div>
-        )}
+        <img
+          className="profile-comments__avatar"
+          src={comment.author.avatarUrl || getAvatarUrl(comment.author.username, null)}
+          alt={comment.author.username}
+          onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(comment.author.username, null); }}
+        />
       </Link>
 
       <div className="profile-comments__item-content">

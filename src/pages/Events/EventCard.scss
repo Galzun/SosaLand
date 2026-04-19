@@ -98,8 +98,14 @@
   pointer-events: none;
   white-space: nowrap;
 
-  &--started {
-    color: #ffcc44;
+  &--in-progress {
+    color: #ff9900;
+    background: rgba(255, 153, 0, 0.15);
+  }
+
+  &--completed {
+    color: #888;
+    background: rgba(136, 136, 136, 0.12);
   }
 }
 

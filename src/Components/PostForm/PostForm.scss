@@ -67,6 +67,11 @@
 // Обёртка редактора — нужна для position: relative (дропдаун @упоминаний)
 .post-form__editor-wrap {
   position: relative;
+
+  .mention-drop {
+    bottom: auto;
+    top: calc(100% + 4px);
+  }
 }
 
 .post-form__editor {

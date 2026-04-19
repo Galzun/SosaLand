@@ -42,13 +42,14 @@ function useServerStatus(serverIp) {
         // Преобразуем формат БД → формат, который ожидает PlayerContext.
         // isOnline = false для всех: актуальный статус придёт при первом поллинге.
         const dbPlayers = response.data.map(p => ({
-          id:        p.uuid,
-          uuid:      p.uuid,
-          name:      p.name,
-          lastSeen:  p.lastSeen * 1000, // секунды → миллисекунды для Date()
-          isOnline:  false,
-          isBanned:  p.isBanned  ?? false,
-          banReason: p.banReason || null,
+          id:          p.uuid,
+          uuid:        p.uuid,
+          name:        p.name,
+          lastSeen:    p.lastSeen * 1000, // секунды → миллисекунды для Date()
+          isOnline:    false,
+          isBanned:    p.isBanned  ?? false,
+          banReason:   p.banReason || null,
+          customRoles: p.customRoles || [],
         }));
 
         setAllPlayers(dbPlayers);
@@ -147,7 +148,7 @@ function useServerStatus(serverIp) {
         // — добавляем новых игроков, обновляем last_seen и online-статус
         setAllPlayers(() => {
           const allMap = new Map(
-            allPlayersRef.current.map(p => [p.id || p.uuid, p])
+            allPlayersRef.current.map(p => [p.id || p.uuid || p.name, p])
           );
 
           // Обратный lookup: имя_нижний_регистр → ключ карты

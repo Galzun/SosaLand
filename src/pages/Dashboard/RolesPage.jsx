@@ -8,6 +8,7 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { PERMISSIONS, PERMISSIONS_BY_GROUP } from '../../utils/permissions';
 import { showConfirm, showAlert } from '../../Components/Dialog/dialogManager';
+import { getAvatarUrl } from '../../utils/avatarUrl';
 import './RolesPage.scss';
 
 const ROLE_LEVEL = { user: 1, editor: 2, admin: 3, creator: 4 };
@@ -201,30 +202,26 @@ function RoleUsersPanel({ role, token, onRevoke }) {
         <div className="roles-users__empty">Никому не назначена</div>
       ) : (
         <div className="roles-users__list">
-          {users.map(u => {
-            const avatar = u.minecraftUuid
-              ? `https://crafatar.icehost.xyz/avatars/${u.minecraftUuid}?overlay`
-              : null;
-            return (
-              <div key={u.id} className="roles-users__item">
-                <div className="roles-users__avatar">
-                  {avatar
-                    ? <img src={avatar} alt={u.username} onError={e => e.target.style.display='none'} />
-                    : <span>👤</span>
-                  }
-                </div>
-                <span className="roles-users__name">{u.username}</span>
-                <span className="roles-users__sys-role">{u.role}</span>
-                <button
-                  className="roles-users__revoke"
-                  onClick={() => handleRevoke(u)}
-                  title="Забрать роль"
-                >
-                  ✕
-                </button>
+          {users.map(u => (
+            <div key={u.id} className="roles-users__item">
+              <div className="roles-users__avatar">
+                <img
+                  src={getAvatarUrl(u.username, u.minecraftUuid)}
+                  alt={u.username}
+                  onError={e => { e.target.src = getAvatarUrl(u.username, null); }}
+                />
               </div>
-            );
-          })}
+              <span className="roles-users__name">{u.username}</span>
+              <span className="roles-users__sys-role">{u.role}</span>
+              <button
+                className="roles-users__revoke"
+                onClick={() => handleRevoke(u)}
+                title="Забрать роль"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -11,6 +11,7 @@ import GalleryAlbum from '../../Components/GalleryAlbum/GalleryAlbum';
 import ImageModal from '../../Components/ImageModal/ImageModal';
 import { timeAgo } from '../../utils/timeFormatter';
 import { showConfirm, showAlert } from '../../Components/Dialog/dialogManager';
+import { getAvatarUrl } from '../../utils/avatarUrl';
 import './Gallery.scss';
 
 const LIMIT = 30;
@@ -320,12 +321,12 @@ function Gallery() {
               {/* Оверлей автора поверх альбома */}
               <div className="gallery__item-meta">
                 <div className="gallery__item-author">
-                  {album.author?.avatarUrl && (
+                  {album.author?.username && (
                     <img
-                      src={album.author.avatarUrl}
+                      src={album.author.avatarUrl || getAvatarUrl(album.author.username, null)}
                       alt={album.author.username}
                       className="gallery__item-avatar"
-                      onError={(e) => { e.target.style.display = 'none'; }}
+                      onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(album.author.username, null); }}
                     />
                   )}
                   <Link

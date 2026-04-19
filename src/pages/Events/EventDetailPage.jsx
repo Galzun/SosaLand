@@ -32,7 +32,10 @@ function formatDate(ts) {
 // ---------------------------------------------------------------------------
 // Таймер до начала / статус события
 // ---------------------------------------------------------------------------
-function getTimerLabel(startTime, endTime) {
+function getTimerLabel(startTime, endTime, status) {
+  if (status === 'completed') return { label: 'Завершено', cls: 'event-detail__timer--completed' };
+  if (status === 'in_progress') return { label: 'Идёт', cls: 'event-detail__timer--in-progress' };
+
   const now   = Math.floor(Date.now() / 1000);
   const delta = startTime - now;
 
@@ -46,28 +49,28 @@ function getTimerLabel(startTime, endTime) {
     if (h > 0) parts.push(`${h} ч`);
     if (m > 0 || parts.length === 0) parts.push(`${m} мин`);
 
-    return { label: `Через ${parts.join(' ')}`, started: false };
+    return { label: `Через ${parts.join(' ')}`, cls: '' };
   }
 
   if (endTime && now > endTime) {
-    return { label: 'Завершено', started: true };
+    return { label: 'Завершено', cls: 'event-detail__timer--completed' };
   }
 
-  return { label: 'В процессе', started: true };
+  return { label: 'Идёт', cls: 'event-detail__timer--in-progress' };
 }
 
-function EventTimer({ startTime, endTime }) {
-  const [timer, setTimer] = useState(() => getTimerLabel(startTime, endTime));
+function EventTimer({ startTime, endTime, status }) {
+  const [timer, setTimer] = useState(() => getTimerLabel(startTime, endTime, status));
 
   useEffect(() => {
     const id = setInterval(() => {
-      setTimer(getTimerLabel(startTime, endTime));
+      setTimer(getTimerLabel(startTime, endTime, status));
     }, 60_000);
     return () => clearInterval(id);
-  }, [startTime, endTime]);
+  }, [startTime, endTime, status]);
 
   return (
-    <span className={`event-detail__timer${timer.started ? ' event-detail__timer--started' : ''}`}>
+    <span className={`event-detail__timer${timer.cls ? ` ${timer.cls}` : ''}`}>
       {timer.label}
     </span>
   );
@@ -233,11 +236,8 @@ function EventDetailPage() {
     axios.get(`/api/events/${slug}`)
       .then(({ data }) => {
         setEvent(data);
-        // Если событие завершено — показываем итоги по умолчанию (если они есть)
-        const now = Math.floor(Date.now() / 1000);
-        const isFinished = data.endTime && now > data.endTime;
         const hasResults = data.contentResults && data.contentResults.trim().length > 0;
-        setTab(isFinished && hasResults ? 'results' : 'main');
+        setTab(data.status === 'completed' && hasResults ? 'results' : 'main');
       })
       .catch(err => {
         if (err.response?.status === 404) setError('Событие не найдено');
@@ -302,7 +302,7 @@ function EventDetailPage() {
 
         <div className="event-detail__title-row">
           <h1 className="event-detail__title">{event.title}</h1>
-          <EventTimer startTime={event.startTime} endTime={event.endTime} />
+          <EventTimer startTime={event.startTime} endTime={event.endTime} status={event.status} />
         </div>
 
         <div className="event-detail__start-info">
@@ -316,23 +316,34 @@ function EventDetailPage() {
           )}
         </div>
 
-        {user && (['editor','admin','creator'].includes(user.role) || (user.customPermissions ?? []).includes('manage_events')) && (
-          <div className="event-detail__admin-actions">
-            <Link
-              to={`/dashboard/events/${slug}/edit`}
-              className="event-detail__edit-btn"
-            >
-              ✏️ Редактировать
-            </Link>
-            <button
-              className="event-detail__delete-btn"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
-              {deleting ? 'Удаление...' : '🗑 Удалить'}
-            </button>
-          </div>
-        )}
+        {user && (() => {
+          const level = { creator: 4, admin: 3, editor: 2, user: 1 };
+          const canEditAny = (level[user.role] ?? 1) >= 2 || (user.customPermissions ?? []).includes('manage_events');
+          const isAuthor   = event.author?.id === user.id;
+          const canEdit    = isAuthor || canEditAny;
+          const canDelete  = isAuthor || canEditAny;
+          return (canEdit || canDelete) && (
+            <div className="event-detail__admin-actions">
+              {canEdit && (
+                <Link
+                  to={`/dashboard/events/${slug}/edit`}
+                  className="event-detail__edit-btn"
+                >
+                  ✏️ Редактировать
+                </Link>
+              )}
+              {canDelete && (
+                <button
+                  className="event-detail__delete-btn"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? 'Удаление...' : '🗑 Удалить'}
+                </button>
+              )}
+            </div>
+          );
+        })()}
       </header>
 
       {/* Вкладки */}

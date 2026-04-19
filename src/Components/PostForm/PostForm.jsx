@@ -21,6 +21,7 @@ import EmojiPicker from '../EmojiPicker/EmojiPicker';
 import PollBuilder from '../PollBuilder/PollBuilder';
 import MentionDropdown from '../MentionDropdown/MentionDropdown';
 import { showPrompt } from '../Dialog/dialogManager';
+import { getAvatarUrl } from '../../utils/avatarUrl';
 import './PostForm.scss';
 
 const MAX_CONTENT = 5000;
@@ -454,17 +455,11 @@ function PostForm({ onSubmit, onPollLinked, initialPost, onCancel }) {
     <form className={`post-form${isEditing ? ' post-form--editing' : ''}`} onSubmit={handleSubmit}>
       {/* Аватарка автора слева */}
       <div className="post-form__avatar">
-        {user.minecraftUuid ? (
-          <img
-            src={`https://crafatar.icehost.xyz/avatars/${user.minecraftUuid}?size=48&overlay`}
-            alt={user.username}
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-        ) : (
-          <div className="post-form__avatar-placeholder">
-            {user.username[0].toUpperCase()}
-          </div>
-        )}
+        <img
+          src={getAvatarUrl(user.username, user.minecraftUuid)}
+          alt={user.username}
+          onError={(e) => { e.target.src = getAvatarUrl(user.username, null); }}
+        />
       </div>
 
       <div className="post-form__body">

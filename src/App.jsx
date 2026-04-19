@@ -19,6 +19,9 @@ import NewsCreate from './pages/Dashboard/NewsCreate';
 import LogsPage from './pages/Dashboard/LogsPage';
 import RolesPage from './pages/Dashboard/RolesPage';
 import PostPage from './pages/PostPage/PostPage';
+import CourtPage from './pages/Court/CourtPage';
+import CourtCaseDetailPage from './pages/Court/CourtCaseDetailPage';
+import CourtCaseCreate from './pages/Court/CourtCaseCreate';
 import { PlayerProvider } from './context/PlayerContext';
 // AuthProvider оборачивает всё приложение и предоставляет useAuth() везде.
 import { AuthProvider } from './context/AuthContext';
@@ -71,6 +74,10 @@ function App() {
               <Route path="/dashboard/logs" element={<LogsPage />} />
               <Route path="/dashboard/roles" element={<RolesPage />} />
               <Route path="/post/:id" element={<PostPage />} />
+              <Route path="/court" element={<CourtPage />} />
+              <Route path="/court/cases/create" element={<CourtCaseCreate />} />
+              <Route path="/court/cases/:id/edit" element={<CourtCaseCreate />} />
+              <Route path="/court/cases/:id" element={<CourtCaseDetailPage />} />
             </Routes>
             </div>
           </div>

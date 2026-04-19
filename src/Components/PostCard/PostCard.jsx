@@ -14,6 +14,7 @@ import PostAttachments from '../PostAttachments/PostAttachments';
 import PollViewer from '../PollViewer/PollViewer';
 import ReactionsBar from '../ReactionsBar/ReactionsBar';
 import { showConfirm } from '../Dialog/dialogManager';
+import { getAvatarUrl } from '../../utils/avatarUrl';
 import './PostCard.scss';
 
 const CONTENT_TRUNCATE = 300;
@@ -69,7 +70,6 @@ function renderPostHtml(html, onLinkClick) {
 function PostCard({ post, onLike, onDelete, onEdit, onCommentAdded, cssVars, autoOpenModal }) {
   const articleRef = useRef(null);
 
-  const [imgError,         setImgError]         = useState(false);
   const [postModalOpen,    setPostModalOpen]    = useState(!!autoOpenModal);
   const [editModalOpen,    setEditModalOpen]    = useState(false);
   const [contentExpanded,  setContentExpanded]  = useState(false);
@@ -129,17 +129,11 @@ function PostCard({ post, onLike, onDelete, onEdit, onCommentAdded, cssVars, aut
       <div className="post-card__header">
         <Link to={`/player/${post.author?.username}`} className="post-card__author">
           <div className="post-card__avatar">
-            {post.author?.avatarUrl && !imgError ? (
-              <img
-                src={post.author.avatarUrl}
-                alt={post.author.username}
-                onError={() => setImgError(true)}
-              />
-            ) : (
-              <div className="post-card__avatar-placeholder">
-                {(post.author?.username?.[0] || '?').toUpperCase()}
-              </div>
-            )}
+            <img
+              src={post.author?.avatarUrl || getAvatarUrl(post.author?.username, null)}
+              alt={post.author?.username}
+              onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(post.author?.username, null); }}
+            />
           </div>
           <div className="post-card__author-info">
             <span className="post-card__author-name">{post.author?.username || 'Неизвестный'}</span>
@@ -529,7 +523,6 @@ function InlineCommentForm({ postId, user, token, onCommentAdded, onOpenModal })
 // LastCommentPreview — превью последнего комментария
 // ---------------------------------------------------------------------------
 function LastCommentPreview({ comment }) {
-  const [avatarErr, setAvatarErr] = useState(false);
   const text = comment.content || '';
 
   return (
@@ -540,18 +533,12 @@ function LastCommentPreview({ comment }) {
         onClick={(e) => e.stopPropagation()}
         title={comment.author?.username}
       >
-        {comment.author?.avatarUrl && !avatarErr ? (
-          <img
-            className="post-card__last-comment-avatar"
-            src={comment.author.avatarUrl}
-            alt={comment.author.username}
-            onError={() => setAvatarErr(true)}
-          />
-        ) : (
-          <div className="post-card__last-comment-avatar-placeholder">
-            {(comment.author?.username?.[0] || '?').toUpperCase()}
-          </div>
-        )}
+        <img
+          className="post-card__last-comment-avatar"
+          src={comment.author?.avatarUrl || getAvatarUrl(comment.author?.username, null)}
+          alt={comment.author?.username}
+          onError={(e) => { e.target.onerror = null; e.target.src = getAvatarUrl(comment.author?.username, null); }}
+        />
       </Link>
 
       <div className="post-card__last-comment-body">

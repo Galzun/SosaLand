@@ -77,6 +77,10 @@ const { router: reactionsRouter } = require('./routes/reactions');
 //           GET/POST /api/roles/:id/users, DELETE /api/roles/:id/users/:userId
 const { router: rolesRouter } = require('./routes/roles');
 
+// Роутер системы «Суд».
+// Маршруты: /api/court/tickets, /api/court/cases
+const { router: courtRouter } = require('./routes/court');
+
 // Проверяем, что JWT_SECRET задан в .env.
 // Без него сервер не сможет подписывать и проверять токены — лучше упасть сразу.
 if (!process.env.JWT_SECRET) {
@@ -174,6 +178,9 @@ app.use('/api/reactions', reactionsRouter);
 
 // Кастомные роли: GET/POST/PUT/DELETE /api/roles, /api/roles/:id/users
 app.use('/api/roles', rolesRouter);
+
+// Система «Суд»: тикеты, чат, судебные заседания
+app.use('/api/court', courtRouter);
 
 
 // --- Раздача собранного фронтенда (продакшн) ---

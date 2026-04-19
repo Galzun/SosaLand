@@ -14,6 +14,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const db      = require('../db');
 const { requireAuth, isAdmin, ROLE_LEVEL } = require('../middleware/auth');
+const avatarUrl = require('../utils/avatarUrl');
 
 const router = express.Router();
 
@@ -490,6 +491,7 @@ router.get('/:id/voters', async (req, res) => {
         id:            row.id,
         username:      row.username,
         minecraftUuid: row.minecraft_uuid || null,
+        avatarUrl:     avatarUrl(row.minecraft_uuid, row.username),
       });
     }
 

@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState, useCallback } from 'react';
+import { getAvatarUrl as computeAvatarUrl } from '../utils/avatarUrl';
 
 const PlayerContext = createContext();
 
@@ -21,12 +22,8 @@ export function PlayerProvider({ children, allPlayers, onlinePlayers }) {
   const value = useMemo(() => {
     const playersByName = new Map();
 
-    const getAvatarUrl = (username, uuid, useFallback = false) => {
-      if (useFallback || !uuid || uuid.startsWith('offline:')) {
-        return `https://api.dicebear.com/9.x/initials/svg?scale=80&backgroundColor[]&fontWeight=600&seed=${username}`;
-      }
-      return `https://crafatar.icehost.xyz/avatars/${uuid}?overlay`;
-    };
+    const getAvatarUrl = (username, uuid, useFallback = false) =>
+      computeAvatarUrl(username, uuid, useFallback);
 
     allPlayers.forEach(player => {
       // Проверяем override (немедленная реакция на бан/разбан без ожидания рефреша)
