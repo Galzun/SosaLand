@@ -127,7 +127,7 @@ getAvatarUrl(username, uuid, useFallback = false)
 | `/dashboard/news/:slug/edit` | Dashboard/NewsCreate | Редактирование новости (editor и выше) |
 | `/dashboard/tickets` | Dashboard/Tickets | Панель модерации заявок (admin и выше) |
 | `/dashboard/profile` | Dashboard/EditProfile | Редактирование профиля (только авторизованный) |
-| `/dashboard/logs` | Dashboard/LogsPage | Логи активности: загрузки и удаления файлов, посты, новости, события (admin и выше) |
+| `/dashboard/logs` | Dashboard/LogsPage | Логи активности: файлы, посты, новости, события, роли, суд (admin и выше или `view_logs`) |
 | `/dashboard/roles` | Dashboard/RolesPage | Управление кастомными ролями: CRUD + назначение игрокам (admin+ или `manage_custom_roles`/`assign_custom_roles`) |
 | `/court` | Court/CourtPage | Система суда: вкладка «Суды» — все пользователи; «Подать жалобу» и «Тикеты» — только авторизованные |
 | `/court/cases/create` | Court/CourtCaseCreate | Создание судебного заседания (manage_court или admin+) |
@@ -771,6 +771,18 @@ Props: `disableScrollLock` — пробрасывается в MediaModal.
 | Создание события | `event_create` | `routes/events.js` |
 | Изменение события | `event_update` | `routes/events.js` |
 | Удаление события | `event_delete` | `routes/events.js` |
+| Создание кастомной роли | `role_create` | `routes/roles.js` |
+| Изменение кастомной роли | `role_update` | `routes/roles.js` |
+| Удаление кастомной роли | `role_delete` | `routes/roles.js` |
+| Назначение роли игроку | `role_assign` | `routes/roles.js` — details: `{ roleName, targetUsername }` |
+| Отзыв роли у игрока | `role_revoke` | `routes/roles.js` — details: `{ roleName, targetUsername }` |
+| Жалоба подана | `court_ticket_create` | `routes/court.js` — details: `{ accusedName, title }` |
+| Тикет взят в работу | `court_ticket_review` | `routes/court.js` |
+| Тикет отклонён | `court_ticket_reject` | `routes/court.js` — details: `{ reason }` |
+| Тикет закрыт | `court_ticket_close` | `routes/court.js` |
+| Заседание создано | `court_case_create` | `routes/court.js` — details: `{ title }` |
+| Заседание изменено | `court_case_update` | `routes/court.js` — details: `{ title }` |
+| Заседание удалено | `court_case_delete` | `routes/court.js` — details: `{ title }` |
 
 ### Хелперы логирования
 
@@ -794,14 +806,17 @@ await markFileDeletedInLogs(fileUrl)
 - Редирект на `/auth` если не авторизован, на `/` если нет прав (не admin+ и нет `view_logs`)
 - **Секция статистики**: 3 карточки (файлов загружено / занято на диске / действий всего) + топ по объёму загрузок
 - **Топ загрузчиков**: показывает первые 5 строк, кнопка «Показать ещё +5» раскрывает по 5, кнопка «Свернуть ↑» сворачивает и скроллит к началу (`pageTopRef`)
-- **Фильтр по типу**: таб-кнопки «Все / Загрузки файлов / Удаления файлов / Посты / Удаления постов / Новости / Удаления новостей / События / Удаления событий»; «Новости» и «События» фильтруют по `action=X_create,X_update` (запятая = IN)
+- **Фильтр по типу**: выпадающее меню (`ACTION_GROUPS`) с группами: Файлы / Посты / Новости / События / Роли / Суд / Прочее; каждый пункт имеет цветную точку (`filterItemColor`); активный фильтр подсвечивается цветом action-а; несколько action через запятую → `action IN (...)` на бэкенде
 - **Поиск по нику**: поле с автодополнением (debounce 220 мс, `GET /api/logs/users?q=X`); дропдаун закрывается по `mousedown` вне (`searchWrapRef`); `onMouseDown` на подсказках (не `onClick`) — чтобы blur не закрыл дропдаун раньше клика
 - Клик по нику в таблице → фильтрация по этому игроку + скролл к началу
+- **Группировка дублей** (`groupLogs`): клиентская, consecutive записи с одинаковыми `action + userId + fileName + fileSize` в окне 5 минут (`GROUP_WINDOW_SEC = 300`) сворачиваются в одну строку; группируются **только** записи с `fileName != null && fileSize != null` — чтобы не смешивать разные файлы; каждая группа хранит `_count`, `_groupIds`, `_groupRows`
+- **Раскрытие групп**: бейдж ×N в столбце «Дата» — кликабельная кнопка; нажатие добавляет id в `expandedGroups` (Set); раскрытые строки (`_groupRows.slice(1)`) рендерятся как `__row--sub` (оранжеватый фон); кнопка 🗑 у каждой sub-строки удаляет только один файл (`handleDeleteSingleFile`); при сокращении группы до 1 — авто-схлопывание; `expandedGroups` сбрасывается при каждом `fetchLogs`
 - **Таблица**: Игрок (аватарка + ник + ↗ профиль) / Действие (бейдж с цветом по типу) / Файл или описание / Размер (с цветовой подсветкой >10/100/500 МБ) / Тип MIME / Дата / Действия
-  - Столбец «Файл»: если `targetId` начинается с `/uploads/` — рендерится как кликабельная ссылка `<a href=... target="_blank">` (открывает файл в новой вкладке); класс `.logs-page__filename--link`
-  - **Превью при наведении**: при наведении на имя файла-ссылки (только `image/*` и `video/*`) появляется плавающий popup `280×200px` через `createPortal`; изображение — `<img>`, видео — `<video src="...#t=0.1" preload="metadata" muted>`; позиционируется справа от ячейки (если не хватает места — слева); класс `.logs-page__file-preview`
-  - Столбец «Действия»: для `file_upload`-записей с `targetId` — кнопка 🗑 удаления файла; вызывает `DELETE /api/logs/:id/file`, после чего `targetId` обнуляется и кнопка/ссылка исчезают из строки (без перезагрузки)
-- **Пагинация**: 50 записей на страницу
+  - Столбец «Файл»: если `targetId` задан — рендерится как кликабельная ссылка `<a href=... target="_blank">`; класс `.logs-page__filename--link`
+  - **Превью при наведении**: только `image/*` и `video/*`; popup `280×200px` через `createPortal`; позиционируется справа (если нет места — слева); класс `.logs-page__file-preview`
+  - Столбец «Действия»: кнопка 🗑 у группы — удаляет **все** файлы группы (`handleDeleteFile` → `Promise.all`); также удаляет записи из `images` и `post_attachments` + физически с диска; у sub-строки — удаляет только один файл
+  - Нефайловые строки (роли, суд) — текстовое описание через `logDescription(log)` в столбце «Файл»
+- **Пагинация**: 50 записей на страницу; два экземпляра `__pagination` — `--top` (margin-bottom: 20px) и `--bottom` (margin-top: 20px)
 - Страница без `max-width` — занимает всю ширину `.app__main`
 
 ### Цвета бейджей действий (`actionColor`)
@@ -811,12 +826,28 @@ await markFileDeletedInLogs(fileUrl)
 | `file_upload` | `#4aff9e` (акцент) |
 | `file_delete` | `#ff4a4a` (красный) |
 | `post_create` | `#7eb8f7` (голубой) |
-| `post_delete` | `#ff4a4a` (красный) |
-| `news_create` / `news_update` | `#7eb8f7` (голубой) |
-| `news_delete` | `#ff4a4a` (красный) |
-| `event_create` / `event_update` | `#7eb8f7` (голубой) |
-| `event_delete` | `#ff4a4a` (красный) |
+| `post_delete` | `#ff6b6b` (красный) |
+| `image_add` | `#b8a9ff` (сиреневый) |
 | `comment_create` | `#ffd700` (золотой) |
+| `news_create` | `#4fc3f7` |
+| `news_update` | `#81d4fa` |
+| `news_delete` | `#f48fb1` |
+| `event_create` | `#81c784` |
+| `event_update` | `#a5d6a7` |
+| `event_delete` | `#ffb74d` |
+| `ticket_create` | `#ffa94d` |
+| `role_create` | `#a78bfa` |
+| `role_update` | `#c4b5fd` |
+| `role_delete` | `#f472b6` |
+| `role_assign` | `#34d399` |
+| `role_revoke` | `#fb923c` |
+| `court_ticket_create` | `#60a5fa` |
+| `court_ticket_review` | `#fbbf24` |
+| `court_ticket_reject` | `#ef4444` |
+| `court_ticket_close` | `#9ca3af` |
+| `court_case_create` | `#818cf8` |
+| `court_case_update` | `#a5b4fc` |
+| `court_case_delete` | `#f87171` |
 
 ### Важно: PostgreSQL — JOIN + WHERE с одинаковыми именами столбцов
 
